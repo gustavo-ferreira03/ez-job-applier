@@ -5,182 +5,557 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Job Applier</title>
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
-    main { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    h1, h2 { margin: 0 0 12px; }
-    section { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-    label { display: grid; gap: 6px; font-size: 14px; color: #cbd5e1; }
-    input, select { background: #020617; color: #e2e8f0; border: 1px solid #475569; border-radius: 8px; padding: 10px; }
-    button { background: #38bdf8; border: 0; border-radius: 8px; color: #082f49; font-weight: 700; padding: 10px 14px; cursor: pointer; }
-    button.secondary { background: #475569; color: #e2e8f0; }
-    button.danger { background: #fb7185; color: #4c0519; }
-    form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
-    .cards { display: grid; gap: 12px; }
-    .card { background: #020617; border: 1px solid #334155; border-radius: 10px; padding: 12px; }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .muted { color: #94a3b8; }
-    pre { white-space: pre-wrap; max-height: 260px; overflow: auto; background: #020617; padding: 12px; border-radius: 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { border-bottom: 1px solid #334155; padding: 8px; text-align: left; vertical-align: top; }
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg:           #0c1120;
+      --surface:      #111827;
+      --surface-2:    #1e293b;
+      --border:       #1e2d45;
+      --border-hi:    #334155;
+      --text:         #f1f5f9;
+      --muted:        #94a3b8;
+      --dim:          #64748b;
+      --blue:         #38bdf8;
+      --blue-dark:    #0369a1;
+      --green:        #4ade80;
+      --yellow:       #fbbf24;
+      --orange:       #fb923c;
+      --red:          #f87171;
+      --r:            12px;
+      --r-sm:         8px;
+    }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+    /* ── header ─────────────────────────────────────────────────────────── */
+    .topbar { position: sticky; top: 0; z-index: 50; height: 52px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 28px; gap: 12px; }
+    .topbar-logo { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+    .topbar-logo span { color: var(--blue); }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+    .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 99px; white-space: nowrap; }
+    .pill .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .pill-idle    { background: var(--surface-2); color: var(--muted); }
+    .pill-idle    .dot { background: var(--border-hi); }
+    .pill-running { background: #0c2d4a; color: var(--blue); }
+    .pill-running .dot { background: var(--blue); animation: blink 1.4s ease-in-out infinite; }
+    .pill-waiting { background: #2d1c00; color: var(--yellow); }
+    .pill-waiting .dot { background: var(--yellow); }
+    .pill-paused  { background: #2a1400; color: var(--orange); }
+    .pill-paused  .dot { background: var(--orange); }
+    @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:.25 } }
+
+    /* ── layout ─────────────────────────────────────────────────────────── */
+    main { max-width: 980px; margin: 0 auto; padding: 24px; display: grid; gap: 14px; }
+
+    /* ── card ───────────────────────────────────────────────────────────── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+    .card-hd { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; min-height: 44px; }
+    .card-hd h2 { margin: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); }
+    .card-bd { padding: 20px; }
+    .cnt { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+
+    .card.alert { border-color: #fbbf2450; }
+    .card.alert .card-hd { border-bottom-color: #fbbf2425; }
+    .card.alert .card-hd h2 { color: var(--yellow); }
+    .card.alert .cnt { background: #451a0360; color: var(--yellow); }
+
+    /* ── form ───────────────────────────────────────────────────────────── */
+    .fg { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .f  { display: flex; flex-direction: column; gap: 5px; }
+    .f.w2 { grid-column: span 2; }
+    .f > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+    .f small { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); }
+    input, select, textarea {
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border-hi); border-radius: var(--r-sm);
+      padding: 8px 11px; font-family: inherit; font-size: 14px;
+      transition: border-color .15s, box-shadow .15s;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px #38bdf818; }
+    textarea { resize: vertical; min-height: 74px; }
+
+    .toggle-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-top: 14px; }
+    .toggle-wrap { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; padding-bottom: 2px; }
+    .toggle { appearance: none; width: 38px; height: 21px; border-radius: 99px; background: var(--border-hi); cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; border: none; padding: 0; }
+    .toggle::after { content: ''; position: absolute; width: 15px; height: 15px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left .2s; }
+    .toggle:checked { background: var(--blue-dark); }
+    .toggle:checked::after { left: 20px; }
+    .toggle-wrap span { font-size: 13px; color: var(--muted); }
+
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    button { border: 0; border-radius: var(--r-sm); font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer; transition: filter .15s; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+    button:hover { filter: brightness(1.12); }
+    button:active { filter: brightness(.9); }
+    .btn-primary { background: var(--blue); color: #04243a; }
+    .btn-ghost   { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border-hi); }
+    .btn-danger  { background: #3b0a0a; color: var(--red); border: 1px solid #7f1d1d; }
+    .btn-warn    { background: #2d1200; color: var(--yellow); border: 1px solid #713f12; }
+    .btn-ok      { background: #0d2e1a; color: var(--green); border: 1px solid #166534; }
+    button[hidden] { display: none !important; }
+
+    /* ── action cards (questions / approvals) ───────────────────────────── */
+    .ac { background: var(--surface-2); border: 1px solid var(--border-hi); border-radius: var(--r-sm); padding: 14px 16px; }
+    .ac + .ac { margin-top: 10px; }
+    .ac-title   { font-weight: 600; font-size: 14px; }
+    .ac-company { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .ac-field   { margin-bottom: 10px; }
+    .ac-field label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin-bottom: 4px; }
+    .ac-field input, .ac-field select { background: var(--bg); }
+    .ac-btns    { display: flex; gap: 8px; margin-top: 12px; }
+    .empty      { color: var(--dim); font-size: 13px; }
+
+    /* ── jobs table ─────────────────────────────────────────────────────── */
+    .jt { width: 100%; border-collapse: collapse; }
+    .jt th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); padding: 8px 16px; border-bottom: 1px solid var(--border); text-align: left; }
+    .jt td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .jt tbody tr { cursor: pointer; }
+    .jt tbody tr:hover td { background: var(--surface-2); }
+    .jt tbody tr:last-child td { border-bottom: 0; }
+    .jt-main   { font-weight: 500; }
+    .jt-sub    { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .jt-time   { font-size: 12px; color: var(--dim); }
+
+    .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+    .s-pending          { background: #1e293b; color: var(--muted); }
+    .s-applied          { background: #0d2e1a; color: #86efac; }
+    .s-failed           { background: #300a0a; color: #fca5a5; }
+    .s-skipped          { background: #1c1917; color: #a8a29e; }
+    .s-needs_input      { background: #2d1500; color: #fde68a; }
+    .s-ready_to_submit  { background: #0c1f3d; color: #93c5fd; }
+    .s-in_progress      { background: #0c1f3d; color: var(--blue); }
+
+    /* ── log ────────────────────────────────────────────────────────────── */
+    .log { font-family: ui-monospace, 'SF Mono', monospace; font-size: 12px; max-height: 220px; overflow-y: auto; background: var(--bg); border-radius: var(--r-sm); padding: 10px 12px; }
+    .ll  { display: flex; gap: 8px; padding: 2px 0; line-height: 1.45; }
+    .lt  { color: var(--dim); flex-shrink: 0; }
+    .lk  { font-weight: 700; flex-shrink: 0; min-width: 140px; }
+    .ld  { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cat-run  .lk { color: var(--blue); }
+    .cat-loop .lk { color: #818cf8; }
+    .cat-ok   .lk { color: var(--green); }
+    .cat-warn .lk { color: var(--yellow); }
+    .cat-err  .lk { color: var(--red); }
+    .cat-misc .lk { color: var(--muted); }
+
+    /* ── modal ──────────────────────────────────────────────────────────── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; backdrop-filter: blur(4px); }
+    .overlay.open { display: flex; }
+    .modal { background: #131e33; border: 1px solid var(--border-hi); border-radius: 16px; width: 100%; max-width: 740px; overflow: hidden; position: relative; }
+    .modal-hd { padding: 24px 28px 18px; border-bottom: 1px solid var(--border); }
+    .modal-hd h3 { margin: 0 36px 8px 0; font-size: 18px; font-weight: 700; line-height: 1.3; }
+    .modal-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+    .modal-bd { padding: 22px 28px 28px; }
+    .ms { margin-top: 20px; }
+    .ms-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); margin-bottom: 8px; }
+    .about { white-space: pre-wrap; font-size: 13px; line-height: 1.65; color: var(--muted); max-height: 260px; overflow-y: auto; background: var(--bg); padding: 14px; border-radius: var(--r-sm); border: 1px solid var(--border); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip  { background: var(--surface-2); border: 1px solid var(--border-hi); border-radius: 6px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+    .qa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+    .qa { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 10px 12px; }
+    .qa-q { font-size: 11px; color: var(--dim); margin-bottom: 3px; }
+    .qa-a { font-weight: 600; color: var(--text); }
+    .err-box { background: #1a0505; border: 1px solid #7f1d1d; border-radius: var(--r-sm); padding: 12px; font-size: 13px; color: var(--red); }
+    .mclose { position: absolute; top: 18px; right: 20px; background: var(--surface-2); border: 1px solid var(--border-hi); color: var(--muted); font-size: 14px; width: 28px; height: 28px; border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .mclose:hover { background: var(--border-hi); color: var(--text); filter: none; }
+    .mlink { color: var(--blue); text-decoration: none; font-size: 13px; }
+    .mlink:hover { text-decoration: underline; }
+    .mfooter { font-size: 11px; color: var(--dim); margin-top: 22px; }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Job Applier</h1>
-    <section>
-      <h2>Run</h2>
+
+<header class="topbar">
+  <div class="topbar-logo">Job<span>Applier</span></div>
+  <div class="topbar-right">
+    <div class="pill pill-idle" id="status-pill">
+      <span class="dot"></span>
+      <span id="status-text">Idle</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="card-hd"><h2>Configuration</h2></div>
+    <div class="card-bd">
       <form id="run-form">
-        <label>Keywords <input name="keywords" value="python developer junior"></label>
-        <label>Location <input name="location" value="Brazil"></label>
-        <label>Max jobs <input name="max_jobs" type="number" min="1" value="3"></label>
-        <label>Easy Apply <select name="easy_apply"><option value="true">Yes</option><option value="false">No</option></select></label>
-        <label>Remote <select name="remote"><option value="false">No</option><option value="true">Yes</option></select></label>
-        <button type="submit">Start</button>
-        <button class="danger" id="cancel" type="button">Cancel</button>
-      </form>
-      <p id="status" class="muted">Idle</p>
-    </section>
-
-    <section>
-      <h2>Pending Questions</h2>
-      <div id="inputs" class="cards"></div>
-    </section>
-
-    <section>
-      <h2>Submit Approvals</h2>
-      <div id="submits" class="cards"></div>
-    </section>
-
-    <section>
-      <h2>Jobs</h2>
-      <table><thead><tr><th>Title</th><th>Company</th><th>Status</th><th>Error</th></tr></thead><tbody id="jobs"></tbody></table>
-    </section>
-
-    <section>
-      <h2>Events</h2>
-      <pre id="events"></pre>
-    </section>
-  </main>
-
-  <script>
-    const state = { inputs: new Map(), submits: new Map(), events: [] };
-    const $ = (id) => document.getElementById(id);
-    let audioContext;
-
-    function enableAudio() {
-      audioContext ||= new AudioContext();
-      if (audioContext.state === 'suspended') audioContext.resume();
-    }
-
-    function playBell() {
-      if (!audioContext || audioContext.state !== 'running') return;
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.value = 880;
-      gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.2, audioContext.currentTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.7);
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.75);
-    }
-
-    function addEvent(event) {
-      state.events.unshift(event);
-      state.events = state.events.slice(0, 80);
-      $('events').textContent = state.events.map(e => `${e.timestamp || ''} ${e.type}: ${JSON.stringify(e)}`).join('\n');
-      if (event.type === 'needs_input') {
-        state.inputs.set(event.request_id, event);
-        playBell();
-      }
-      if (['input_timeout', 'answer_saved'].includes(event.type)) state.inputs.delete(event.request_id);
-      if (event.type === 'ready_to_submit') {
-        state.submits.set(event.request_id, event);
-        playBell();
-      }
-      if (['submit_timeout', 'submit_approve', 'submit_skip'].includes(event.type)) state.submits.delete(event.request_id);
-      if (event.type === 'run_started') $('status').textContent = 'Running';
-      if (['run_finished', 'run_failed', 'run_cancelled'].includes(event.type)) $('status').textContent = event.type;
-      renderPending();
-      refreshState(false);
-    }
-
-    function renderPending() {
-      $('inputs').innerHTML = [...state.inputs.values()].map(event => `
-        <div class="card">
-          <strong>${event.title}</strong> <span class="muted">${event.company}</span>
-          ${inputFields(event)}
-          <button onclick="sendAnswers('${event.request_id}')">Save answers</button>
-        </div>`).join('') || '<p class="muted">No pending questions.</p>';
-
-      $('submits').innerHTML = [...state.submits.values()].map(event => `
-        <div class="card">
-          <strong>${event.title}</strong> <span class="muted">${event.company}</span>
-          <div class="row">
-            <button onclick="submitDecision('${event.job_id}', '${event.request_id}', 'approve')">Submit</button>
-            <button class="secondary" onclick="submitDecision('${event.job_id}', '${event.request_id}', 'skip')">Skip</button>
+        <div class="fg">
+          <div class="f w2">
+            <span>Keywords <small>(one per line)</small></span>
+            <textarea name="keywords" rows="3" placeholder="python developer junior&#10;backend engineer">python developer junior</textarea>
           </div>
-        </div>`).join('') || '<p class="muted">No pending approvals.</p>';
+          <div class="f">
+            <span>Location</span>
+            <input name="location" value="Brazil">
+          </div>
+          <div class="f">
+            <span>Max applications <small>(blank = ∞)</small></span>
+            <input name="max_apply" type="number" min="1" placeholder="unlimited">
+          </div>
+          <div class="f">
+            <span>Easy Apply</span>
+            <select name="easy_apply"><option value="true">Yes</option><option value="false">No</option></select>
+          </div>
+          <div class="f">
+            <span>Work type</span>
+            <select name="work_type">
+              <option value="">Any</option>
+              <option value="remote">Remote</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="onsite">On-site</option>
+              <option value="remote,hybrid">Remote + Hybrid</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <label class="toggle-wrap">
+            <input type="checkbox" class="toggle" id="loop-enabled" name="loop_enabled">
+            <span>Loop continuously</span>
+          </label>
+          <div class="f" id="interval-field" hidden style="max-width:200px">
+            <span>Interval (minutes)</span>
+            <input name="loop_interval_minutes" type="number" min="1" value="120">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit"  class="btn-primary" id="btn-start">▶ Start</button>
+          <button type="button"  class="btn-danger"  id="btn-cancel"   hidden>✕ Cancel run</button>
+          <button type="button"  class="btn-warn"    id="btn-pause"    hidden>⏸ Pause loop</button>
+          <button type="button"  class="btn-ok"      id="btn-resume"   hidden>▶ Resume loop</button>
+          <button type="button"  class="btn-danger"  id="btn-stop-loop" hidden>⏹ Stop loop</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" id="section-inputs">
+    <div class="card-hd">
+      <h2>Pending Questions</h2>
+      <span class="cnt" id="count-inputs">0</span>
+    </div>
+    <div class="card-bd" id="inputs"><p class="empty">No pending questions.</p></div>
+  </div>
+
+  <div class="card" id="section-submits">
+    <div class="card-hd">
+      <h2>Submit Approvals</h2>
+      <span class="cnt" id="count-submits">0</span>
+    </div>
+    <div class="card-bd" id="submits"><p class="empty">No pending approvals.</p></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">
+      <h2>Jobs</h2>
+      <span class="cnt" id="count-jobs">0</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--dim)">click row for details</span>
+    </div>
+    <table class="jt">
+      <thead><tr><th>Job</th><th>Status</th><th>Updated</th></tr></thead>
+      <tbody id="jobs"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-hd"><h2>Activity</h2></div>
+    <div class="card-bd" style="padding:12px 16px">
+      <div class="log" id="events"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="overlay" id="modal-overlay">
+  <div class="modal">
+    <button class="mclose" id="modal-close">✕</button>
+    <div class="modal-hd" id="modal-hd"></div>
+    <div class="modal-bd" id="modal-bd"></div>
+  </div>
+</div>
+
+<script>
+  const S = { inputs: new Map(), submits: new Map(), events: [], running: false, loopActive: false, loopPaused: false, nextRunAt: null };
+  const $ = id => document.getElementById(id);
+  let audio, countdown_t;
+
+  // ── audio ──────────────────────────────────────────────────────────────
+  function enableAudio() { audio ||= new AudioContext(); if (audio.state === 'suspended') audio.resume(); }
+  function playBell() {
+    if (!audio || audio.state !== 'running') return;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(.001, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(.2, audio.currentTime + .02);
+    g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .7);
+    o.connect(g); g.connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + .75);
+  }
+
+  // ── status ─────────────────────────────────────────────────────────────
+  function fmtCountdown(epoch) {
+    const s = Math.max(0, Math.round(epoch - Date.now() / 1000));
+    const m = Math.floor(s / 60), r = s % 60;
+    return m > 0 ? `${m}m ${r}s` : `${r}s`;
+  }
+
+  function updateStatus() {
+    const pill = $('status-pill'), txt = $('status-text');
+    pill.className = 'pill';
+    if (S.loopActive && S.loopPaused) {
+      pill.classList.add('pill-paused'); txt.textContent = 'Loop paused';
+    } else if (S.loopActive && !S.running && S.nextRunAt) {
+      pill.classList.add('pill-waiting'); txt.textContent = 'Next run in ' + fmtCountdown(S.nextRunAt);
+    } else if (S.running) {
+      pill.classList.add('pill-running'); txt.textContent = S.loopActive ? 'Loop running' : 'Running';
+    } else {
+      pill.classList.add('pill-idle'); txt.textContent = 'Idle';
     }
+    updateButtons();
+  }
 
-    function inputFields(event) {
-      return (event.questions || [event]).map((question, index) => `
-        <label>${question.question}
-          ${question.options && question.options.length ? `<select id="answer-${event.request_id}-${index}">${question.options.map(o => `<option>${o}</option>`).join('')}</select>` : `<input id="answer-${event.request_id}-${index}" placeholder="Answer">`}
-        </label>
-      `).join('');
-    }
+  function tickStart() { clearInterval(countdown_t); countdown_t = setInterval(updateStatus, 1000); }
+  function tickStop()  { clearInterval(countdown_t); countdown_t = null; }
 
-    async function sendAnswers(requestId) {
-      const event = state.inputs.get(requestId);
-      const answers = {};
-      (event.questions || [event]).forEach((question, index) => {
-        answers[question.question_key] = $(`answer-${requestId}-${index}`).value;
-      });
-      const response = await fetch('/answers', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ request_id: requestId, answers }) });
-      if (response.ok) state.inputs.delete(requestId);
-      renderPending();
-    }
+  function updateButtons() {
+    const idle = !S.running && !S.loopActive;
+    $('btn-start').hidden    = !idle;
+    $('btn-cancel').hidden   = !S.running;
+    $('btn-pause').hidden    = !(S.loopActive && !S.loopPaused);
+    $('btn-resume').hidden   = !(S.loopActive && S.loopPaused);
+    $('btn-stop-loop').hidden = !S.loopActive;
+  }
 
-    async function submitDecision(jobId, requestId, decision) {
-      const response = await fetch(`/applications/${jobId}/${decision}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ request_id: requestId }) });
-      if (response.ok) state.submits.delete(requestId);
-      renderPending();
-    }
+  // ── badges / formatting ────────────────────────────────────────────────
+  function badge(status) {
+    return `<span class="badge s-${status}">${status.replace(/_/g,' ')}</span>`;
+  }
 
-    async function refreshState(syncWaiters = true) {
-      const response = await fetch('/state');
-      const data = await response.json();
-      $('status').textContent = data.run.running ? 'Running' : 'Idle';
-      if (syncWaiters) {
-        state.inputs = new Map(data.waiters.pending_inputs.map(event => [event.request_id, event]));
-        state.submits = new Map(data.waiters.pending_submits.map(event => [event.request_id, event]));
-      }
-      $('jobs').innerHTML = data.jobs.map(job => `<tr><td>${job.title || ''}</td><td>${job.company || ''}</td><td>${job.status || ''}</td><td>${job.error_message || ''}</td></tr>`).join('');
-      renderPending();
-    }
+  function fmtTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso + 'Z');
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 
-    $('run-form').addEventListener('submit', async (event) => {
-      event.preventDefault();
-      enableAudio();
-      const form = new FormData(event.target);
-      const payload = Object.fromEntries(form.entries());
-      payload.easy_apply = payload.easy_apply === 'true';
-      payload.remote = payload.remote === 'true';
-      payload.max_jobs = Number(payload.max_jobs || 3);
-      const response = await fetch('/runs', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-      if (!response.ok) alert(await response.text());
-    });
+  // ── event log ──────────────────────────────────────────────────────────
+  const logCat = {
+    run_started: 'cat-run', run_finished: 'cat-run', run_cancelled: 'cat-misc',
+    loop_started: 'cat-loop', loop_stopped: 'cat-loop', loop_paused: 'cat-loop',
+    loop_resumed: 'cat-loop', loop_waiting: 'cat-loop',
+    application_applied: 'cat-ok', scrape_finished: 'cat-ok', answer_saved: 'cat-ok',
+    submit_approve: 'cat-ok',
+    needs_input: 'cat-warn', ready_to_submit: 'cat-warn',
+    run_failed: 'cat-err', application_failed: 'cat-err',
+  };
 
-    $('cancel').addEventListener('click', () => fetch('/runs/cancel', { method: 'POST' }));
-    document.addEventListener('click', enableAudio, { once: true });
-    document.addEventListener('keydown', enableAudio, { once: true });
+  function logSummary(e) {
+    if (e.type === 'scrape_finished')      return `${e.count} jobs found`;
+    if (e.type === 'apply_started')        return `${e.count} to apply`;
+    if (e.type === 'application_started')  return `${e.title} @ ${e.company}`;
+    if (e.type === 'application_applied')  return `${e.title} @ ${e.company}`;
+    if (e.type === 'application_failed')   return `${e.title}: ${e.error || ''}`;
+    if (e.type === 'application_skipped')  return `${e.title} @ ${e.company}`;
+    if (e.type === 'needs_input')          return `${e.title} @ ${e.company} (${(e.questions||[]).length} q)`;
+    if (e.type === 'ready_to_submit')      return `${e.title} @ ${e.company}`;
+    if (e.type === 'run_failed')           return e.error || '';
+    if (e.type === 'loop_waiting')         return `next in ${Math.round((e.next_run_at - Date.now()/1000)/60)}m`;
+    return '';
+  }
 
-    new EventSource('/events').onmessage = (message) => addEvent(JSON.parse(message.data));
-    refreshState(true);
+  function addLogLine(e) {
+    const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const cat = logCat[e.type] || 'cat-misc';
+    const summary = logSummary(e);
+    const el = document.createElement('div');
+    el.className = `ll ${cat}`;
+    el.innerHTML = `<span class="lt">${now}</span><span class="lk">${e.type}</span>${summary ? `<span class="ld">${summary}</span>` : ''}`;
+    const log = $('events');
+    log.insertBefore(el, log.firstChild);
+    while (log.children.length > 80) log.removeChild(log.lastChild);
+  }
+
+  // ── event handling ─────────────────────────────────────────────────────
+  function handleEvent(e) {
+    if (e.type === 'needs_input')   { S.inputs.set(e.request_id, e); playBell(); }
+    if (['input_timeout','answer_saved'].includes(e.type)) S.inputs.delete(e.request_id);
+    if (e.type === 'ready_to_submit') { S.submits.set(e.request_id, e); playBell(); }
+    if (['submit_timeout','submit_approve','submit_skip'].includes(e.type)) S.submits.delete(e.request_id);
+
+    if (e.type === 'run_started')   S.running = true;
+    if (['run_finished','run_failed','run_cancelled'].includes(e.type)) S.running = false;
+
+    if (e.type === 'loop_started')  { S.loopActive = true; S.loopPaused = false; }
+    if (e.type === 'loop_stopped')  { S.loopActive = false; S.loopPaused = false; S.nextRunAt = null; tickStop(); }
+    if (e.type === 'loop_paused')   { S.loopPaused = true; S.nextRunAt = null; tickStop(); }
+    if (e.type === 'loop_resumed')  { S.loopPaused = false; }
+    if (e.type === 'loop_waiting')  { S.nextRunAt = e.next_run_at; tickStart(); }
+    if (e.type === 'run_started' && S.loopActive) { S.nextRunAt = null; tickStop(); }
+
+    addLogLine(e);
     renderPending();
-  </script>
+    updateStatus();
+    refreshJobs();
+  }
+
+  // ── pending ────────────────────────────────────────────────────────────
+  function renderPending() {
+    const inp = [...S.inputs.values()];
+    const sub = [...S.submits.values()];
+
+    $('count-inputs').textContent = inp.length;
+    $('count-submits').textContent = sub.length;
+    $('section-inputs').className = 'card' + (inp.length ? ' alert' : '');
+    $('section-submits').className = 'card' + (sub.length ? ' alert' : '');
+
+    $('inputs').innerHTML = inp.length ? inp.map(ev => `
+      <div class="ac">
+        <div class="ac-title">${ev.title}</div>
+        <div class="ac-company">${ev.company}</div>
+        ${(ev.questions||[ev]).map((q,i) => `
+          <div class="ac-field">
+            <label>${q.question}</label>
+            ${q.options?.length
+              ? `<select id="a-${ev.request_id}-${i}">${q.options.map(o=>`<option>${o}</option>`).join('')}</select>`
+              : `<input id="a-${ev.request_id}-${i}" placeholder="Answer">`}
+          </div>`).join('')}
+        <div class="ac-btns">
+          <button class="btn-primary" onclick="sendAnswers('${ev.request_id}')">Save answers</button>
+        </div>
+      </div>`).join('') : '<p class="empty">No pending questions.</p>';
+
+    $('submits').innerHTML = sub.length ? sub.map(ev => `
+      <div class="ac">
+        <div class="ac-title">${ev.title}</div>
+        <div class="ac-company">${ev.company}</div>
+        <div class="ac-btns">
+          <button class="btn-ok"    onclick="decide('${ev.job_id}','${ev.request_id}','approve')">Submit application</button>
+          <button class="btn-ghost" onclick="decide('${ev.job_id}','${ev.request_id}','skip')">Skip</button>
+        </div>
+      </div>`).join('') : '<p class="empty">No pending approvals.</p>';
+  }
+
+  async function sendAnswers(rid) {
+    const ev = S.inputs.get(rid);
+    const answers = {};
+    (ev.questions||[ev]).forEach((q,i) => { answers[q.question_key] = $(`a-${rid}-${i}`).value; });
+    const r = await fetch('/answers', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({request_id:rid, answers})});
+    if (r.ok) S.inputs.delete(rid);
+    renderPending();
+  }
+
+  async function decide(jobId, rid, decision) {
+    const r = await fetch(`/applications/${jobId}/${decision}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({request_id:rid})});
+    if (r.ok) S.submits.delete(rid);
+    renderPending();
+  }
+
+  // ── jobs table ─────────────────────────────────────────────────────────
+  async function refreshJobs() {
+    const r = await fetch('/state');
+    const data = await r.json();
+    renderJobs(data.jobs);
+  }
+
+  function renderJobs(jobs) {
+    $('count-jobs').textContent = jobs.length;
+    $('jobs').innerHTML = jobs.map(j => `
+      <tr onclick="openJob('${j.job_id}')">
+        <td>
+          <div class="jt-main">${j.title||''}</div>
+          <div class="jt-sub">${j.company||''} ${j.location ? '· ' + j.location : ''}</div>
+        </td>
+        <td>${badge(j.status||'pending')}</td>
+        <td class="jt-time">${fmtTime(j.updated_at)}</td>
+      </tr>`).join('') || `<tr><td colspan="3" style="color:var(--dim);padding:20px 16px">No jobs yet.</td></tr>`;
+  }
+
+  // ── modal ──────────────────────────────────────────────────────────────
+  async function openJob(id) {
+    const r = await fetch(`/jobs/${id}`);
+    if (!r.ok) return;
+    const j = await r.json();
+    const prefs   = Array.isArray(j.preferences)     ? j.preferences     : [];
+    const skills  = Array.isArray(j.skills)           ? j.skills           : [];
+    const answers = Array.isArray(j.applied_answers)  ? j.applied_answers  : [];
+
+    $('modal-hd').innerHTML = `
+      <h3>${j.title||''}</h3>
+      <div class="modal-meta">
+        <span>${j.company||''}</span>
+        ${j.location ? `<span>· ${j.location}</span>` : ''}
+        ${badge(j.status||'pending')}
+        ${j.url ? `<a class="mlink" href="${j.url}" target="_blank">Open on LinkedIn ↗</a>` : ''}
+      </div>`;
+
+    $('modal-bd').innerHTML = `
+      ${j.error_message ? `<div class="err-box">${j.error_message}</div>` : ''}
+
+      ${j.about ? `<div class="ms"><div class="ms-label">About the job</div><div class="about">${j.about}</div></div>` : ''}
+
+      ${prefs.length ? `<div class="ms"><div class="ms-label">Preferences</div><div class="chips">${prefs.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div>` : ''}
+
+      ${skills.length ? `<div class="ms"><div class="ms-label">Skills</div><div class="chips">${skills.map(s=>`<span class="chip">${s}</span>`).join('')}</div></div>` : ''}
+
+      ${answers.length ? `
+        <div class="ms">
+          <div class="ms-label">Applied answers (${answers.length})</div>
+          <div class="qa-grid">
+            ${answers.map(a=>`<div class="qa"><div class="qa-q">${a.question}</div><div class="qa-a">${a.answer}</div></div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      <div class="mfooter">Scraped ${j.created_at||'—'} · Updated ${j.updated_at||'—'}</div>`;
+
+    $('modal-overlay').classList.add('open');
+  }
+
+  $('modal-close').onclick = () => $('modal-overlay').classList.remove('open');
+  $('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) $('modal-overlay').classList.remove('open'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('modal-overlay').classList.remove('open'); });
+
+  // ── init ───────────────────────────────────────────────────────────────
+  $('loop-enabled').onchange = e => { $('interval-field').hidden = !e.target.checked; };
+
+  $('run-form').addEventListener('submit', async e => {
+    e.preventDefault(); enableAudio();
+    const fd = new FormData(e.target);
+    const p  = Object.fromEntries(fd.entries());
+    p.easy_apply     = p.easy_apply === 'true';
+    p.loop_enabled   = !!p.loop_enabled;
+    if (p.loop_interval_minutes) p.loop_interval_minutes = Number(p.loop_interval_minutes);
+    if (p.max_apply) p.max_apply = Number(p.max_apply); else delete p.max_apply;
+    const r = await fetch('/runs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)});
+    if (!r.ok) alert(await r.text());
+  });
+
+  $('btn-cancel').onclick    = () => fetch('/runs/cancel', {method:'POST'});
+  $('btn-pause').onclick     = () => fetch('/loop/pause',  {method:'POST'});
+  $('btn-resume').onclick    = () => fetch('/loop/resume', {method:'POST'});
+  $('btn-stop-loop').onclick = () => fetch('/loop/stop',   {method:'POST'});
+
+  document.addEventListener('click',   enableAudio, {once:true});
+  document.addEventListener('keydown', enableAudio, {once:true});
+
+  async function init() {
+    const r = await fetch('/state');
+    const d = await r.json();
+    S.running    = d.run.running;
+    S.loopActive = d.run.loop_active;
+    S.loopPaused = d.run.loop_paused;
+    S.nextRunAt  = d.run.next_run_at;
+    S.inputs  = new Map(d.waiters.pending_inputs.map(e  => [e.request_id, e]));
+    S.submits = new Map(d.waiters.pending_submits.map(e => [e.request_id, e]));
+    renderJobs(d.jobs);
+    renderPending();
+    updateStatus();
+    if (S.nextRunAt && !S.loopPaused && !S.running) tickStart();
+  }
+
+  new EventSource('/events').onmessage = m => handleEvent(JSON.parse(m.data));
+  init();
+</script>
 </body>
 </html>

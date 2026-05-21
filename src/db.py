@@ -33,11 +33,16 @@ def init_db():
                 application_url TEXT,
                 status TEXT DEFAULT 'pending',
                 error_message TEXT,
+                applied_answers TEXT,
                 created_at TEXT,
                 updated_at TEXT
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN applied_answers TEXT")
+        except Exception:
+            pass
 
 
 def save_jobs(jobs):
@@ -115,3 +120,32 @@ def update_status(job_id, status, error_message=None):
             """,
             (status, error_message, now(), job_id),
         )
+
+
+def is_job_done(job_id):
+    with connect() as conn:
+        row = conn.execute("SELECT status FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+    return row is not None and row["status"] in ("applied", "skipped", "failed")
+
+
+def save_applied_answers(job_id, answers):
+    with connect() as conn:
+        conn.execute(
+            "UPDATE jobs SET applied_answers = ? WHERE job_id = ?",
+            (json.dumps(answers, ensure_ascii=False), job_id),
+        )
+
+
+def get_job(job_id):
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+    if not row:
+        return None
+    job = dict(row)
+    for field in ("preferences", "skills", "applied_answers"):
+        if job.get(field):
+            try:
+                job[field] = json.loads(job[field])
+            except Exception:
+                pass
+    return job

@@ -22,6 +22,7 @@ class JobApplier(LinkedInClient):
         self.events = events
 
     async def apply_to_job(self, job, profile):
+        applied_answers = []
         try:
             await self.page.goto(job["url"], wait_until="domcontentloaded")
             await self.page.wait_for_timeout(2000)
@@ -35,46 +36,46 @@ class JobApplier(LinkedInClient):
             await modal.wait_for()
 
             for _ in range(10):
-                await self.fill_step(modal, profile, job)
+                await self.fill_step(modal, profile, job, applied_answers)
 
                 submit = modal.get_by_role("button", name=re.compile("submit application", re.I)).first
                 if await submit.count():
                     decision = await self.confirm_submit(job)
                     if decision != "approve":
                         await self.close_modal(modal)
-                        return "skipped", None
+                        return "skipped", None, applied_answers
                     await submit.click()
                     await self.page.wait_for_timeout(2000)
-                    return "applied", None
+                    return "applied", None, applied_answers
 
                 next_button = modal.get_by_role("button", name=re.compile("next|review", re.I)).first
                 if not await next_button.count():
                     await self.close_modal(modal)
-                    return "failed", "No Next/Review/Submit button found"
+                    return "failed", "No Next/Review/Submit button found", applied_answers
 
                 try:
                     await next_button.click()
                     await self.page.wait_for_timeout(1000)
                 except PlaywrightError as exc:
                     await self.close_modal(modal)
-                    return "failed", str(exc)
+                    return "failed", str(exc), applied_answers
 
-            return "failed", "Reached step limit"
+            return "failed", "Reached step limit", applied_answers
         except NeedsInput as exc:
             await self.close_open_modal()
-            return "needs_input", str(exc)
+            return "needs_input", str(exc), applied_answers
         except ReadyToSubmit:
             await self.close_open_modal()
-            return "ready_to_submit", None
+            return "ready_to_submit", None, applied_answers
 
-    async def fill_step(self, modal, profile, job):
+    async def fill_step(self, modal, profile, job, applied_answers):
         pending = []
-        await self.fill_text_fields(modal, profile, pending)
-        await self.fill_selects(modal, profile, pending)
+        await self.fill_text_fields(modal, profile, pending, applied_answers)
+        await self.fill_selects(modal, profile, pending, applied_answers)
         if pending:
-            await self.fill_pending_fields(profile, job, pending)
+            await self.fill_pending_fields(profile, job, pending, applied_answers)
 
-    async def fill_text_fields(self, modal, profile, pending):
+    async def fill_text_fields(self, modal, profile, pending, applied_answers):
         fields = modal.locator("input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), textarea")
         for index in range(await fields.count()):
             field = fields.nth(index)
@@ -84,10 +85,11 @@ class JobApplier(LinkedInClient):
             answer = profile.get_answer(label)
             if answer:
                 await field.fill(answer)
+                applied_answers.append({"question": label, "answer": answer})
             else:
                 pending.append({"field": field, "question": label, "field_type": "text", "options": []})
 
-    async def fill_selects(self, modal, profile, pending):
+    async def fill_selects(self, modal, profile, pending, applied_answers):
         selects = modal.locator("select")
         for index in range(await selects.count()):
             select = selects.nth(index)
@@ -104,10 +106,11 @@ class JobApplier(LinkedInClient):
                 continue
             try:
                 await select.select_option(label=answer)
+                applied_answers.append({"question": label, "answer": answer})
             except PlaywrightError:
                 raise NeedsInput(f"Invalid answer '{answer}' for '{label}'")
 
-    async def fill_pending_fields(self, profile, job, pending):
+    async def fill_pending_fields(self, profile, job, pending, applied_answers):
         if not self.answer_provider:
             raise NeedsInput(", ".join(item["question"] for item in pending))
         questions = [
@@ -130,6 +133,7 @@ class JobApplier(LinkedInClient):
             if not answer:
                 raise NeedsInput(item["question"])
             profile.set_answer(item["question"], answer)
+            applied_answers.append({"question": item["question"], "answer": answer})
             if item["field_type"] == "select":
                 try:
                     await item["field"].select_option(label=answer)

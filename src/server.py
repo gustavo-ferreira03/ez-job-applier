@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
 
-from db import init_db, job_summary
+from db import get_job, init_db, job_summary
 from events import EventBus
 from runner import RunManager
 from waiters import WaiterRegistry
@@ -43,7 +43,10 @@ async def state():
 async def start_run(request: Request):
     payload = await request.json()
     try:
-        await runner.start(payload)
+        if payload.get("loop_enabled"):
+            await runner.start_loop(payload)
+        else:
+            await runner.start(payload)
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"ok": True}
@@ -52,6 +55,29 @@ async def start_run(request: Request):
 @app.post("/runs/cancel")
 async def cancel_run():
     return {"cancelled": await runner.cancel()}
+
+
+@app.get("/jobs/{job_id}")
+async def job_detail(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+@app.post("/loop/pause")
+async def pause_loop():
+    return {"paused": await runner.pause_loop()}
+
+
+@app.post("/loop/resume")
+async def resume_loop():
+    return {"resumed": await runner.resume_loop()}
+
+
+@app.post("/loop/stop")
+async def stop_loop():
+    return {"stopped": await runner.stop_loop()}
 
 
 @app.post("/answers")

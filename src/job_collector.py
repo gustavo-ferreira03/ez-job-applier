@@ -17,12 +17,14 @@ def clean_list_items(texts):
 
 
 class JobCollector(LinkedInClient):
-    async def open_jobs(self, keywords=None, location=None, easy_apply=False, remote=False):
+    async def open_jobs(self, keywords=None, location=None, easy_apply=False, work_type=None):
+        wt_map = {"remote": "2", "hybrid": "3", "onsite": "1"}
+        wt_parts = [wt_map[w.strip()] for w in (work_type or "").split(",") if w.strip() in wt_map]
         filters = {
             "keywords": keywords,
             "location": location,
             "f_AL": "true" if easy_apply else None,
-            "f_WT": "2" if remote else None,
+            "f_WT": ",".join(wt_parts) if wt_parts else None,
         }
         query = urlencode({k: v for k, v in filters.items() if v})
         url = "https://www.linkedin.com/jobs/search/" + (f"?{query}" if query else "")
