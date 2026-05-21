@@ -8,6 +8,7 @@ __pycache__/
 linkedin_session.json
 jobs.json
 jobs.db
+profile.json
 
 .vscode/
 .agents/
