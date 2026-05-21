@@ -10,4 +10,5 @@ jobs.json
 
 .vscode/
 .agents/
+.claude/
 skills-lock.json
