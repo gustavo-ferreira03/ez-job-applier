@@ -14,6 +14,10 @@ class ReadyToSubmit(Exception):
     pass
 
 
+class SkippedByUser(Exception):
+    pass
+
+
 class JobApplier(LinkedInClient):
     def __init__(self, *args, answer_provider=None, submit_approver=None, events=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,6 +65,9 @@ class JobApplier(LinkedInClient):
                     return "failed", str(exc), applied_answers
 
             return "failed", "Reached step limit", applied_answers
+        except SkippedByUser:
+            await self.close_open_modal()
+            return "skipped", None, applied_answers
         except NeedsInput as exc:
             await self.close_open_modal()
             return "needs_input", str(exc), applied_answers
@@ -126,6 +133,8 @@ class JobApplier(LinkedInClient):
             answers = await self.answer_provider(job, questions)
         except WaiterTimeout as exc:
             raise NeedsInput(", ".join(item["question"] for item in pending)) from exc
+        if answers is None:
+            raise SkippedByUser()
 
         for item in pending:
             key = profile.key(item["question"])

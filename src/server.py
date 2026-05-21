@@ -107,6 +107,16 @@ async def answer(request: Request):
     return {"ok": True}
 
 
+@app.post("/answers/{request_id}/skip")
+async def skip_answer(request_id: str):
+    waiter = waiters.pending_inputs.get(request_id)
+    if not waiter:
+        raise HTTPException(status_code=404, detail="No pending input request")
+    waiters.resolve_answer(request_id, None)
+    await events.publish({"type": "input_skipped", "request_id": request_id})
+    return {"ok": True}
+
+
 @app.post("/applications/{job_id}/approve")
 async def approve_submit(job_id: str, request: Request):
     return await submit_decision(job_id, request, "approve")

@@ -380,7 +380,7 @@
   // ── event handling ─────────────────────────────────────────────────────
   function handleEvent(e) {
     if (e.type === 'needs_input')   { S.inputs.set(e.request_id, e); playBell(); }
-    if (['input_timeout','answer_saved'].includes(e.type)) S.inputs.delete(e.request_id);
+    if (['input_timeout','answer_saved','input_skipped'].includes(e.type)) S.inputs.delete(e.request_id);
     if (e.type === 'ready_to_submit') { S.submits.set(e.request_id, e); playBell(); }
     if (['submit_timeout','submit_approve','submit_skip'].includes(e.type)) S.submits.delete(e.request_id);
 
@@ -423,6 +423,7 @@
           </div>`).join('')}
         <div class="ac-btns">
           <button class="btn-primary" onclick="sendAnswers('${ev.request_id}')">Save answers</button>
+          <button class="btn-ghost"   onclick="skipQuestion('${ev.request_id}')">Skip</button>
         </div>
       </div>`).join('') : '<p class="empty">No pending questions.</p>';
 
@@ -435,6 +436,12 @@
           <button class="btn-ghost" onclick="decide('${ev.job_id}','${ev.request_id}','skip')">Skip</button>
         </div>
       </div>`).join('') : '<p class="empty">No pending approvals.</p>';
+  }
+
+  async function skipQuestion(rid) {
+    const r = await fetch(`/answers/${rid}/skip`, {method:'POST'});
+    if (r.ok) S.inputs.delete(rid);
+    renderPending();
   }
 
   async function sendAnswers(rid) {
