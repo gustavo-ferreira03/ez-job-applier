@@ -1,0 +1,13 @@
+[project]
+name = "job-applier"
+version = "0.1.0"
+description = "LinkedIn job collection helper."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.40",
+    "playwright-stealth>=2.0",
+]
+
+[tool.uv]
+package = false

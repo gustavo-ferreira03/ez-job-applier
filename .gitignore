@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+.env
+.env.*
+
+linkedin_session.json
+jobs.json
+
+.vscode/
+.agents/
+skills-lock.json
