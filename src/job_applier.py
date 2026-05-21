@@ -3,61 +3,91 @@ import re
 from playwright.async_api import Error as PlaywrightError
 
 from linkedin_client import LinkedInClient
+from waiters import WaiterTimeout
+
+
+class NeedsInput(Exception):
+    pass
+
+
+class ReadyToSubmit(Exception):
+    pass
 
 
 class JobApplier(LinkedInClient):
+    def __init__(self, *args, answer_provider=None, submit_approver=None, events=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.answer_provider = answer_provider
+        self.submit_approver = submit_approver
+        self.events = events
+
     async def apply_to_job(self, job, profile):
-        await self.page.goto(job["url"], wait_until="domcontentloaded")
-        await self.page.wait_for_timeout(2000)
+        try:
+            await self.page.goto(job["url"], wait_until="domcontentloaded")
+            await self.page.wait_for_timeout(2000)
 
-        easy_apply = self.page.get_by_role("link").filter(has_text="Easy Apply").first
-        if not await easy_apply.count():
-            easy_apply = self.page.get_by_role("button").filter(has_text="Easy Apply").first
-        await easy_apply.click()
+            easy_apply = self.page.get_by_role("link").filter(has_text="Easy Apply").first
+            if not await easy_apply.count():
+                easy_apply = self.page.get_by_role("button").filter(has_text="Easy Apply").first
+            await easy_apply.click()
 
-        modal = self.page.get_by_role("dialog").last
-        await modal.wait_for()
+            modal = self.page.get_by_role("dialog").last
+            await modal.wait_for()
 
-        for _ in range(10):
-            await self.fill_step(modal, profile)
+            for _ in range(10):
+                await self.fill_step(modal, profile, job)
 
-            submit = modal.get_by_role("button", name=re.compile("submit application", re.I)).first
-            if await submit.count():
-                answer = input(f"Submit application for {job['title']} at {job['company']}? (y/n) ").strip().lower()
-                if answer != "y":
+                submit = modal.get_by_role("button", name=re.compile("submit application", re.I)).first
+                if await submit.count():
+                    decision = await self.confirm_submit(job)
+                    if decision != "approve":
+                        await self.close_modal(modal)
+                        return "skipped", None
+                    await submit.click()
+                    await self.page.wait_for_timeout(2000)
+                    return "applied", None
+
+                next_button = modal.get_by_role("button", name=re.compile("next|review", re.I)).first
+                if not await next_button.count():
                     await self.close_modal(modal)
-                    return "skipped", None
-                await submit.click()
-                await self.page.wait_for_timeout(2000)
-                return "applied", None
+                    return "failed", "No Next/Review/Submit button found"
 
-            next_button = modal.get_by_role("button", name=re.compile("next|review", re.I)).first
-            if not await next_button.count():
-                input("No Next/Review/Submit button found. Fix manually, then press ENTER to continue. ")
-                continue
+                try:
+                    await next_button.click()
+                    await self.page.wait_for_timeout(1000)
+                except PlaywrightError as exc:
+                    await self.close_modal(modal)
+                    return "failed", str(exc)
 
-            try:
-                await next_button.click()
-                await self.page.wait_for_timeout(1000)
-            except PlaywrightError:
-                input("LinkedIn blocked the next step. Fix manually, then press ENTER to continue. ")
+            return "failed", "Reached step limit"
+        except NeedsInput as exc:
+            await self.close_open_modal()
+            return "needs_input", str(exc)
+        except ReadyToSubmit:
+            await self.close_open_modal()
+            return "ready_to_submit", None
 
-        return "failed", "Reached step limit"
+    async def fill_step(self, modal, profile, job):
+        pending = []
+        await self.fill_text_fields(modal, profile, pending)
+        await self.fill_selects(modal, profile, pending)
+        if pending:
+            await self.fill_pending_fields(profile, job, pending)
 
-    async def fill_step(self, modal, profile):
-        await self.fill_text_fields(modal, profile)
-        await self.fill_selects(modal, profile)
-
-    async def fill_text_fields(self, modal, profile):
+    async def fill_text_fields(self, modal, profile, pending):
         fields = modal.locator("input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), textarea")
         for index in range(await fields.count()):
             field = fields.nth(index)
             if not await field.is_visible() or not await field.is_enabled() or await field.input_value():
                 continue
             label = await self.field_label(field, f"text field {index + 1}")
-            await field.fill(profile.answer_for(label))
+            answer = profile.get_answer(label)
+            if answer:
+                await field.fill(answer)
+            else:
+                pending.append({"field": field, "question": label, "field_type": "text", "options": []})
 
-    async def fill_selects(self, modal, profile):
+    async def fill_selects(self, modal, profile, pending):
         selects = modal.locator("select")
         for index in range(await selects.count()):
             select = selects.nth(index)
@@ -68,11 +98,53 @@ class JobApplier(LinkedInClient):
                 continue
             label = await self.field_label(select, f"select field {index + 1}")
             options = await self.select_options(select)
-            answer = profile.answer_for(label, options)
+            answer = profile.get_answer(label, options)
+            if not answer:
+                pending.append({"field": select, "question": label, "field_type": "select", "options": options})
+                continue
             try:
                 await select.select_option(label=answer)
             except PlaywrightError:
-                input(f"Could not select '{answer}' for '{label}'. Fix manually, then press ENTER. ")
+                raise NeedsInput(f"Invalid answer '{answer}' for '{label}'")
+
+    async def fill_pending_fields(self, profile, job, pending):
+        if not self.answer_provider:
+            raise NeedsInput(", ".join(item["question"] for item in pending))
+        questions = [
+            {
+                "question": item["question"],
+                "question_key": profile.key(item["question"]),
+                "field_type": item["field_type"],
+                "options": item["options"],
+            }
+            for item in pending
+        ]
+        try:
+            answers = await self.answer_provider(job, questions)
+        except WaiterTimeout as exc:
+            raise NeedsInput(", ".join(item["question"] for item in pending)) from exc
+
+        for item in pending:
+            key = profile.key(item["question"])
+            answer = answers.get(key)
+            if not answer:
+                raise NeedsInput(item["question"])
+            profile.set_answer(item["question"], answer)
+            if item["field_type"] == "select":
+                try:
+                    await item["field"].select_option(label=answer)
+                except PlaywrightError:
+                    raise NeedsInput(f"Invalid answer '{answer}' for '{item['question']}'")
+            else:
+                await item["field"].fill(answer)
+
+    async def confirm_submit(self, job):
+        if not self.submit_approver:
+            raise ReadyToSubmit
+        try:
+            return await self.submit_approver(job)
+        except WaiterTimeout as exc:
+            raise ReadyToSubmit from exc
 
     async def select_options(self, select):
         options = []
@@ -99,3 +171,11 @@ class JobApplier(LinkedInClient):
         close = modal.get_by_role("button", name=re.compile("dismiss|close", re.I)).first
         if await close.count():
             await close.click()
+            discard = self.page.get_by_role("button", name=re.compile("discard", re.I)).first
+            if await discard.count():
+                await discard.click()
+
+    async def close_open_modal(self):
+        modal = self.page.get_by_role("dialog").last
+        if await modal.count():
+            await self.close_modal(modal)

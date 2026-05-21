@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Job Applier</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    h1, h2 { margin: 0 0 12px; }
+    section { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    label { display: grid; gap: 6px; font-size: 14px; color: #cbd5e1; }
+    input, select { background: #020617; color: #e2e8f0; border: 1px solid #475569; border-radius: 8px; padding: 10px; }
+    button { background: #38bdf8; border: 0; border-radius: 8px; color: #082f49; font-weight: 700; padding: 10px 14px; cursor: pointer; }
+    button.secondary { background: #475569; color: #e2e8f0; }
+    button.danger { background: #fb7185; color: #4c0519; }
+    form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+    .cards { display: grid; gap: 12px; }
+    .card { background: #020617; border: 1px solid #334155; border-radius: 10px; padding: 12px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .muted { color: #94a3b8; }
+    pre { white-space: pre-wrap; max-height: 260px; overflow: auto; background: #020617; padding: 12px; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #334155; padding: 8px; text-align: left; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Job Applier</h1>
+    <section>
+      <h2>Run</h2>
+      <form id="run-form">
+        <label>Keywords <input name="keywords" value="python developer junior"></label>
+        <label>Location <input name="location" value="Brazil"></label>
+        <label>Max jobs <input name="max_jobs" type="number" min="1" value="3"></label>
+        <label>Easy Apply <select name="easy_apply"><option value="true">Yes</option><option value="false">No</option></select></label>
+        <label>Remote <select name="remote"><option value="false">No</option><option value="true">Yes</option></select></label>
+        <button type="submit">Start</button>
+        <button class="danger" id="cancel" type="button">Cancel</button>
+      </form>
+      <p id="status" class="muted">Idle</p>
+    </section>
+
+    <section>
+      <h2>Pending Questions</h2>
+      <div id="inputs" class="cards"></div>
+    </section>
+
+    <section>
+      <h2>Submit Approvals</h2>
+      <div id="submits" class="cards"></div>
+    </section>
+
+    <section>
+      <h2>Jobs</h2>
+      <table><thead><tr><th>Title</th><th>Company</th><th>Status</th><th>Error</th></tr></thead><tbody id="jobs"></tbody></table>
+    </section>
+
+    <section>
+      <h2>Events</h2>
+      <pre id="events"></pre>
+    </section>
+  </main>
+
+  <script>
+    const state = { inputs: new Map(), submits: new Map(), events: [] };
+    const $ = (id) => document.getElementById(id);
+    let audioContext;
+
+    function enableAudio() {
+      audioContext ||= new AudioContext();
+      if (audioContext.state === 'suspended') audioContext.resume();
+    }
+
+    function playBell() {
+      if (!audioContext || audioContext.state !== 'running') return;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.2, audioContext.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.7);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.75);
+    }
+
+    function addEvent(event) {
+      state.events.unshift(event);
+      state.events = state.events.slice(0, 80);
+      $('events').textContent = state.events.map(e => `${e.timestamp || ''} ${e.type}: ${JSON.stringify(e)}`).join('\n');
+      if (event.type === 'needs_input') {
+        state.inputs.set(event.request_id, event);
+        playBell();
+      }
+      if (['input_timeout', 'answer_saved'].includes(event.type)) state.inputs.delete(event.request_id);
+      if (event.type === 'ready_to_submit') {
+        state.submits.set(event.request_id, event);
+        playBell();
+      }
+      if (['submit_timeout', 'submit_approve', 'submit_skip'].includes(event.type)) state.submits.delete(event.request_id);
+      if (event.type === 'run_started') $('status').textContent = 'Running';
+      if (['run_finished', 'run_failed', 'run_cancelled'].includes(event.type)) $('status').textContent = event.type;
+      renderPending();
+      refreshState(false);
+    }
+
+    function renderPending() {
+      $('inputs').innerHTML = [...state.inputs.values()].map(event => `
+        <div class="card">
+          <strong>${event.title}</strong> <span class="muted">${event.company}</span>
+          ${inputFields(event)}
+          <button onclick="sendAnswers('${event.request_id}')">Save answers</button>
+        </div>`).join('') || '<p class="muted">No pending questions.</p>';
+
+      $('submits').innerHTML = [...state.submits.values()].map(event => `
+        <div class="card">
+          <strong>${event.title}</strong> <span class="muted">${event.company}</span>
+          <div class="row">
+            <button onclick="submitDecision('${event.job_id}', '${event.request_id}', 'approve')">Submit</button>
+            <button class="secondary" onclick="submitDecision('${event.job_id}', '${event.request_id}', 'skip')">Skip</button>
+          </div>
+        </div>`).join('') || '<p class="muted">No pending approvals.</p>';
+    }
+
+    function inputFields(event) {
+      return (event.questions || [event]).map((question, index) => `
+        <label>${question.question}
+          ${question.options && question.options.length ? `<select id="answer-${event.request_id}-${index}">${question.options.map(o => `<option>${o}</option>`).join('')}</select>` : `<input id="answer-${event.request_id}-${index}" placeholder="Answer">`}
+        </label>
+      `).join('');
+    }
+
+    async function sendAnswers(requestId) {
+      const event = state.inputs.get(requestId);
+      const answers = {};
+      (event.questions || [event]).forEach((question, index) => {
+        answers[question.question_key] = $(`answer-${requestId}-${index}`).value;
+      });
+      const response = await fetch('/answers', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ request_id: requestId, answers }) });
+      if (response.ok) state.inputs.delete(requestId);
+      renderPending();
+    }
+
+    async function submitDecision(jobId, requestId, decision) {
+      const response = await fetch(`/applications/${jobId}/${decision}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ request_id: requestId }) });
+      if (response.ok) state.submits.delete(requestId);
+      renderPending();
+    }
+
+    async function refreshState(syncWaiters = true) {
+      const response = await fetch('/state');
+      const data = await response.json();
+      $('status').textContent = data.run.running ? 'Running' : 'Idle';
+      if (syncWaiters) {
+        state.inputs = new Map(data.waiters.pending_inputs.map(event => [event.request_id, event]));
+        state.submits = new Map(data.waiters.pending_submits.map(event => [event.request_id, event]));
+      }
+      $('jobs').innerHTML = data.jobs.map(job => `<tr><td>${job.title || ''}</td><td>${job.company || ''}</td><td>${job.status || ''}</td><td>${job.error_message || ''}</td></tr>`).join('');
+      renderPending();
+    }
+
+    $('run-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      enableAudio();
+      const form = new FormData(event.target);
+      const payload = Object.fromEntries(form.entries());
+      payload.easy_apply = payload.easy_apply === 'true';
+      payload.remote = payload.remote === 'true';
+      payload.max_jobs = Number(payload.max_jobs || 3);
+      const response = await fetch('/runs', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+      if (!response.ok) alert(await response.text());
+    });
+
+    $('cancel').addEventListener('click', () => fetch('/runs/cancel', { method: 'POST' }));
+    document.addEventListener('click', enableAudio, { once: true });
+    document.addEventListener('keydown', enableAudio, { once: true });
+
+    new EventSource('/events').onmessage = (message) => addEvent(JSON.parse(message.data));
+    refreshState(true);
+    renderPending();
+  </script>
+</body>
+</html>

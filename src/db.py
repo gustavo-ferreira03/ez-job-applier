@@ -83,7 +83,24 @@ def save_jobs(jobs):
 def pending_easy_apply_jobs():
     with connect() as conn:
         rows = conn.execute(
-            "SELECT * FROM jobs WHERE easy_apply = 1 AND status = 'pending' ORDER BY created_at"
+            """
+            SELECT * FROM jobs
+            WHERE easy_apply = 1 AND status IN ('pending', 'needs_input', 'ready_to_submit')
+            ORDER BY created_at
+            """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def job_summary():
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT job_id, title, company, location, easy_apply, status, error_message, updated_at
+            FROM jobs
+            ORDER BY updated_at DESC
+            LIMIT 100
+            """
         ).fetchall()
     return [dict(row) for row in rows]
 

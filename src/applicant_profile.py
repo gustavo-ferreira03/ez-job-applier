@@ -19,14 +19,18 @@ class ApplicantProfile:
     def key(self, question):
         return re.sub(r"\W+", "_", question.lower()).strip("_")
 
-    def answer_for(self, question, options=None):
+    def get_answer(self, question, options=None):
         key = self.key(question)
         if options and self.answers.get(key) not in options:
-            self.answers.pop(key, None)
-        if key not in self.answers:
-            prompt = f"Answer for '{question}'"
-            if options:
-                prompt += f" ({'/'.join(options)})"
-            self.answers[key] = input(f"{prompt}: ").strip()
-            self.save()
-        return self.answers[key]
+            return None
+        return self.answers.get(key)
+
+    def set_answer(self, question, answer):
+        self.answers[self.key(question)] = answer
+        self.save()
+
+    def answer_for(self, question, options=None):
+        answer = self.get_answer(question, options)
+        if answer is None:
+            raise KeyError(f"No saved answer for '{question}'")
+        return answer
