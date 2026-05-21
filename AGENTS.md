@@ -16,11 +16,15 @@
 ## Runtime Gotchas
 - LinkedIn auth is persisted in `linkedin_session.json`; if missing/expired, the script opens manual login and waits for ENTER.
 - Browser is intentionally headed by default (`headless=False`); do not make Playwright/headful changes casually.
-- `jobs.json`, `linkedin_session.json`, `.venv/`, `.agents/`, and `skills-lock.json` are ignored by git.
+- `jobs.json`, `jobs.db`, `linkedin_session.json`, `.venv/`, `.agents/`, and `skills-lock.json` are ignored by git.
 - For faster tests, pass `max_jobs` through `LinkedInClient.collect_jobs(...)`; avoid collecting all jobs unless needed.
 
 ## Scraper Behavior
 - Job discovery first scrolls the LinkedIn results list to load IDs, then extracts jobs by `data-occludable-job-id`; preserve this two-phase flow to avoid virtualized-list issues.
-- `preferences` and `skills` come from LinkedIn's "Correspondência de preferências e competências" modal, not from the job description text.
+- `preferences` and `skills` come from LinkedIn's "Preferences and skills match" modal, not from the job description text.
 - `application_url` should be captured by actually opening the external application control for non-Easy Apply jobs; do not infer it from URLs inside `about`.
 - Easy Apply jobs should keep `application_url` as `None`.
+
+## Language
+- LinkedIn language is forced to English via `set_language_english()`, called on every session start.
+- All locators (button names, dialog names, text filters) use English strings.

@@ -7,8 +7,10 @@ __pycache__/
 
 linkedin_session.json
 jobs.json
+jobs.db
 
 .vscode/
 .agents/
 .claude/
+.playwright-cli/
 skills-lock.json
