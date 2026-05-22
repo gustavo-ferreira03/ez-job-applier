@@ -125,18 +125,6 @@
     .s-ready_to_submit  { background: #0c1f3d; color: #93c5fd; }
     .s-in_progress      { background: #0c1f3d; color: var(--blue); }
 
-    /* ── log ────────────────────────────────────────────────────────────── */
-    .log { font-family: ui-monospace, 'SF Mono', monospace; font-size: 12px; max-height: 220px; overflow-y: auto; background: var(--bg); border-radius: var(--r-sm); padding: 10px 12px; }
-    .ll  { display: flex; gap: 8px; padding: 2px 0; line-height: 1.45; }
-    .lt  { color: var(--dim); flex-shrink: 0; }
-    .lk  { font-weight: 700; flex-shrink: 0; min-width: 140px; }
-    .ld  { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .cat-run  .lk { color: var(--blue); }
-    .cat-loop .lk { color: #818cf8; }
-    .cat-ok   .lk { color: var(--green); }
-    .cat-warn .lk { color: var(--yellow); }
-    .cat-err  .lk { color: var(--red); }
-    .cat-misc .lk { color: var(--muted); }
 
     /* ── modal ──────────────────────────────────────────────────────────── */
     .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; backdrop-filter: blur(4px); }
@@ -334,43 +322,6 @@
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  // ── event log ──────────────────────────────────────────────────────────
-  const logCat = {
-    run_started: 'cat-run', run_finished: 'cat-run', run_cancelled: 'cat-misc',
-    loop_started: 'cat-loop', loop_stopped: 'cat-loop', loop_paused: 'cat-loop',
-    loop_resumed: 'cat-loop', loop_waiting: 'cat-loop',
-    application_applied: 'cat-ok', scrape_finished: 'cat-ok', answer_saved: 'cat-ok',
-    submit_approve: 'cat-ok',
-    needs_input: 'cat-warn', ready_to_submit: 'cat-warn',
-    run_failed: 'cat-err', application_failed: 'cat-err',
-  };
-
-  function logSummary(e) {
-    if (e.type === 'scrape_finished')      return `${e.count} jobs found`;
-    if (e.type === 'apply_started')        return `${e.count} to apply`;
-    if (e.type === 'application_started')  return `${e.title} @ ${e.company}`;
-    if (e.type === 'application_applied')  return `${e.title} @ ${e.company}`;
-    if (e.type === 'application_failed')   return `${e.title}: ${e.error || ''}`;
-    if (e.type === 'application_skipped')  return `${e.title} @ ${e.company}`;
-    if (e.type === 'needs_input')          return `${e.title} @ ${e.company} (${(e.questions||[]).length} q)`;
-    if (e.type === 'ready_to_submit')      return `${e.title} @ ${e.company}`;
-    if (e.type === 'run_failed')           return e.error || '';
-    if (e.type === 'loop_waiting')         return `next in ${Math.round((e.next_run_at - Date.now()/1000)/60)}m`;
-    return '';
-  }
-
-  function addLogLine(e) {
-    const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    const cat = logCat[e.type] || 'cat-misc';
-    const summary = logSummary(e);
-    const el = document.createElement('div');
-    el.className = `ll ${cat}`;
-    el.innerHTML = `<span class="lt">${now}</span><span class="lk">${e.type}</span>${summary ? `<span class="ld">${summary}</span>` : ''}`;
-    const log = $('events');
-    log.insertBefore(el, log.firstChild);
-    while (log.children.length > 80) log.removeChild(log.lastChild);
-  }
-
   // ── event handling ─────────────────────────────────────────────────────
   function handleEvent(e) {
     if (e.type === 'needs_input')   { S.inputs.set(e.request_id, e); playBell(); }
@@ -388,7 +339,6 @@
     if (e.type === 'loop_waiting')  { S.nextRunAt = e.next_run_at; tickStart(); }
     if (e.type === 'run_started' && S.loopActive) { S.nextRunAt = null; tickStop(); }
 
-    addLogLine(e);
     renderPending();
     updateStatus();
     refreshJobs();
@@ -569,26 +519,18 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') $('modal-overlay').classList.remove('open'); });
 
   // ── init ───────────────────────────────────────────────────────────────
-  function saveConfig(p) {
-    localStorage.setItem('ezjobapplier-config', JSON.stringify(p));
+  function applyConfig(p) {
+    if (!p || !Object.keys(p).length) return;
+    const f = $('run-form');
+    if (p.keywords              !== undefined) f.elements.keywords.value              = p.keywords;
+    if (p.location              !== undefined) f.elements.location.value              = p.location;
+    if (p.max_apply             !== undefined) f.elements.max_apply.value             = p.max_apply ?? '';
+    if (p.easy_apply            !== undefined) f.elements.easy_apply.value            = p.easy_apply ? 'true' : 'false';
+    if (p.work_type             !== undefined) f.elements.work_type.value             = p.work_type ?? '';
+    if (p.loop_interval_minutes !== undefined) f.elements.loop_interval_minutes.value = p.loop_interval_minutes;
+    if (p.loop_enabled) { f.elements.loop_enabled.checked = true; $('interval-field').hidden = false; }
   }
 
-  function restoreConfig() {
-    try {
-      const p = JSON.parse(localStorage.getItem('ezjobapplier-config') || '{}');
-      const f = $('run-form');
-      if (p.keywords             !== undefined) f.elements.keywords.value             = p.keywords;
-      if (p.location             !== undefined) f.elements.location.value             = p.location;
-      if (p.max_apply            !== undefined) f.elements.max_apply.value            = p.max_apply ?? '';
-      if (p.easy_apply           !== undefined) f.elements.easy_apply.value           = p.easy_apply ? 'true' : 'false';
-      if (p.work_type            !== undefined) f.elements.work_type.value            = p.work_type ?? '';
-      if (p.loop_interval_minutes !== undefined) f.elements.loop_interval_minutes.value = p.loop_interval_minutes;
-      if (p.loop_enabled) {
-        f.elements.loop_enabled.checked = true;
-        $('interval-field').hidden = false;
-      }
-    } catch {}
-  }
 
   $('loop-enabled').onchange = e => { $('interval-field').hidden = !e.target.checked; };
 
@@ -600,7 +542,6 @@
     p.loop_enabled   = !!p.loop_enabled;
     if (p.loop_interval_minutes) p.loop_interval_minutes = Number(p.loop_interval_minutes);
     if (p.max_apply) p.max_apply = Number(p.max_apply); else delete p.max_apply;
-    saveConfig(p);
     const r = await fetch('/runs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)});
     if (!r.ok) alert(await r.text());
   });
@@ -614,9 +555,9 @@
   document.addEventListener('keydown', enableAudio, {once:true});
 
   async function init() {
-    restoreConfig();
     const r = await fetch('/state');
     const d = await r.json();
+    applyConfig(d.config);
     S.running    = d.run.running;
     S.loopActive = d.run.loop_active;
     S.loopPaused = d.run.loop_paused;
@@ -629,7 +570,12 @@
     if (S.nextRunAt && !S.loopPaused && !S.running) tickStart();
   }
 
-  new EventSource('/events').onmessage = m => handleEvent(JSON.parse(m.data));
+  function connectSSE() {
+    const es = new EventSource('/events');
+    es.onmessage = m => handleEvent(JSON.parse(m.data));
+    es.onerror = () => { es.close(); setTimeout(connectSSE, 3000); };
+  }
+  connectSSE();
   init();
 </script>
 </body>

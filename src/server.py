@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -9,6 +10,21 @@ from db import get_job, init_db, job_summary
 from events import EventBus
 from runner import RunManager
 from waiters import WaiterRegistry
+
+CONFIG_PATH = Path("settings.json")
+
+
+def load_config():
+    if CONFIG_PATH.exists():
+        try:
+            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def save_config(config):
+    CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 app = FastAPI()
@@ -28,20 +44,28 @@ async def stream_events():
     async def generator():
         yield f"data: {json.dumps({'type': 'connected'}, ensure_ascii=False)}\n\n"
         async for event in events.subscribe():
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            if event is None:
+                yield ":\n\n"
+            else:
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
-    return StreamingResponse(generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/state")
 async def state():
     init_db()
-    return {"run": runner.state(), "waiters": waiters.state(), "jobs": job_summary(), "events": list(events.history)}
+    return {"run": runner.state(), "waiters": waiters.state(), "jobs": job_summary(), "events": list(events.history), "config": load_config()}
 
 
 @app.post("/runs")
 async def start_run(request: Request):
     payload = await request.json()
+    save_config(payload)
     try:
         if payload.get("loop_enabled"):
             await runner.start_loop(payload)

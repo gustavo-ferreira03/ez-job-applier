@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import Union
 
+from cloakbrowser import launch_async
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
-from playwright.async_api import async_playwright
-from playwright_stealth import Stealth
 
 
 class LinkedInClient:
@@ -12,8 +11,7 @@ class LinkedInClient:
         self.headless = headless
 
     async def __aenter__(self):
-        self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(headless=self.headless, slow_mo=50)
+        self.browser = await launch_async(headless=self.headless, slow_mo=50)
         self.context = await self.browser.new_context(
             storage_state=str(self.session_file) if self.session_file.exists() else None,
             locale="en-US",
@@ -21,13 +19,11 @@ class LinkedInClient:
         )
         self.context.set_default_timeout(30000)
         self.page = await self.context.new_page()
-        await Stealth().apply_stealth_async(self.page)
         return self
 
     async def __aexit__(self, *_):
         await self.context.close()
         await self.browser.close()
-        await self.playwright.stop()
 
     async def save_session(self):
         await self.context.storage_state(path=str(self.session_file))
@@ -42,7 +38,6 @@ class LinkedInClient:
         )
         self.context.set_default_timeout(30000)
         self.page = await self.context.new_page()
-        await Stealth().apply_stealth_async(self.page)
 
     async def set_language_english(self):
         await self.page.goto("https://www.linkedin.com/mypreferences/d/language", wait_until="domcontentloaded")

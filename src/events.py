@@ -20,13 +20,16 @@ class EventBus:
         for queue in dead:
             self.subscribers.discard(queue)
 
-    async def subscribe(self):
+    async def subscribe(self, keepalive_secs=15):
         queue = asyncio.Queue(maxsize=100)
         self.subscribers.add(queue)
         try:
             for event in self.history:
                 yield event
             while True:
-                yield await queue.get()
+                try:
+                    yield await asyncio.wait_for(queue.get(), timeout=keepalive_secs)
+                except asyncio.TimeoutError:
+                    yield None
         finally:
             self.subscribers.discard(queue)
