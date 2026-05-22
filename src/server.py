@@ -127,6 +127,19 @@ async def skip_submit(job_id: str, request: Request):
     return await submit_decision(job_id, request, "skip")
 
 
+@app.post("/applications/{job_id}/edit")
+async def edit_submit(job_id: str, request: Request):
+    payload = await request.json()
+    request_id = payload.get("request_id")
+    answers = payload.get("answers") or {}
+    waiter = waiters.pending_submits.get(request_id)
+    if not waiter or waiter["event"].get("job_id") != job_id:
+        raise HTTPException(status_code=404, detail="No pending submit request")
+    waiters.resolve_submit(request_id, {"decision": "edit", "answers": answers})
+    await events.publish({"type": "submit_edit", "request_id": request_id, "job_id": job_id})
+    return {"ok": True}
+
+
 async def submit_decision(job_id, request, decision):
     payload = await request.json()
     request_id = payload.get("request_id")

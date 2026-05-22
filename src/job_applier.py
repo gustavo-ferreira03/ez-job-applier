@@ -39,12 +39,30 @@ class JobApplier(LinkedInClient):
             modal = self.page.get_by_role("dialog").last
             await modal.wait_for()
 
-            for _ in range(10):
+            for _ in range(20):
                 await self.fill_step(modal, profile, job, applied_answers)
 
                 submit = modal.get_by_role("button", name=re.compile("submit application", re.I)).first
                 if await submit.count():
-                    decision = await self.confirm_submit(job)
+                    result = await self.confirm_submit(job, applied_answers)
+                    decision = result if isinstance(result, str) else result.get("decision")
+                    if decision == "edit":
+                        new_answers = {} if isinstance(result, str) else result.get("answers", {})
+                        key_to_question = {profile.key(a["question"]): a["question"] for a in applied_answers}
+                        for q_key, new_ans in new_answers.items():
+                            question_text = key_to_question.get(q_key)
+                            if question_text and new_ans:
+                                profile.set_answer(question_text, new_ans)
+                        back = modal.locator("button[aria-label='Back to previous step']").first
+                        if not await back.count():
+                            back = modal.get_by_role("button", name=re.compile(r"^back", re.I)).first
+                        if await back.count():
+                            await back.click()
+                            await self.page.wait_for_timeout(1000)
+                            applied_answers.clear()
+                            continue
+                        await self.close_modal(modal)
+                        return "skipped", None, applied_answers
                     if decision != "approve":
                         await self.close_modal(modal)
                         return "skipped", None, applied_answers
@@ -86,10 +104,16 @@ class JobApplier(LinkedInClient):
         fields = modal.locator("input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), textarea")
         for index in range(await fields.count()):
             field = fields.nth(index)
-            if not await field.is_visible() or not await field.is_enabled() or await field.input_value():
+            if not await field.is_visible() or not await field.is_enabled():
                 continue
             label = await self.field_label(field, f"text field {index + 1}")
             answer = profile.get_answer(label)
+            current_value = await field.input_value()
+            if current_value:
+                if answer and answer != current_value:
+                    await field.fill(answer)
+                    applied_answers.append({"question": label, "answer": answer})
+                continue
             if answer:
                 await field.fill(answer)
                 applied_answers.append({"question": label, "answer": answer})
@@ -102,12 +126,19 @@ class JobApplier(LinkedInClient):
             select = selects.nth(index)
             if not await select.is_visible() or not await select.is_enabled():
                 continue
-            selected = await select.locator("option:checked").inner_text()
-            if selected and "select" not in selected.lower() and "selecionar" not in selected.lower():
-                continue
+            selected = (await select.locator("option:checked").inner_text()).strip()
             label = await self.field_label(select, f"select field {index + 1}")
             options = await self.select_options(select)
             answer = profile.get_answer(label, options)
+            already_selected = selected and "select" not in selected.lower() and "selecionar" not in selected.lower()
+            if already_selected:
+                if answer and answer != selected:
+                    try:
+                        await select.select_option(label=answer)
+                        applied_answers.append({"question": label, "answer": answer})
+                    except PlaywrightError:
+                        pass
+                continue
             if not answer:
                 pending.append({"field": select, "question": label, "field_type": "select", "options": options})
                 continue
@@ -151,11 +182,11 @@ class JobApplier(LinkedInClient):
             else:
                 await item["field"].fill(answer)
 
-    async def confirm_submit(self, job):
+    async def confirm_submit(self, job, applied_answers):
         if not self.submit_approver:
             raise ReadyToSubmit
         try:
-            return await self.submit_approver(job)
+            return await self.submit_approver(job, applied_answers)
         except WaiterTimeout as exc:
             raise ReadyToSubmit from exc
 

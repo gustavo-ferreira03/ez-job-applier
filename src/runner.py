@@ -269,11 +269,12 @@ class RunManager:
             "questions": questions,
         })
 
-    async def _submit_approver(self, job):
+    async def _submit_approver(self, job, applied_answers):
         return await self.waiters.wait_for_submit({
             "job_id": job["job_id"],
             "title": job["title"],
             "company": job["company"],
+            "applied_answers": applied_answers,
         })
 
     def state(self):

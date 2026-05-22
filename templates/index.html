@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Job Applier</title>
+  <title>EZJobApplier</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     :root {
@@ -166,7 +166,7 @@
 <body>
 
 <header class="topbar">
-  <div class="topbar-logo">Job<span>Applier</span></div>
+  <div class="topbar-logo">EZ<span>JobApplier</span></div>
   <div class="topbar-right">
     <div class="pill pill-idle" id="status-pill">
       <span class="dot"></span>
@@ -260,12 +260,6 @@
     </table>
   </div>
 
-  <div class="card">
-    <div class="card-hd"><h2>Activity</h2></div>
-    <div class="card-bd" style="padding:12px 16px">
-      <div class="log" id="events"></div>
-    </div>
-  </div>
 
 </main>
 
@@ -382,7 +376,7 @@
     if (e.type === 'needs_input')   { S.inputs.set(e.request_id, e); playBell(); }
     if (['input_timeout','answer_saved','input_skipped'].includes(e.type)) S.inputs.delete(e.request_id);
     if (e.type === 'ready_to_submit') { S.submits.set(e.request_id, e); playBell(); }
-    if (['submit_timeout','submit_approve','submit_skip'].includes(e.type)) S.submits.delete(e.request_id);
+    if (['submit_timeout','submit_approve','submit_skip','submit_edit'].includes(e.type)) S.submits.delete(e.request_id);
 
     if (e.type === 'run_started')   S.running = true;
     if (['run_finished','run_failed','run_cancelled'].includes(e.type)) S.running = false;
@@ -427,15 +421,40 @@
         </div>
       </div>`).join('') : '<p class="empty">No pending questions.</p>';
 
-    $('submits').innerHTML = sub.length ? sub.map(ev => `
-      <div class="ac">
-        <div class="ac-title">${ev.title}</div>
-        <div class="ac-company">${ev.company}</div>
-        <div class="ac-btns">
-          <button class="btn-ok"    onclick="decide('${ev.job_id}','${ev.request_id}','approve')">Submit application</button>
-          <button class="btn-ghost" onclick="decide('${ev.job_id}','${ev.request_id}','skip')">Skip</button>
+    $('submits').innerHTML = sub.length ? sub.map(ev => {
+      const answers = Array.isArray(ev.applied_answers) ? ev.applied_answers : [];
+      const rid = ev.request_id;
+      const viewHtml = answers.length ? `
+        <div class="qa-grid" id="qa-view-${rid}" style="margin-bottom:12px">
+          ${answers.map(a => `<div class="qa"><div class="qa-q">${escapeHtml(a.question)}</div><div class="qa-a">${escapeHtml(a.answer)}</div></div>`).join('')}
         </div>
-      </div>`).join('') : '<p class="empty">No pending approvals.</p>';
+        <div id="qa-edit-${rid}" hidden style="margin-bottom:12px">
+          ${answers.map((a,i) => `
+            <div class="ac-field">
+              <label>${escapeHtml(a.question)}</label>
+              <input id="edit-${rid}-${i}" value="${escapeHtml(a.answer)}" data-key="${profileKey(a.question)}">
+            </div>`).join('')}
+        </div>` : '';
+      return `
+      <div class="ac">
+        <div class="ac-title">${escapeHtml(ev.title)}</div>
+        <div class="ac-company">${escapeHtml(ev.company)}</div>
+        ${viewHtml}
+        <div class="ac-btns">
+          <button class="btn-ok"    onclick="decide('${ev.job_id}','${rid}','approve')">Submit application</button>
+          <button class="btn-warn"  onclick="toggleEdit('${rid}')">Edit</button>
+          <button class="btn-ghost" onclick="decide('${ev.job_id}','${rid}','skip')">Skip</button>
+        </div>
+      </div>`;
+    }).join('') : '<p class="empty">No pending approvals.</p>';
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function profileKey(q) {
+    return q.toLowerCase().replace(/\W+/g,'_').replace(/^_+|_+$/g,'');
   }
 
   async function skipQuestion(rid) {
@@ -453,7 +472,33 @@
     renderPending();
   }
 
+  function toggleEdit(rid) {
+    const editDiv = $(`qa-edit-${rid}`);
+    const viewDiv = $(`qa-view-${rid}`);
+    if (editDiv) editDiv.hidden = !editDiv.hidden;
+    if (viewDiv) viewDiv.hidden = !viewDiv.hidden;
+  }
+
   async function decide(jobId, rid, decision) {
+    if (decision === 'approve') {
+      const editDiv = $(`qa-edit-${rid}`);
+      if (editDiv && !editDiv.hidden) {
+        const ev = S.submits.get(rid);
+        const answers = {};
+        (ev.applied_answers || []).forEach((a, i) => {
+          const input = $(`edit-${rid}-${i}`);
+          if (input) answers[input.dataset.key] = input.value;
+        });
+        const r = await fetch(`/applications/${jobId}/edit`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({request_id: rid, answers}),
+        });
+        if (r.ok) S.submits.delete(rid);
+        renderPending();
+        return;
+      }
+    }
     const r = await fetch(`/applications/${jobId}/${decision}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({request_id:rid})});
     if (r.ok) S.submits.delete(rid);
     renderPending();
@@ -524,6 +569,27 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') $('modal-overlay').classList.remove('open'); });
 
   // ── init ───────────────────────────────────────────────────────────────
+  function saveConfig(p) {
+    localStorage.setItem('ezjobapplier-config', JSON.stringify(p));
+  }
+
+  function restoreConfig() {
+    try {
+      const p = JSON.parse(localStorage.getItem('ezjobapplier-config') || '{}');
+      const f = $('run-form');
+      if (p.keywords             !== undefined) f.elements.keywords.value             = p.keywords;
+      if (p.location             !== undefined) f.elements.location.value             = p.location;
+      if (p.max_apply            !== undefined) f.elements.max_apply.value            = p.max_apply ?? '';
+      if (p.easy_apply           !== undefined) f.elements.easy_apply.value           = p.easy_apply ? 'true' : 'false';
+      if (p.work_type            !== undefined) f.elements.work_type.value            = p.work_type ?? '';
+      if (p.loop_interval_minutes !== undefined) f.elements.loop_interval_minutes.value = p.loop_interval_minutes;
+      if (p.loop_enabled) {
+        f.elements.loop_enabled.checked = true;
+        $('interval-field').hidden = false;
+      }
+    } catch {}
+  }
+
   $('loop-enabled').onchange = e => { $('interval-field').hidden = !e.target.checked; };
 
   $('run-form').addEventListener('submit', async e => {
@@ -534,6 +600,7 @@
     p.loop_enabled   = !!p.loop_enabled;
     if (p.loop_interval_minutes) p.loop_interval_minutes = Number(p.loop_interval_minutes);
     if (p.max_apply) p.max_apply = Number(p.max_apply); else delete p.max_apply;
+    saveConfig(p);
     const r = await fetch('/runs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)});
     if (!r.ok) alert(await r.text());
   });
@@ -547,6 +614,7 @@
   document.addEventListener('keydown', enableAudio, {once:true});
 
   async function init() {
+    restoreConfig();
     const r = await fetch('/state');
     const d = await r.json();
     S.running    = d.run.running;

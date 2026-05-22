@@ -1,5 +1,5 @@
 [project]
-name = "job-applier"
+name = "ezjobapplier"
 version = "0.1.0"
 description = "LinkedIn job collection helper."
 readme = "README.md"
