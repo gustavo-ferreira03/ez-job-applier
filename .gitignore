@@ -5,10 +5,8 @@ __pycache__/
 .env
 .env.*
 
-linkedin_session.json
-jobs.json
-jobs.db
-profile.json
+*.json
+*.db
 
 .vscode/
 .agents/
