@@ -144,7 +144,7 @@
   function setFeedback(applicationId, type, message) { S.feedback[applicationId] = {type, message}; }
   function clearFeedback(applicationId) { delete S.feedback[applicationId]; }
   function isBusy(applicationId, type) { return S.busy[applicationId] === type; }
-  function busyMessage(type) { return {answers:'Saving answers...', approve:'Approving submit...', skip:'Skipping application...'}[type] || 'Working...'; }
+  function busyMessage(type) { return {answers:'Submitting answers...', approve:'Approving submit...', skip:'Skipping application...'}[type] || 'Working...'; }
   function showToast(message) {
     const toast = $('toast');
     toast.textContent = message;
@@ -177,7 +177,7 @@
         <div class="title">${esc(app.title)}</div><div class="sub">${esc(app.company)}</div>
         ${(app.questions || []).map(q => questionField(app, q, Boolean(busy) || answered)).join('')}
         ${actionNotice(app.application_id)}
-        <div class="actions"><button class="primary" onclick="sendAnswers(${app.application_id})" ${busy || answered ? 'disabled' : ''}>${isBusy(app.application_id, 'answers') ? 'Saving...' : answered ? 'Answers saved' : 'Save answers'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
+        <div class="actions"><button class="primary" onclick="sendAnswers(${app.application_id})" ${busy || answered ? 'disabled' : ''}>${isBusy(app.application_id, 'answers') ? 'Submitting...' : answered ? 'Answers submitted' : 'Submit answers'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
       </div>`;
     }).join('') : '<p class="empty">No pending questions.</p>';
     $('submits').innerHTML = S.review.length ? S.review.map(app => {
@@ -209,7 +209,7 @@
       const options = question.options.map(option => `<option value="${esc(option)}" ${option === value ? 'selected' : ''}>${esc(option)}</option>`).join('');
       return `<div class="field"><label>${esc(question.label)}</label><select ${attrs}>${options}</select></div>`;
     }
-    return `<div class="field"><label>${esc(question.label)}</label><input ${attrs} value="${esc(value)}" placeholder="Answer"></div>`;
+    return `<div class="field"><label>${esc(question.label)}</label><input ${attrs} value="${esc(value)}" placeholder="Answer" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswers(${app.application_id});}"></div>`;
   }
 
   function renderJobs() {
@@ -235,8 +235,8 @@
       const response = await post(`/applications/${applicationId}/answers`, {answers});
       if (!response.ok) throw new Error(await response.text());
       clearBusy(applicationId);
-      setFeedback(applicationId, 'answers', 'Answers saved. The worker will continue from here.');
-      showToast('Answers saved');
+      setFeedback(applicationId, 'answers', 'Answers submitted. The worker will continue from here.');
+      showToast('Answers submitted');
       await refreshState();
     } catch (error) {
       clearBusy(applicationId);
