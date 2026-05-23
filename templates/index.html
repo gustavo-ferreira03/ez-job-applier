@@ -5,733 +5,357 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EZJobApplier</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    :root {
-      --bg:           #0c1120;
-      --surface:      #111827;
-      --surface-2:    #1e293b;
-      --border:       #1e2d45;
-      --border-hi:    #334155;
-      --text:         #f1f5f9;
-      --muted:        #94a3b8;
-      --dim:          #64748b;
-      --blue:         #38bdf8;
-      --blue-dark:    #0369a1;
-      --green:        #4ade80;
-      --yellow:       #fbbf24;
-      --orange:       #fb923c;
-      --red:          #f87171;
-      --r:            12px;
-      --r-sm:         8px;
-      /* transitions-dev */
-      --modal-open-dur: 250ms;
-      --modal-close-dur: 150ms;
-      --modal-scale: 0.96;
-      --modal-scale-close: 0.96;
-      --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
-      --text-swap-dur: 200ms;
-      --text-swap-translate-y: 8px;
-      --text-swap-blur: 2px;
-      --text-swap-ease: ease-out;
-      --digit-dur: 500ms;
-      --digit-distance: 8px;
-      --digit-stagger: 70ms;
-      --digit-blur: 2px;
-      --digit-ease: cubic-bezier(0.34, 1.45, 0.64, 1);
-      --digit-dir-x: 0;
-      --digit-dir-y: 1;
-    }
-    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
-
-    /* ── header ─────────────────────────────────────────────────────────── */
-    .topbar { position: sticky; top: 0; z-index: 50; height: 52px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 28px; gap: 12px; }
-    .topbar-logo { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
-    .topbar-logo span { color: var(--blue); }
-    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-
-    .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 99px; white-space: nowrap; }
-    .pill .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .pill-idle    { background: var(--surface-2); color: var(--muted); }
-    .pill-idle    .dot { background: var(--border-hi); }
-    .pill-running { background: #0c2d4a; color: var(--blue); }
-    .pill-running .dot { background: var(--blue); animation: blink 1.4s ease-in-out infinite; }
-    .pill-waiting { background: #2d1c00; color: var(--yellow); }
-    .pill-waiting .dot { background: var(--yellow); }
-    .pill-paused  { background: #2a1400; color: var(--orange); }
-    .pill-paused  .dot { background: var(--orange); }
-    @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:.25 } }
-
-    /* ── layout ─────────────────────────────────────────────────────────── */
-    main { max-width: 1220px; margin: 0 auto; padding: 18px; }
-    .app-grid { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 14px; align-items: start; }
-    .main-col { display: grid; gap: 14px; }
-    .jobs-rail { position: sticky; top: 70px; max-height: calc(100vh - 88px); display: flex; flex-direction: column; }
-    .jobs-rail .card-bd { overflow: auto; padding: 10px; }
-    @media (max-width: 980px) {
-      main { padding: 14px; }
-      .app-grid { grid-template-columns: 1fr; }
-      .jobs-rail { position: static; max-height: none; }
-    }
-
-    /* ── card ───────────────────────────────────────────────────────────── */
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
-    .card-hd { padding: 11px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; min-height: 42px; }
-    .card-hd h2 { margin: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); }
-    .card-bd { padding: 16px; }
-    .cnt { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
-
-    .card.alert { border-color: #fbbf2450; }
-    .card.alert .card-hd { border-bottom-color: #fbbf2425; }
-    .card.alert .card-hd h2 { color: var(--yellow); }
-    .card.alert .cnt { background: #451a0360; color: var(--yellow); }
-
-    /* ── form ───────────────────────────────────────────────────────────── */
-    .fg { display: grid; grid-template-columns: 1.4fr repeat(4, minmax(120px, .7fr)); gap: 10px; align-items: end; }
-    .f  { display: flex; flex-direction: column; gap: 5px; }
-    .f.w2 { grid-column: span 2; }
-    .f > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
-    .f small { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); }
-    input, select, textarea {
-      background: var(--bg); color: var(--text);
-      border: 1px solid var(--border-hi); border-radius: var(--r-sm);
-      padding: 8px 11px; font-family: inherit; font-size: 14px;
-      transition: border-color .15s, box-shadow .15s;
-      width: 100%;
-    }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px #38bdf818; }
-    textarea { resize: vertical; min-height: 44px; }
-
-    .toggle-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin-top: 10px; }
-    .toggle-wrap { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; padding-bottom: 2px; }
-    .toggle { appearance: none; width: 38px; height: 21px; border-radius: 99px; background: var(--border-hi); cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; border: none; padding: 0; }
-    .toggle::after { content: ''; position: absolute; width: 15px; height: 15px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left .2s; }
-    .toggle:checked { background: var(--blue-dark); }
-    .toggle:checked::after { left: 20px; }
-    .toggle-wrap span { font-size: 13px; color: var(--muted); }
-
-    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    button { border: 0; border-radius: var(--r-sm); font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer; transition: filter .15s; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-    button:hover { filter: brightness(1.12); }
-    button:active { filter: brightness(.9); }
-    .btn-primary { background: var(--blue); color: #04243a; }
-    .btn-ghost   { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border-hi); }
-    .btn-danger  { background: #3b0a0a; color: var(--red); border: 1px solid #7f1d1d; }
-    .btn-warn    { background: #2d1200; color: var(--yellow); border: 1px solid #713f12; }
-    .btn-ok      { background: #0d2e1a; color: var(--green); border: 1px solid #166534; }
-    button[hidden] { display: none !important; }
-
-    /* ── action cards (questions / approvals) ───────────────────────────── */
-    .ac { background: var(--surface-2); border: 1px solid var(--border-hi); border-radius: var(--r-sm); padding: 12px 14px; }
-    .ac + .ac { margin-top: 8px; }
-    .ac-title   { font-weight: 600; font-size: 14px; }
-    .ac-company { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-    .ac-field   { margin-bottom: 8px; }
-    .ac-field label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin-bottom: 4px; }
-    .ac-field input, .ac-field select { background: var(--bg); }
-    .ac-btns    { display: flex; gap: 8px; margin-top: 12px; }
-    .empty      { color: var(--dim); font-size: 13px; }
-
-    /* ── jobs rail ──────────────────────────────────────────────────────── */
-    .job-list { display: grid; gap: 8px; }
-    .job-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 10px 11px; cursor: pointer; transition: background .15s, border-color .15s; width: 320px; min-height: 86px; }
-    .job-card:hover { background: var(--surface-2); border-color: var(--border-hi); }
-    .job-card-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
-    .job-title { font-weight: 600; line-height: 1.25; max-width: 220px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    .job-meta { font-size: 12px; color: var(--muted); margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .job-time { font-size: 11px; color: var(--dim); margin-top: 7px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-
-    .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
-    .s-pending          { background: #1e293b; color: var(--muted); }
-    .s-applied          { background: #0d2e1a; color: #86efac; }
-    .s-failed           { background: #300a0a; color: #fca5a5; }
-    .s-skipped          { background: #1c1917; color: #a8a29e; }
-    .s-needs_input      { background: #2d1500; color: #fde68a; }
-    .s-ready_to_submit  { background: #0c1f3d; color: #93c5fd; }
-    .s-in_progress      { background: #0c1f3d; color: var(--blue); }
-
-
-    /* ── modal ──────────────────────────────────────────────────────────── */
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; backdrop-filter: blur(4px); }
-    .overlay.open { display: flex; }
-    .modal { background: #131e33; border: 1px solid var(--border-hi); border-radius: 16px; width: 100%; max-width: 740px; overflow: hidden; position: relative; }
-    .modal-hd { padding: 24px 28px 18px; border-bottom: 1px solid var(--border); }
-    .modal-hd h3 { margin: 0 36px 8px 0; font-size: 18px; font-weight: 700; line-height: 1.3; }
-    .modal-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
-    .modal-bd { padding: 22px 28px 28px; }
-    .ms { margin-top: 20px; }
-    .ms-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); margin-bottom: 8px; }
-    .about { white-space: pre-wrap; font-size: 13px; line-height: 1.65; color: var(--muted); max-height: 260px; overflow-y: auto; background: var(--bg); padding: 14px; border-radius: var(--r-sm); border: 1px solid var(--border); }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip  { background: var(--surface-2); border: 1px solid var(--border-hi); border-radius: 6px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
-    .qa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
-    .qa { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 10px 12px; }
-    .qa-q { font-size: 11px; color: var(--dim); margin-bottom: 3px; }
-    .qa-a { font-weight: 600; color: var(--text); }
-    .err-box { background: #1a0505; border: 1px solid #7f1d1d; border-radius: var(--r-sm); padding: 12px; font-size: 13px; color: var(--red); }
-    .mclose { position: absolute; top: 18px; right: 20px; background: var(--surface-2); border: 1px solid var(--border-hi); color: var(--muted); font-size: 14px; width: 28px; height: 28px; border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
-    .mclose:hover { background: var(--border-hi); color: var(--text); filter: none; }
-    .mlink { color: var(--blue); text-decoration: none; font-size: 13px; }
-    .mlink:hover { text-decoration: underline; }
-    .mfooter { font-size: 11px; color: var(--dim); margin-top: 22px; }
-
-    /* ── transitions-dev: modal ─────────────────────────────────────────── */
-    .t-modal {
-      transform-origin: center;
-      transform: scale(var(--modal-scale));
-      opacity: 0;
-      pointer-events: none;
-      transition:
-        transform var(--modal-open-dur) var(--modal-ease),
-        opacity   var(--modal-open-dur) var(--modal-ease);
-      will-change: transform, opacity;
-    }
-    .t-modal.is-open {
-      transform: scale(1);
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .t-modal.is-closing {
-      transform: scale(var(--modal-scale-close));
-      opacity: 0;
-      pointer-events: none;
-      transition:
-        transform var(--modal-close-dur) var(--modal-ease),
-        opacity   var(--modal-close-dur) var(--modal-ease);
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .t-modal { transition: none !important; }
-    }
-
-    /* ── transitions-dev: text states swap ──────────────────────────────── */
-    .t-text-swap {
-      display: inline-block;
-      transform: translateY(0);
-      filter: blur(0);
-      opacity: 1;
-      transition:
-        transform var(--text-swap-dur) var(--text-swap-ease),
-        filter    var(--text-swap-dur) var(--text-swap-ease),
-        opacity   var(--text-swap-dur) var(--text-swap-ease);
-      will-change: transform, filter, opacity;
-    }
-    .t-text-swap.is-exit {
-      transform: translateY(calc(var(--text-swap-translate-y) * -1));
-      filter: blur(var(--text-swap-blur));
-      opacity: 0;
-    }
-    .t-text-swap.is-enter-start {
-      transform: translateY(var(--text-swap-translate-y));
-      filter: blur(var(--text-swap-blur));
-      opacity: 0;
-      transition: none;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .t-text-swap { transition: none !important; }
-    }
-
-    /* ── transitions-dev: number pop-in ────────────────────────────────── */
-    @keyframes t-digit-pop-in {
-      0%   {
-        transform: translate(
-          calc(var(--digit-distance) * var(--digit-dir-x)),
-          calc(var(--digit-distance) * var(--digit-dir-y))
-        );
-        opacity: 0;
-        filter: blur(var(--digit-blur));
-      }
-      100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
-    }
-    .t-digit-group { display: inline-flex; align-items: baseline; }
-    .t-digit { display: inline-block; will-change: transform, opacity, filter; }
-    .t-digit-group.is-animating .t-digit {
-      animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
-    }
-    .t-digit-group.is-animating .t-digit[data-stagger="1"] {
-      animation-delay: var(--digit-stagger);
-    }
-    .t-digit-group.is-animating .t-digit[data-stagger="2"] {
-      animation-delay: calc(var(--digit-stagger) * 2);
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .t-digit-group .t-digit { animation: none !important; }
-    }
+    * { box-sizing: border-box; }
+    :root { --bg:#0c1120; --surface:#111827; --surface-2:#1e293b; --border:#1e2d45; --border-hi:#334155; --text:#f1f5f9; --muted:#94a3b8; --dim:#64748b; --blue:#38bdf8; --green:#4ade80; --yellow:#fbbf24; --red:#f87171; --r:12px; --r-sm:8px; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,sans-serif; }
+    .topbar { position:sticky; top:0; z-index:50; height:52px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 28px; }
+    .logo { font-weight:800; letter-spacing:-.02em; }
+    .logo span { color:var(--blue); }
+    .pill { margin-left:auto; display:inline-flex; gap:6px; align-items:center; padding:4px 11px; border-radius:99px; background:var(--surface-2); color:var(--muted); font-size:12px; font-weight:700; }
+    .pill::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--border-hi); }
+    .pill.running { background:#0c2d4a; color:var(--blue); }
+    .pill.running::before { background:var(--blue); animation:blink 1.4s infinite; }
+    @keyframes blink { 50% { opacity:.25; } }
+    main { max-width:1220px; margin:0 auto; padding:18px; }
+    .grid { display:grid; grid-template-columns:minmax(0, 1fr) max-content; gap:14px; align-items:start; }
+    .main { display:grid; gap:14px; }
+    .jobs-rail { position:sticky; top:70px; max-height:calc(100vh - 88px); display:flex; flex-direction:column; }
+    .jobs-rail .bd { overflow:auto; padding:10px; }
+    @media (max-width:980px) { .grid { grid-template-columns:1fr; } .jobs-rail { position:static; max-height:none; } }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+    .card.alert { border-color:#fbbf2450; }
+    .hd { min-height:42px; padding:11px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+    .hd h2 { margin:0; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+    .bd { padding:16px; }
+    .count { padding:1px 7px; border-radius:99px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; }
+    .form-grid { display:grid; grid-template-columns:1.4fr repeat(4,minmax(120px,.7fr)); gap:10px; align-items:end; }
+    .f { display:flex; flex-direction:column; gap:5px; }
+    .f.w2 { grid-column:span 2; }
+    .f > span, .field label { color:var(--dim); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+    small { color:var(--muted); font-weight:400; text-transform:none; }
+    input, select, textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border-hi); border-radius:var(--r-sm); padding:8px 11px; font:inherit; }
+    textarea { min-height:44px; resize:vertical; }
+    input:focus, select:focus, textarea:focus { outline:0; border-color:var(--blue); box-shadow:0 0 0 3px #38bdf818; }
+    .btn-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    button { border:0; border-radius:var(--r-sm); padding:8px 16px; cursor:pointer; font-weight:700; }
+    button:hover { filter:brightness(1.12); }
+    button:disabled { cursor:wait; opacity:.62; filter:none; }
+    .primary { background:var(--blue); color:#04243a; }
+    .ghost { background:var(--surface-2); color:var(--muted); border:1px solid var(--border-hi); }
+    .danger { background:#3b0a0a; color:var(--red); border:1px solid #7f1d1d; }
+    .ok { background:#0d2e1a; color:var(--green); border:1px solid #166534; }
+    .action { background:var(--surface-2); border:1px solid var(--border-hi); border-radius:var(--r-sm); padding:12px 14px; }
+    .action.busy { border-color:#38bdf866; }
+    .action + .action { margin-top:8px; }
+    .title { font-weight:700; }
+    .sub { color:var(--muted); font-size:12px; margin-bottom:8px; }
+    .field { margin-bottom:8px; }
+    .actions { display:flex; gap:8px; margin-top:12px; }
+    .empty { color:var(--dim); font-size:13px; margin:0; }
+    .job-list { display:grid; gap:8px; }
+    .job-card { width:320px; min-height:86px; padding:10px 11px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; }
+    .job-card:hover { background:var(--surface-2); border-color:var(--border-hi); }
+    .job-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+    .job-title { max-width:220px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; font-weight:700; line-height:1.25; }
+    .job-meta, .job-time { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); font-size:12px; margin-top:4px; }
+    .job-time { color:var(--dim); font-size:11px; margin-top:7px; }
+    .badge { display:inline-flex; align-items:center; border-radius:99px; padding:2px 8px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; white-space:nowrap; }
+    .s-FOUND { background:#1e293b; color:var(--muted); } .s-ANALYZING { background:#0c1f3d; color:var(--blue); } .s-NEEDS_ANSWERS { background:#2d1500; color:#fde68a; } .s-READY_FOR_REVIEW { background:#0c1f3d; color:#93c5fd; } .s-SUBMITTED { background:#0d2e1a; color:#86efac; } .s-SKIPPED { background:#1c1917; color:#a8a29e; } .s-FAILED { background:#300a0a; color:#fca5a5; }
+    .overlay { display:none; position:fixed; inset:0; z-index:200; background:#0009; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; backdrop-filter:blur(4px); }
+    .overlay.open { display:flex; }
+    .modal { position:relative; width:100%; max-width:760px; background:#131e33; border:1px solid var(--border-hi); border-radius:16px; overflow:hidden; }
+    .modal-hd { padding:24px 28px 18px; border-bottom:1px solid var(--border); }
+    .modal-hd h3 { margin:0 36px 8px 0; }
+    .modal-bd { padding:22px 28px 28px; }
+    .close { position:absolute; top:18px; right:20px; width:28px; height:28px; padding:0; background:var(--surface-2); color:var(--muted); border:1px solid var(--border-hi); }
+    .section { margin-top:20px; } .section-name { color:var(--dim); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; margin-bottom:8px; }
+    .box { max-height:260px; overflow:auto; white-space:pre-wrap; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:14px; color:var(--muted); }
+    .chips, .qa-grid { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip, .qa { background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:6px 10px; }
+    .qa-q { color:var(--dim); font-size:11px; } .qa-a { font-weight:700; }
+    .err { background:#1a0505; border:1px solid #7f1d1d; color:var(--red); border-radius:var(--r-sm); padding:12px; }
+    .notice { margin:10px 0 0; padding:9px 11px; border-radius:var(--r-sm); border:1px solid #38bdf866; background:#082f49; color:#bae6fd; font-size:12px; font-weight:700; }
+    .notice.ok { border-color:#166534; background:#052e16; color:#86efac; }
+    .notice.warn { border-color:#92400e; background:#2d1500; color:#fde68a; }
+    .toast { position:fixed; right:18px; bottom:18px; z-index:300; max-width:min(420px, calc(100vw - 36px)); padding:11px 14px; border-radius:var(--r-sm); border:1px solid var(--border-hi); background:#131e33; color:var(--text); box-shadow:0 18px 45px #0007; opacity:0; transform:translateY(8px); transition:opacity .16s ease, transform .16s ease; }
+    .toast.show { opacity:1; transform:none; }
   </style>
 </head>
 <body>
-
-<header class="topbar">
-  <div class="topbar-logo">EZ<span>JobApplier</span></div>
-  <div class="topbar-right">
-    <div class="pill pill-idle" id="status-pill">
-      <span class="dot"></span>
-      <span id="status-text" class="t-text-swap">Idle</span>
-    </div>
-  </div>
-</header>
-
+<header class="topbar"><div class="logo">EZ<span>JobApplier</span></div><div class="pill" id="status">Idle</div></header>
 <main>
-  <div class="app-grid">
-    <div class="main-col">
-      <div class="card">
-        <div class="card-hd"><h2>Configuration</h2></div>
-        <div class="card-bd">
+  <div class="grid">
+    <div class="main">
+      <section class="card">
+        <div class="hd"><h2>Configuration</h2></div>
+        <div class="bd">
           <form id="run-form">
-            <div class="fg">
-              <div class="f w2">
-                <span>Keywords <small>(one per line)</small></span>
-                <textarea name="keywords" rows="2" placeholder="python developer junior&#10;backend engineer">python developer junior</textarea>
-              </div>
-              <div class="f">
-                <span>Location</span>
-                <input name="location" value="Brazil">
-              </div>
-              <div class="f">
-                <span>Max applications <small>(blank = ∞)</small></span>
-                <input name="max_apply" type="number" min="1" placeholder="unlimited">
-              </div>
-              <div class="f">
-                <span>Easy Apply</span>
-                <select name="easy_apply"><option value="true">Yes</option><option value="false">No</option></select>
-              </div>
-              <div class="f">
-                <span>Work type</span>
-                <select name="work_type">
-                  <option value="">Any</option>
-                  <option value="remote">Remote</option>
-                  <option value="hybrid">Hybrid</option>
-                  <option value="onsite">On-site</option>
-                  <option value="remote,hybrid">Remote + Hybrid</option>
-                </select>
-              </div>
+            <div class="form-grid">
+              <label class="f w2"><span>Keywords <small>(one per line)</small></span><textarea name="keywords" rows="2">python developer junior</textarea></label>
+              <label class="f"><span>Location</span><input name="location" value="Brazil"></label>
+              <label class="f"><span>Max applications <small>(blank = ∞)</small></span><input name="max_apply" type="number" min="1" placeholder="unlimited"></label>
+              <label class="f"><span>Easy Apply</span><select name="easy_apply"><option value="true">Yes</option><option value="false">No</option></select></label>
+              <label class="f"><span>Work type</span><select name="work_type"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option><option value="remote,hybrid">Remote + Hybrid</option></select></label>
             </div>
-
-            <div class="toggle-row">
-              <label class="toggle-wrap">
-                <input type="checkbox" class="toggle" id="loop-enabled" name="loop_enabled">
-                <span>Loop continuously</span>
-              </label>
-              <div class="f" id="interval-field" hidden style="max-width:200px">
-                <span>Interval (minutes)</span>
-                <input name="loop_interval_minutes" type="number" min="1" value="120">
-              </div>
-            </div>
-
-            <div class="btn-row">
-              <button type="submit"  class="btn-primary" id="btn-start">▶ Start</button>
-              <button type="button"  class="btn-danger"  id="btn-cancel"   hidden>✕ Cancel run</button>
-              <button type="button"  class="btn-warn"    id="btn-pause"    hidden>⏸ Pause loop</button>
-              <button type="button"  class="btn-ok"      id="btn-resume"   hidden>▶ Resume loop</button>
-              <button type="button"  class="btn-danger"  id="btn-stop-loop" hidden>⏹ Stop loop</button>
-            </div>
+            <div class="btn-row"><button class="primary" id="btn-start">Start</button><button class="danger" type="button" id="btn-cancel" hidden>Cancel run</button></div>
           </form>
         </div>
-      </div>
+      </section>
 
-      <div class="card" id="section-inputs">
-        <div class="card-hd">
-          <h2>Pending Questions</h2>
-          <span class="cnt t-digit-group is-animating" id="count-inputs"><span class="t-digit" data-stagger="2">0</span></span>
-        </div>
-        <div class="card-bd" id="inputs"><p class="empty">No pending questions.</p></div>
-      </div>
-
-      <div class="card" id="section-submits">
-        <div class="card-hd">
-          <h2>Submit Approvals</h2>
-          <span class="cnt t-digit-group is-animating" id="count-submits"><span class="t-digit" data-stagger="2">0</span></span>
-        </div>
-        <div class="card-bd" id="submits"><p class="empty">No pending approvals.</p></div>
-      </div>
+      <section class="card" id="section-inputs"><div class="hd"><h2>Pending Questions</h2><span class="count" id="count-inputs">0</span></div><div class="bd" id="inputs"><p class="empty">No pending questions.</p></div></section>
+      <section class="card" id="section-submits"><div class="hd"><h2>Submit Approvals</h2><span class="count" id="count-submits">0</span></div><div class="bd" id="submits"><p class="empty">No pending approvals.</p></div></section>
     </div>
 
-    <div class="card jobs-rail">
-      <div class="card-hd">
-        <h2>Jobs</h2>
-        <span class="cnt t-digit-group is-animating" id="count-jobs"><span class="t-digit" data-stagger="2">0</span></span>
-        <span style="margin-left:auto;font-size:11px;color:var(--dim)">click for details</span>
-      </div>
-      <div class="card-bd">
-        <div class="job-list" id="jobs"></div>
-      </div>
-    </div>
+    <aside class="card jobs-rail"><div class="hd"><h2>Jobs</h2><span class="count" id="count-jobs">0</span><span style="margin-left:auto;font-size:11px;color:var(--dim)">click for details</span></div><div class="bd"><div class="job-list" id="jobs"></div></div></aside>
   </div>
 </main>
 
-<div class="overlay" id="modal-overlay">
-  <div class="modal t-modal">
-    <button class="mclose" id="modal-close">✕</button>
-    <div class="modal-hd" id="modal-hd"></div>
-    <div class="modal-bd" id="modal-bd"></div>
-  </div>
-</div>
+<div class="overlay" id="modal-overlay"><div class="modal"><button class="close" id="modal-close">x</button><div class="modal-hd" id="modal-hd"></div><div class="modal-bd" id="modal-bd"></div></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
-  const S = { inputs: new Map(), submits: new Map(), events: [], running: false, loopActive: false, loopPaused: false, nextRunAt: null };
+  const S = { pending: [], review: [], jobs: [], running: false, busy: {}, feedback: {} };
   const $ = id => document.getElementById(id);
-  let audio, countdown_t;
+  const answerDrafts = {};
+  let configApplied = false;
+  let runFormDirty = false;
+  let refreshSerial = 0;
+  let toastTimer;
+  let audio;
 
-  // ── audio ──────────────────────────────────────────────────────────────
+  function esc(value) { return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function badge(status) { return `<span class="badge s-${status || 'FOUND'}">${String(status || 'FOUND').replace(/_/g, ' ')}</span>`; }
+  function fmtTime(iso) { return iso ? new Date(iso + 'Z').toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ''; }
   function enableAudio() { audio ||= new AudioContext(); if (audio.state === 'suspended') audio.resume(); }
-  function playBell() {
-    if (!audio || audio.state !== 'running') return;
-    const o = audio.createOscillator(), g = audio.createGain();
-    o.type = 'sine'; o.frequency.value = 880;
-    g.gain.setValueAtTime(.001, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(.2, audio.currentTime + .02);
-    g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .7);
-    o.connect(g); g.connect(audio.destination);
-    o.start(); o.stop(audio.currentTime + .75);
+  function playBell() { if (!audio || audio.state !== 'running') return; const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.001, audio.currentTime); g.gain.exponentialRampToValueAtTime(.2, audio.currentTime+.02); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime+.7); o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime+.75); }
+  async function post(url, body) { return fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined}); }
+  function answerKey(applicationId, label) { return `${applicationId}\u0000${label}`; }
+  function hasDraft(applicationId, label) { return Object.prototype.hasOwnProperty.call(answerDrafts, answerKey(applicationId, label)); }
+  function answerValue(applicationId, question) { return hasDraft(applicationId, question.label) ? answerDrafts[answerKey(applicationId, question.label)] : (question.answer || ''); }
+  function captureDrafts() { document.querySelectorAll('[data-answer-input]').forEach(input => rememberDraft(input.dataset.applicationId, input.dataset.label, input.value)); }
+  function rememberDraft(applicationId, label, value) { answerDrafts[answerKey(applicationId, label)] = value; }
+  function setBusy(applicationId, type) { S.busy[applicationId] = type; render(); }
+  function clearBusy(applicationId) { delete S.busy[applicationId]; }
+  function setFeedback(applicationId, type, message) { S.feedback[applicationId] = {type, message}; }
+  function clearFeedback(applicationId) { delete S.feedback[applicationId]; }
+  function isBusy(applicationId, type) { return S.busy[applicationId] === type; }
+  function busyMessage(type) { return {answers:'Saving answers...', approve:'Approving submit...', skip:'Skipping application...'}[type] || 'Working...'; }
+  function showToast(message) {
+    const toast = $('toast');
+    toast.textContent = message;
+    toast.hidden = false;
+    toast.className = 'toast show';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.classList.remove('show'); toast.hidden = true; }, 3200);
   }
 
-  // ── transitions-dev helpers ────────────────────────────────────────────
-  function swapText(el, next) {
-    if (el.textContent === next) return;
-    const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-swap-dur')) || 200;
-    el.classList.add('is-exit');
-    setTimeout(() => {
-      el.textContent = next;
-      el.classList.remove('is-exit');
-      el.classList.add('is-enter-start');
-      void el.offsetHeight;
-      el.classList.remove('is-enter-start');
-    }, dur);
-  }
-
-  function setCountDigits(id, val) {
-    const group = $(id);
-    const str = String(val);
-    group.classList.remove('is-animating');
-    group.replaceChildren();
-    str.split('').forEach((ch, i) => {
-      const span = document.createElement('span');
-      span.className = 't-digit';
-      span.textContent = ch;
-      if (i === str.length - 2) span.dataset.stagger = '1';
-      else if (i === str.length - 1) span.dataset.stagger = '2';
-      group.appendChild(span);
-    });
-    void group.offsetHeight;
-    group.classList.add('is-animating');
-  }
-
-  function openModal() {
-    const overlay = $('modal-overlay');
-    const modal = overlay.querySelector('.t-modal');
-    overlay.classList.add('open');
-    void modal.offsetHeight;
-    modal.classList.remove('is-closing');
-    modal.classList.add('is-open');
-  }
-
-  function closeModal() {
-    const overlay = $('modal-overlay');
-    const modal = overlay.querySelector('.t-modal');
-    const closeMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')) || 150;
-    modal.classList.remove('is-open');
-    modal.classList.add('is-closing');
-    setTimeout(() => { modal.classList.remove('is-closing'); overlay.classList.remove('open'); }, closeMs);
-  }
-
-  // ── status ─────────────────────────────────────────────────────────────
-  function fmtCountdown(epoch) {
-    const s = Math.max(0, Math.round(epoch - Date.now() / 1000));
-    const m = Math.floor(s / 60), r = s % 60;
-    return m > 0 ? `${m}m ${r}s` : `${r}s`;
-  }
-
-  function updateStatus() {
-    const pill = $('status-pill'), txt = $('status-text');
-    pill.className = 'pill';
-    if (S.loopActive && S.loopPaused) {
-      pill.classList.add('pill-paused'); swapText(txt, 'Loop paused');
-    } else if (S.loopActive && !S.running && S.nextRunAt) {
-      pill.classList.add('pill-waiting'); swapText(txt, 'Next run in ' + fmtCountdown(S.nextRunAt));
-    } else if (S.running) {
-      pill.classList.add('pill-running'); swapText(txt, S.loopActive ? 'Loop running' : 'Running');
-    } else {
-      pill.classList.add('pill-idle'); swapText(txt, 'Idle');
-    }
-    updateButtons();
-  }
-
-  function tickStart() { clearInterval(countdown_t); countdown_t = setInterval(updateStatus, 1000); }
-  function tickStop()  { clearInterval(countdown_t); countdown_t = null; }
-
-  function updateButtons() {
-    const idle = !S.running && !S.loopActive;
-    $('btn-start').hidden    = !idle;
-    $('btn-cancel').hidden   = !S.running;
-    $('btn-pause').hidden    = !(S.loopActive && !S.loopPaused);
-    $('btn-resume').hidden   = !(S.loopActive && S.loopPaused);
-    $('btn-stop-loop').hidden = !S.loopActive;
-  }
-
-  // ── badges / formatting ────────────────────────────────────────────────
-  function badge(status) {
-    return `<span class="badge s-${status}">${status.replace(/_/g,' ')}</span>`;
-  }
-
-  function fmtTime(iso) {
-    if (!iso) return '';
-    const d = new Date(iso + 'Z');
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  // ── event handling ─────────────────────────────────────────────────────
-  function handleEvent(e) {
-    if (e.type === 'needs_input')   { S.inputs.set(e.request_id, e); playBell(); }
-    if (['input_timeout','answer_saved','input_skipped'].includes(e.type)) S.inputs.delete(e.request_id);
-    if (e.type === 'ready_to_submit') { S.submits.set(e.request_id, e); playBell(); }
-    if (['submit_timeout','submit_approve','submit_skip','submit_edit'].includes(e.type)) S.submits.delete(e.request_id);
-
-    if (e.type === 'run_started')   S.running = true;
-    if (['run_finished','run_failed','run_cancelled'].includes(e.type)) S.running = false;
-
-    if (e.type === 'loop_started')  { S.loopActive = true; S.loopPaused = false; }
-    if (e.type === 'loop_stopped')  { S.loopActive = false; S.loopPaused = false; S.nextRunAt = null; tickStop(); }
-    if (e.type === 'loop_paused')   { S.loopPaused = true; S.nextRunAt = null; tickStop(); }
-    if (e.type === 'loop_resumed')  { S.loopPaused = false; }
-    if (e.type === 'loop_waiting')  { S.nextRunAt = e.next_run_at; tickStart(); }
-    if (e.type === 'run_started' && S.loopActive) { S.nextRunAt = null; tickStop(); }
-
+  function render() {
+    $('status').className = 'pill' + (S.running ? ' running' : '');
+    $('status').textContent = S.running ? 'Running' : 'Idle';
+    $('btn-start').hidden = S.running;
+    $('btn-cancel').hidden = !S.running;
     renderPending();
-    updateStatus();
-    refreshJobs();
+    renderJobs();
   }
 
-  // ── pending ────────────────────────────────────────────────────────────
   function renderPending() {
-    const inp = [...S.inputs.values()];
-    const sub = [...S.submits.values()];
-
-    setCountDigits('count-inputs', inp.length);
-    setCountDigits('count-submits', sub.length);
-    $('section-inputs').className = 'card' + (inp.length ? ' alert' : '');
-    $('section-submits').className = 'card' + (sub.length ? ' alert' : '');
-
-    $('inputs').innerHTML = inp.length ? inp.map(ev => `
-      <div class="ac">
-        <div class="ac-title">${ev.title}</div>
-        <div class="ac-company">${ev.company}</div>
-        ${(ev.questions||[ev]).map((q,i) => `
-          <div class="ac-field">
-            <label>${q.question}</label>
-            ${q.options?.length
-              ? `<select id="a-${ev.request_id}-${i}">${q.options.map(o=>`<option>${o}</option>`).join('')}</select>`
-              : `<input id="a-${ev.request_id}-${i}" placeholder="Answer">`}
-          </div>`).join('')}
-        <div class="ac-btns">
-          <button class="btn-primary" onclick="sendAnswers('${ev.request_id}')">Save answers</button>
-          <button class="btn-ghost"   onclick="skipQuestion('${ev.request_id}')">Skip</button>
-        </div>
-      </div>`).join('') : '<p class="empty">No pending questions.</p>';
-
-    $('submits').innerHTML = sub.length ? sub.map(ev => {
-      const answers = Array.isArray(ev.applied_answers) ? ev.applied_answers : [];
-      const rid = ev.request_id;
-      const viewHtml = answers.length ? `
-        <div class="qa-grid" id="qa-view-${rid}" style="margin-bottom:12px">
-          ${answers.map(a => `<div class="qa"><div class="qa-q">${escapeHtml(a.question)}</div><div class="qa-a">${escapeHtml(a.answer)}</div></div>`).join('')}
-        </div>
-        <div id="qa-edit-${rid}" hidden style="margin-bottom:12px">
-          ${answers.map((a,i) => `
-            <div class="ac-field">
-              <label>${escapeHtml(a.question)}</label>
-              <input id="edit-${rid}-${i}" value="${escapeHtml(a.answer)}" data-key="${profileKey(a.question)}">
-            </div>`).join('')}
-        </div>` : '';
+    $('count-inputs').textContent = S.pending.length;
+    $('count-submits').textContent = S.review.length;
+    $('section-inputs').className = 'card' + (S.pending.length ? ' alert' : '');
+    $('section-submits').className = 'card' + (S.review.length ? ' alert' : '');
+    $('inputs').innerHTML = S.pending.length ? S.pending.map(app => {
+      const busy = S.busy[app.application_id];
+      const feedback = S.feedback[app.application_id];
+      const answered = feedback?.type === 'answers';
       return `
-      <div class="ac">
-        <div class="ac-title">${escapeHtml(ev.title)}</div>
-        <div class="ac-company">${escapeHtml(ev.company)}</div>
-        ${viewHtml}
-        <div class="ac-btns">
-          <button class="btn-ok"    onclick="decide('${ev.job_id}','${rid}','approve')">Submit application</button>
-          <button class="btn-warn"  onclick="toggleEdit('${rid}')">Edit</button>
-          <button class="btn-ghost" onclick="decide('${ev.job_id}','${rid}','skip')">Skip</button>
-        </div>
+      <div class="action${busy ? ' busy' : ''}">
+        <div class="title">${esc(app.title)}</div><div class="sub">${esc(app.company)}</div>
+        ${(app.questions || []).map(q => questionField(app, q, Boolean(busy) || answered)).join('')}
+        ${actionNotice(app.application_id)}
+        <div class="actions"><button class="primary" onclick="sendAnswers(${app.application_id})" ${busy || answered ? 'disabled' : ''}>${isBusy(app.application_id, 'answers') ? 'Saving...' : answered ? 'Answers saved' : 'Save answers'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
+      </div>`;
+    }).join('') : '<p class="empty">No pending questions.</p>';
+    $('submits').innerHTML = S.review.length ? S.review.map(app => {
+      const busy = S.busy[app.application_id];
+      const feedback = S.feedback[app.application_id];
+      const approved = feedback?.type === 'approve';
+      return `
+      <div class="action${busy ? ' busy' : ''}">
+        <div class="title">${esc(app.title)}</div><div class="sub">${esc(app.company)}</div>
+        ${questionGrid(app.questions || [])}
+        ${actionNotice(app.application_id)}
+        <div class="actions"><button class="ok" onclick="approveApplication(${app.application_id})" ${busy || approved ? 'disabled' : ''}>${isBusy(app.application_id, 'approve') ? 'Approving...' : approved ? 'Submit approved' : 'Submit application'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy || approved ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
       </div>`;
     }).join('') : '<p class="empty">No pending approvals.</p>';
   }
 
-  function escapeHtml(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function actionNotice(applicationId) {
+    const busy = S.busy[applicationId];
+    const feedback = S.feedback[applicationId];
+    if (busy) return `<div class="notice warn">${busyMessage(busy)}</div>`;
+    if (!feedback) return '';
+    return `<div class="notice ok">${esc(feedback.message)}</div>`;
   }
 
-  function profileKey(q) {
-    return q.toLowerCase().replace(/\W+/g,'_').replace(/^_+|_+$/g,'');
-  }
-
-  async function skipQuestion(rid) {
-    const r = await fetch(`/answers/${rid}/skip`, {method:'POST'});
-    if (r.ok) S.inputs.delete(rid);
-    renderPending();
-  }
-
-  async function sendAnswers(rid) {
-    const ev = S.inputs.get(rid);
-    const answers = {};
-    (ev.questions||[ev]).forEach((q,i) => { answers[q.question_key] = $(`a-${rid}-${i}`).value; });
-    const r = await fetch('/answers', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({request_id:rid, answers})});
-    if (r.ok) S.inputs.delete(rid);
-    renderPending();
-  }
-
-  function toggleEdit(rid) {
-    const editDiv = $(`qa-edit-${rid}`);
-    const viewDiv = $(`qa-view-${rid}`);
-    if (editDiv) editDiv.hidden = !editDiv.hidden;
-    if (viewDiv) viewDiv.hidden = !viewDiv.hidden;
-  }
-
-  async function decide(jobId, rid, decision) {
-    if (decision === 'approve') {
-      const editDiv = $(`qa-edit-${rid}`);
-      if (editDiv && !editDiv.hidden) {
-        const ev = S.submits.get(rid);
-        const answers = {};
-        (ev.applied_answers || []).forEach((a, i) => {
-          const input = $(`edit-${rid}-${i}`);
-          if (input) answers[input.dataset.key] = input.value;
-        });
-        const r = await fetch(`/applications/${jobId}/edit`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({request_id: rid, answers}),
-        });
-        if (r.ok) S.submits.delete(rid);
-        renderPending();
-        return;
-      }
+  function questionField(app, question, disabled) {
+    const value = answerValue(app.application_id, question);
+    const attrs = `data-answer-input data-application-id="${app.application_id}" data-label="${esc(question.label)}" ${disabled ? 'disabled' : ''}`;
+    if (question.options?.length) {
+      const options = question.options.map(option => `<option value="${esc(option)}" ${option === value ? 'selected' : ''}>${esc(option)}</option>`).join('');
+      return `<div class="field"><label>${esc(question.label)}</label><select ${attrs}>${options}</select></div>`;
     }
-    const r = await fetch(`/applications/${jobId}/${decision}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({request_id:rid})});
-    if (r.ok) S.submits.delete(rid);
-    renderPending();
+    return `<div class="field"><label>${esc(question.label)}</label><input ${attrs} value="${esc(value)}" placeholder="Answer"></div>`;
   }
 
-  // ── jobs rail ──────────────────────────────────────────────────────────
-  async function refreshJobs() {
-    const r = await fetch('/state');
-    const data = await r.json();
-    renderJobs(data.jobs);
+  function renderJobs() {
+    $('count-jobs').textContent = S.jobs.length;
+    $('jobs').innerHTML = S.jobs.length ? S.jobs.map(job => `
+      <div class="job-card" onclick="openJob('${job.job_id}')">
+        <div class="job-top"><div class="job-title">${esc(job.title)}</div>${badge(job.status)}</div>
+        <div class="job-meta">${esc(job.company)}${job.location ? ' · ' + esc(job.location) : ''}</div>
+        <div class="job-time">${fmtTime(job.application_updated_at || job.updated_at)}</div>
+      </div>`).join('') : '<p class="empty" style="padding:10px 4px">No jobs yet.</p>';
   }
 
-  function renderJobs(jobs) {
-    setCountDigits('count-jobs', jobs.length);
-    $('jobs').innerHTML = jobs.map(j => `
-      <div class="job-card" onclick="openJob('${j.job_id}')">
-        <div class="job-card-top">
-          <div class="job-title">${escapeHtml(j.title || '')}</div>
-          ${badge(j.status||'pending')}
-        </div>
-        <div class="job-meta">${escapeHtml(j.company || '')}${j.location ? ' · ' + escapeHtml(j.location) : ''}</div>
-        <div class="job-time">${fmtTime(j.updated_at)}</div>
-      </div>`).join('') || `<p class="empty" style="padding:10px 4px">No jobs yet.</p>`;
+  function questionGrid(questions) {
+    return questions.length ? `<div class="qa-grid">${questions.map(q => `<div class="qa"><div class="qa-q">${esc(q.label)}</div><div class="qa-a">${esc(q.answer || '-')}</div></div>`).join('')}</div>` : '';
   }
 
-  // ── modal ──────────────────────────────────────────────────────────────
-  async function openJob(id) {
-    const r = await fetch(`/jobs/${id}`);
-    if (!r.ok) return;
-    const j = await r.json();
-    const prefs   = Array.isArray(j.preferences)     ? j.preferences     : [];
-    const skills  = Array.isArray(j.skills)           ? j.skills           : [];
-    const answers = Array.isArray(j.applied_answers)  ? j.applied_answers  : [];
-
-    $('modal-hd').innerHTML = `
-      <h3>${j.title||''}</h3>
-      <div class="modal-meta">
-        <span>${j.company||''}</span>
-        ${j.location ? `<span>· ${j.location}</span>` : ''}
-        ${badge(j.status||'pending')}
-        ${j.url ? `<a class="mlink" href="${j.url}" target="_blank">Open on LinkedIn ↗</a>` : ''}
-      </div>`;
-
-    $('modal-bd').innerHTML = `
-      ${j.error_message ? `<div class="err-box">${j.error_message}</div>` : ''}
-
-      ${j.about ? `<div class="ms"><div class="ms-label">About the job</div><div class="about">${j.about}</div></div>` : ''}
-
-      ${prefs.length ? `<div class="ms"><div class="ms-label">Preferences</div><div class="chips">${prefs.map(p=>`<span class="chip">${p}</span>`).join('')}</div></div>` : ''}
-
-      ${skills.length ? `<div class="ms"><div class="ms-label">Skills</div><div class="chips">${skills.map(s=>`<span class="chip">${s}</span>`).join('')}</div></div>` : ''}
-
-      ${answers.length ? `
-        <div class="ms">
-          <div class="ms-label">Applied answers (${answers.length})</div>
-          <div class="qa-grid">
-            ${answers.map(a=>`<div class="qa"><div class="qa-q">${a.question}</div><div class="qa-a">${a.answer}</div></div>`).join('')}
-          </div>
-        </div>` : ''}
-
-      <div class="mfooter">Scraped ${j.created_at||'—'} · Updated ${j.updated_at||'—'}</div>`;
-
-    openModal();
+  async function sendAnswers(applicationId) {
+    const app = S.pending.find(item => item.application_id === applicationId);
+    const answers = {};
+    document.querySelectorAll(`[data-answer-input][data-application-id="${applicationId}"]`).forEach(input => answers[input.dataset.label] = input.value);
+    setBusy(applicationId, 'answers');
+    try {
+      const response = await post(`/applications/${applicationId}/answers`, {answers});
+      if (!response.ok) throw new Error(await response.text());
+      clearBusy(applicationId);
+      setFeedback(applicationId, 'answers', 'Answers saved. The worker will continue from here.');
+      showToast('Answers saved');
+      await refreshState();
+    } catch (error) {
+      clearBusy(applicationId);
+      clearFeedback(applicationId);
+      render();
+      alert(error.message || String(error));
+    }
   }
 
-  $('modal-close').onclick = () => closeModal();
-  $('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-  // ── init ───────────────────────────────────────────────────────────────
-  function applyConfig(p) {
-    if (!p || !Object.keys(p).length) return;
-    const f = $('run-form');
-    if (p.keywords              !== undefined) f.elements.keywords.value              = p.keywords;
-    if (p.location              !== undefined) f.elements.location.value              = p.location;
-    if (p.max_apply             !== undefined) f.elements.max_apply.value             = p.max_apply ?? '';
-    if (p.easy_apply            !== undefined) f.elements.easy_apply.value            = p.easy_apply ? 'true' : 'false';
-    if (p.work_type             !== undefined) f.elements.work_type.value             = p.work_type ?? '';
-    if (p.loop_interval_minutes !== undefined) f.elements.loop_interval_minutes.value = p.loop_interval_minutes;
-    if (p.loop_enabled) { f.elements.loop_enabled.checked = true; $('interval-field').hidden = false; }
+  async function approveApplication(applicationId) {
+    setBusy(applicationId, 'approve');
+    try {
+      const response = await post(`/applications/${applicationId}/approve`);
+      if (!response.ok) throw new Error(await response.text());
+      clearBusy(applicationId);
+      setFeedback(applicationId, 'approve', 'Submit approved. The worker will submit it shortly.');
+      showToast('Submit approved');
+      await refreshState();
+    } catch (error) {
+      clearBusy(applicationId);
+      clearFeedback(applicationId);
+      render();
+      alert(error.message || String(error));
+    }
   }
 
+  async function skipApplication(applicationId) {
+    setBusy(applicationId, 'skip');
+    try {
+      const response = await post(`/applications/${applicationId}/skip`);
+      if (!response.ok) throw new Error(await response.text());
+      S.pending = S.pending.filter(item => item.application_id !== applicationId);
+      S.review = S.review.filter(item => item.application_id !== applicationId);
+      const job = S.jobs.find(item => item.application_id === applicationId);
+      if (job) { job.status = 'SKIPPED'; job.application_updated_at = new Date().toISOString().slice(0, 19); }
+      clearBusy(applicationId);
+      clearFeedback(applicationId);
+      showToast('Application skipped');
+      render();
+      await refreshState();
+    } catch (error) {
+      clearBusy(applicationId);
+      render();
+      alert(error.message || String(error));
+    }
+  }
 
-  $('loop-enabled').onchange = e => { $('interval-field').hidden = !e.target.checked; };
+  async function openJob(jobId) {
+    const response = await fetch(`/jobs/${jobId}`);
+    if (!response.ok) return;
+    const job = await response.json();
+    $('modal-hd').innerHTML = `<h3>${esc(job.title)}</h3><div class="sub">${esc(job.company)}${job.location ? ' · ' + esc(job.location) : ''} ${badge(job.status)}</div>`;
+    $('modal-bd').innerHTML = `${job.error_message ? `<div class="err">${esc(job.error_message)}</div>` : ''}${section('About the job', job.about ? `<div class="box">${esc(job.about)}</div>` : '')}${section('Preferences', chips(job.preferences))}${section('Skills', chips(job.skills))}${section('Questions', questionGrid(job.questions || []))}`;
+    $('modal-overlay').classList.add('open');
+  }
 
-  $('run-form').addEventListener('submit', async e => {
-    e.preventDefault(); enableAudio();
-    const fd = new FormData(e.target);
-    const p  = Object.fromEntries(fd.entries());
-    p.easy_apply     = p.easy_apply === 'true';
-    p.loop_enabled   = !!p.loop_enabled;
-    if (p.loop_interval_minutes) p.loop_interval_minutes = Number(p.loop_interval_minutes);
-    if (p.max_apply) p.max_apply = Number(p.max_apply); else delete p.max_apply;
-    const r = await fetch('/runs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)});
-    if (!r.ok) alert(await r.text());
+  function section(title, body) { return body ? `<div class="section"><div class="section-name">${title}</div>${body}</div>` : ''; }
+  function chips(items) { return Array.isArray(items) && items.length ? `<div class="chips">${items.map(item => `<span class="chip">${esc(item)}</span>`).join('')}</div>` : ''; }
+
+  async function refreshState() {
+    const serial = ++refreshSerial;
+    const response = await fetch('/state');
+    if (!response.ok) return;
+    const data = await response.json();
+    if (serial !== refreshSerial) return;
+    captureDrafts();
+    S.running = data.run.running;
+    S.pending = data.pending_questions || [];
+    S.review = data.ready_for_review || [];
+    S.jobs = data.jobs || [];
+    syncLocalState();
+    if (!configApplied || !runFormDirty) applyConfig(data.config || {});
+    render();
+  }
+
+  function syncLocalState() {
+    const visible = new Set([...S.pending, ...S.review].map(app => String(app.application_id)));
+    Object.keys(S.feedback).forEach(applicationId => {
+      const feedback = S.feedback[applicationId];
+      const pendingApp = S.pending.find(app => String(app.application_id) === applicationId);
+      const reviewApp = S.review.find(app => String(app.application_id) === applicationId);
+      if (!visible.has(applicationId)) clearFeedback(applicationId);
+      if (feedback?.type === 'answers' && !pendingApp) clearFeedback(applicationId);
+      if (feedback?.type === 'answers' && pendingApp && (pendingApp.questions || []).some(q => !answerValue(applicationId, q))) clearFeedback(applicationId);
+      if (feedback?.type === 'approve' && !reviewApp) clearFeedback(applicationId);
+    });
+    const activeQuestionKeys = new Set();
+    S.pending.forEach(app => (app.questions || []).forEach(q => activeQuestionKeys.add(answerKey(app.application_id, q.label))));
+    Object.keys(answerDrafts).forEach(key => { if (!activeQuestionKeys.has(key)) delete answerDrafts[key]; });
+  }
+
+  function applyConfig(config) {
+    if (configApplied && ($('run-form').contains(document.activeElement) || runFormDirty)) return;
+    const form = $('run-form');
+    if (config.keywords !== undefined) form.elements.keywords.value = config.keywords || '';
+    if (config.location !== undefined) form.elements.location.value = config.location || '';
+    if (config.max_apply !== undefined) form.elements.max_apply.value = config.max_apply || '';
+    if (config.easy_apply !== undefined) form.elements.easy_apply.value = config.easy_apply ? 'true' : 'false';
+    if (config.work_type !== undefined) form.elements.work_type.value = config.work_type || '';
+    configApplied = true;
+  }
+
+  document.addEventListener('input', event => { if (event.target.matches('[data-answer-input]')) rememberDraft(event.target.dataset.applicationId, event.target.dataset.label, event.target.value); });
+  document.addEventListener('change', event => { if (event.target.matches('[data-answer-input]')) rememberDraft(event.target.dataset.applicationId, event.target.dataset.label, event.target.value); });
+  $('run-form').addEventListener('input', () => { runFormDirty = true; });
+  $('run-form').addEventListener('change', () => { runFormDirty = true; });
+  $('run-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    enableAudio();
+    const payload = Object.fromEntries(new FormData(event.target).entries());
+    payload.easy_apply = payload.easy_apply === 'true';
+    if (payload.max_apply) payload.max_apply = Number(payload.max_apply); else delete payload.max_apply;
+    const response = await post('/runs', payload);
+    if (!response.ok) alert(await response.text());
+    else { runFormDirty = false; showToast('Run started'); }
+    await refreshState();
   });
-
-  $('btn-cancel').onclick    = () => fetch('/runs/cancel', {method:'POST'});
-  $('btn-pause').onclick     = () => fetch('/loop/pause',  {method:'POST'});
-  $('btn-resume').onclick    = () => fetch('/loop/resume', {method:'POST'});
-  $('btn-stop-loop').onclick = () => fetch('/loop/stop',   {method:'POST'});
-
-  document.addEventListener('click',   enableAudio, {once:true});
+  $('btn-cancel').onclick = async () => { $('btn-cancel').disabled = true; await post('/runs/cancel'); showToast('Run cancellation requested'); await refreshState(); $('btn-cancel').disabled = false; };
+  $('modal-close').onclick = () => $('modal-overlay').classList.remove('open');
+  $('modal-overlay').onclick = event => { if (event.target === $('modal-overlay')) $('modal-overlay').classList.remove('open'); };
+  document.addEventListener('click', enableAudio, {once:true});
   document.addEventListener('keydown', enableAudio, {once:true});
-
-  async function init() {
-    const r = await fetch('/state');
-    const d = await r.json();
-    applyConfig(d.config);
-    S.running    = d.run.running;
-    S.loopActive = d.run.loop_active;
-    S.loopPaused = d.run.loop_paused;
-    S.nextRunAt  = d.run.next_run_at;
-    S.inputs  = new Map(d.waiters.pending_inputs.map(e  => [e.request_id, e]));
-    S.submits = new Map(d.waiters.pending_submits.map(e => [e.request_id, e]));
-    renderJobs(d.jobs);
-    renderPending();
-    updateStatus();
-    if (S.nextRunAt && !S.loopPaused && !S.running) tickStart();
-  }
-
-  function connectSSE() {
-    const es = new EventSource('/events');
-    es.onmessage = m => handleEvent(JSON.parse(m.data));
-    es.onerror = () => { es.close(); setTimeout(connectSSE, 3000); };
-  }
-  connectSSE();
-  init();
+  new EventSource('/events').onmessage = event => { const data = JSON.parse(event.data); if (['application_needs_answers', 'application_ready_for_review'].includes(data.type)) playBell(); refreshState(); };
+  refreshState();
 </script>
 </body>
 </html>
