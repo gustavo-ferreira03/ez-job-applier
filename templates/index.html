@@ -23,6 +23,23 @@
       --red:          #f87171;
       --r:            12px;
       --r-sm:         8px;
+      /* transitions-dev */
+      --modal-open-dur: 250ms;
+      --modal-close-dur: 150ms;
+      --modal-scale: 0.96;
+      --modal-scale-close: 0.96;
+      --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --text-swap-dur: 200ms;
+      --text-swap-translate-y: 8px;
+      --text-swap-blur: 2px;
+      --text-swap-ease: ease-out;
+      --digit-dur: 500ms;
+      --digit-distance: 8px;
+      --digit-stagger: 70ms;
+      --digit-blur: 2px;
+      --digit-ease: cubic-bezier(0.34, 1.45, 0.64, 1);
+      --digit-dir-x: 0;
+      --digit-dir-y: 1;
     }
     body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
 
@@ -156,6 +173,88 @@
     .mlink { color: var(--blue); text-decoration: none; font-size: 13px; }
     .mlink:hover { text-decoration: underline; }
     .mfooter { font-size: 11px; color: var(--dim); margin-top: 22px; }
+
+    /* ── transitions-dev: modal ─────────────────────────────────────────── */
+    .t-modal {
+      transform-origin: center;
+      transform: scale(var(--modal-scale));
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        transform var(--modal-open-dur) var(--modal-ease),
+        opacity   var(--modal-open-dur) var(--modal-ease);
+      will-change: transform, opacity;
+    }
+    .t-modal.is-open {
+      transform: scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .t-modal.is-closing {
+      transform: scale(var(--modal-scale-close));
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        transform var(--modal-close-dur) var(--modal-ease),
+        opacity   var(--modal-close-dur) var(--modal-ease);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .t-modal { transition: none !important; }
+    }
+
+    /* ── transitions-dev: text states swap ──────────────────────────────── */
+    .t-text-swap {
+      display: inline-block;
+      transform: translateY(0);
+      filter: blur(0);
+      opacity: 1;
+      transition:
+        transform var(--text-swap-dur) var(--text-swap-ease),
+        filter    var(--text-swap-dur) var(--text-swap-ease),
+        opacity   var(--text-swap-dur) var(--text-swap-ease);
+      will-change: transform, filter, opacity;
+    }
+    .t-text-swap.is-exit {
+      transform: translateY(calc(var(--text-swap-translate-y) * -1));
+      filter: blur(var(--text-swap-blur));
+      opacity: 0;
+    }
+    .t-text-swap.is-enter-start {
+      transform: translateY(var(--text-swap-translate-y));
+      filter: blur(var(--text-swap-blur));
+      opacity: 0;
+      transition: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .t-text-swap { transition: none !important; }
+    }
+
+    /* ── transitions-dev: number pop-in ────────────────────────────────── */
+    @keyframes t-digit-pop-in {
+      0%   {
+        transform: translate(
+          calc(var(--digit-distance) * var(--digit-dir-x)),
+          calc(var(--digit-distance) * var(--digit-dir-y))
+        );
+        opacity: 0;
+        filter: blur(var(--digit-blur));
+      }
+      100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+    }
+    .t-digit-group { display: inline-flex; align-items: baseline; }
+    .t-digit { display: inline-block; will-change: transform, opacity, filter; }
+    .t-digit-group.is-animating .t-digit {
+      animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+    }
+    .t-digit-group.is-animating .t-digit[data-stagger="1"] {
+      animation-delay: var(--digit-stagger);
+    }
+    .t-digit-group.is-animating .t-digit[data-stagger="2"] {
+      animation-delay: calc(var(--digit-stagger) * 2);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .t-digit-group .t-digit { animation: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -165,7 +264,7 @@
   <div class="topbar-right">
     <div class="pill pill-idle" id="status-pill">
       <span class="dot"></span>
-      <span id="status-text">Idle</span>
+      <span id="status-text" class="t-text-swap">Idle</span>
     </div>
   </div>
 </header>
@@ -231,7 +330,7 @@
       <div class="card" id="section-inputs">
         <div class="card-hd">
           <h2>Pending Questions</h2>
-          <span class="cnt" id="count-inputs">0</span>
+          <span class="cnt t-digit-group is-animating" id="count-inputs"><span class="t-digit" data-stagger="2">0</span></span>
         </div>
         <div class="card-bd" id="inputs"><p class="empty">No pending questions.</p></div>
       </div>
@@ -239,7 +338,7 @@
       <div class="card" id="section-submits">
         <div class="card-hd">
           <h2>Submit Approvals</h2>
-          <span class="cnt" id="count-submits">0</span>
+          <span class="cnt t-digit-group is-animating" id="count-submits"><span class="t-digit" data-stagger="2">0</span></span>
         </div>
         <div class="card-bd" id="submits"><p class="empty">No pending approvals.</p></div>
       </div>
@@ -248,7 +347,7 @@
     <div class="card jobs-rail">
       <div class="card-hd">
         <h2>Jobs</h2>
-        <span class="cnt" id="count-jobs">0</span>
+        <span class="cnt t-digit-group is-animating" id="count-jobs"><span class="t-digit" data-stagger="2">0</span></span>
         <span style="margin-left:auto;font-size:11px;color:var(--dim)">click for details</span>
       </div>
       <div class="card-bd">
@@ -259,7 +358,7 @@
 </main>
 
 <div class="overlay" id="modal-overlay">
-  <div class="modal">
+  <div class="modal t-modal">
     <button class="mclose" id="modal-close">✕</button>
     <div class="modal-hd" id="modal-hd"></div>
     <div class="modal-bd" id="modal-bd"></div>
@@ -284,6 +383,55 @@
     o.start(); o.stop(audio.currentTime + .75);
   }
 
+  // ── transitions-dev helpers ────────────────────────────────────────────
+  function swapText(el, next) {
+    if (el.textContent === next) return;
+    const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-swap-dur')) || 200;
+    el.classList.add('is-exit');
+    setTimeout(() => {
+      el.textContent = next;
+      el.classList.remove('is-exit');
+      el.classList.add('is-enter-start');
+      void el.offsetHeight;
+      el.classList.remove('is-enter-start');
+    }, dur);
+  }
+
+  function setCountDigits(id, val) {
+    const group = $(id);
+    const str = String(val);
+    group.classList.remove('is-animating');
+    group.replaceChildren();
+    str.split('').forEach((ch, i) => {
+      const span = document.createElement('span');
+      span.className = 't-digit';
+      span.textContent = ch;
+      if (i === str.length - 2) span.dataset.stagger = '1';
+      else if (i === str.length - 1) span.dataset.stagger = '2';
+      group.appendChild(span);
+    });
+    void group.offsetHeight;
+    group.classList.add('is-animating');
+  }
+
+  function openModal() {
+    const overlay = $('modal-overlay');
+    const modal = overlay.querySelector('.t-modal');
+    overlay.classList.add('open');
+    void modal.offsetHeight;
+    modal.classList.remove('is-closing');
+    modal.classList.add('is-open');
+  }
+
+  function closeModal() {
+    const overlay = $('modal-overlay');
+    const modal = overlay.querySelector('.t-modal');
+    const closeMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--modal-close-dur')) || 150;
+    modal.classList.remove('is-open');
+    modal.classList.add('is-closing');
+    setTimeout(() => { modal.classList.remove('is-closing'); overlay.classList.remove('open'); }, closeMs);
+  }
+
   // ── status ─────────────────────────────────────────────────────────────
   function fmtCountdown(epoch) {
     const s = Math.max(0, Math.round(epoch - Date.now() / 1000));
@@ -295,13 +443,13 @@
     const pill = $('status-pill'), txt = $('status-text');
     pill.className = 'pill';
     if (S.loopActive && S.loopPaused) {
-      pill.classList.add('pill-paused'); txt.textContent = 'Loop paused';
+      pill.classList.add('pill-paused'); swapText(txt, 'Loop paused');
     } else if (S.loopActive && !S.running && S.nextRunAt) {
-      pill.classList.add('pill-waiting'); txt.textContent = 'Next run in ' + fmtCountdown(S.nextRunAt);
+      pill.classList.add('pill-waiting'); swapText(txt, 'Next run in ' + fmtCountdown(S.nextRunAt));
     } else if (S.running) {
-      pill.classList.add('pill-running'); txt.textContent = S.loopActive ? 'Loop running' : 'Running';
+      pill.classList.add('pill-running'); swapText(txt, S.loopActive ? 'Loop running' : 'Running');
     } else {
-      pill.classList.add('pill-idle'); txt.textContent = 'Idle';
+      pill.classList.add('pill-idle'); swapText(txt, 'Idle');
     }
     updateButtons();
   }
@@ -356,8 +504,8 @@
     const inp = [...S.inputs.values()];
     const sub = [...S.submits.values()];
 
-    $('count-inputs').textContent = inp.length;
-    $('count-submits').textContent = sub.length;
+    setCountDigits('count-inputs', inp.length);
+    setCountDigits('count-submits', sub.length);
     $('section-inputs').className = 'card' + (inp.length ? ' alert' : '');
     $('section-submits').className = 'card' + (sub.length ? ' alert' : '');
 
@@ -469,7 +617,7 @@
   }
 
   function renderJobs(jobs) {
-    $('count-jobs').textContent = jobs.length;
+    setCountDigits('count-jobs', jobs.length);
     $('jobs').innerHTML = jobs.map(j => `
       <div class="job-card" onclick="openJob('${j.job_id}')">
         <div class="job-card-top">
@@ -518,12 +666,12 @@
 
       <div class="mfooter">Scraped ${j.created_at||'—'} · Updated ${j.updated_at||'—'}</div>`;
 
-    $('modal-overlay').classList.add('open');
+    openModal();
   }
 
-  $('modal-close').onclick = () => $('modal-overlay').classList.remove('open');
-  $('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) $('modal-overlay').classList.remove('open'); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('modal-overlay').classList.remove('open'); });
+  $('modal-close').onclick = () => closeModal();
+  $('modal-overlay').addEventListener('click', e => { if (e.target === $('modal-overlay')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   // ── init ───────────────────────────────────────────────────────────────
   function applyConfig(p) {
