@@ -172,28 +172,42 @@ class LinkedInSource(LinkedInSession, JobSource):
     async def discover_jobs(self, config: RunConfig) -> AsyncIterator[Job]:
         await self.ensure_logged_in()
         keywords_list = [k.strip() for k in (config.keywords or "").splitlines() if k.strip()] or [None]
-        seen_ids: set[str] = set()
         total = 0
         try:
-            for keyword in keywords_list:
-                if config.max_apply is not None and total >= config.max_apply:
+            while True:
+                seen_ids: set[str] = set()
+                any_found = False
+                for keyword in keywords_list:
+                    start = 0
+                    while True:
+                        if config.max_apply is not None and total >= config.max_apply:
+                            return
+                        await self.open_jobs(
+                            keywords=keyword,
+                            location=config.location or None,
+                            easy_apply=config.easy_apply,
+                            work_type=config.work_type,
+                            start=start,
+                        )
+                        remaining = (config.max_apply - total) if config.max_apply else None
+                        page_new = 0
+                        async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
+                            if job.job_id not in seen_ids:
+                                seen_ids.add(job.job_id)
+                                total += 1
+                                page_new += 1
+                                any_found = True
+                                yield job
+                        if page_new == 0:
+                            break
+                        start += 25
+                if config.max_apply is not None or not any_found:
                     break
-                await self.open_jobs(
-                    keywords=keyword,
-                    location=config.location or None,
-                    easy_apply=config.easy_apply,
-                    work_type=config.work_type,
-                )
-                remaining = (config.max_apply - total) if config.max_apply else None
-                async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
-                    if job.job_id not in seen_ids:
-                        seen_ids.add(job.job_id)
-                        total += 1
-                        yield job
+                await self.save_session()
         finally:
             await self.save_session()
 
-    async def open_jobs(self, keywords=None, location=None, easy_apply=False, work_type=None):
+    async def open_jobs(self, keywords=None, location=None, easy_apply=False, work_type=None, start=0):
         wt_map = {"remote": "2", "hybrid": "3", "onsite": "1"}
         wt_parts = [wt_map[w.strip()] for w in (work_type or "").split(",") if w.strip() in wt_map]
         filters = {
@@ -201,6 +215,7 @@ class LinkedInSource(LinkedInSession, JobSource):
             "location": location,
             "f_AL": "true" if easy_apply else None,
             "f_WT": ",".join(wt_parts) if wt_parts else None,
+            "start": start or None,
         }
         query = urlencode({k: v for k, v in filters.items() if v})
         url = "https://www.linkedin.com/jobs/search/" + (f"?{query}" if query else "")
@@ -322,6 +337,9 @@ class LinkedInSource(LinkedInSession, JobSource):
                 text.strip()
                 for text in await card.locator(".job-card-container__footer-item").all_inner_texts()
             ]
+            if any("applied" == label.lower() for label in labels):
+                print(f"Skipping already-applied job: {job_id}")
+                continue
             await card.click()
             await self.page.wait_for_timeout(1000)
             easy_apply = any("easy apply" in label.lower() for label in labels)

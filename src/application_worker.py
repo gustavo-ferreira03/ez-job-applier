@@ -54,7 +54,7 @@ class ApplicationWorker:
                     await asyncio.sleep(self.idle_sleep)
                     continue
 
-                async with LinkedInEasyApplyApplier(headless=True) as linkedin_applier:
+                async with LinkedInEasyApplyApplier(headless=False) as linkedin_applier:
                     appliers = [linkedin_applier]
                     while application and not self._stopping:
                         await self.process_application(application, appliers)

@@ -197,18 +197,6 @@ class Database:
                 """,
                 (ApplicationStatus.READY_FOR_REVIEW.value,),
             ).fetchone()
-            if row:
-                return application_from_row(row)
-
-            row = conn.execute(
-                """
-                SELECT * FROM applications
-                WHERE status = ?
-                ORDER BY updated_at
-                LIMIT 1
-                """,
-                (ApplicationStatus.FOUND.value,),
-            ).fetchone()
         return application_from_row(row) if row else None
 
     def set_application_status(self, application_id: int, status: ApplicationStatus, error_message: str | None = None):

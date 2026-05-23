@@ -21,7 +21,7 @@ class LinkedInEasyApplyApplier(LinkedInSession, BaseApplier):
         if self._external_session is not None:
             self.browser = self._external_session.browser
             self.context = self._external_session.context
-            self.page = self._external_session.page
+            self.page = await self.context.new_page()
             self.session_file = self._external_session.session_file
             self.headless = self._external_session.headless
             self._borrowed = True
@@ -30,6 +30,7 @@ class LinkedInEasyApplyApplier(LinkedInSession, BaseApplier):
 
     async def __aexit__(self, *args):
         if self._external_session is not None:
+            await self.page.close()
             return
         return await super().__aexit__(*args)
 
@@ -79,9 +80,7 @@ class LinkedInEasyApplyApplier(LinkedInSession, BaseApplier):
 
                 submit = modal.get_by_role("button", name=re.compile("submit application", re.I)).first
                 if await submit.count():
-                    follow_cb = modal.get_by_role("checkbox", name=re.compile("follow", re.I)).first
-                    if await follow_cb.count() and await follow_cb.is_checked():
-                        await follow_cb.click()
+                    await self._unfollow(modal)
                     if should_submit:
                         await submit.click()
                         await self.page.wait_for_timeout(2000)
@@ -113,6 +112,25 @@ class LinkedInEasyApplyApplier(LinkedInSession, BaseApplier):
         except Exception as exc:
             await self.close_open_modal()
             return SubmitResult(status=ApplicationStatus.FAILED, questions=collected, error_message=str(exc))
+
+    async def _unfollow(self, modal):
+        for role in ("checkbox", "switch"):
+            el = modal.get_by_role(role, name=re.compile("follow", re.I)).first
+            if await el.count():
+                try:
+                    if await el.is_checked():
+                        await el.click(force=True)
+                except Exception:
+                    pass
+                return
+        label = modal.locator("label").filter(has_text=re.compile(r"follow", re.I)).first
+        if await label.count():
+            try:
+                cb = label.locator("input[type='checkbox'], input[type='radio']").first
+                if await cb.count() and await cb.is_checked():
+                    await label.click(force=True)
+            except Exception:
+                pass
 
     async def fill_text_fields(self, modal, answers, pending, collected):
         fields = modal.locator("input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), textarea")
