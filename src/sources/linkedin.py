@@ -92,13 +92,13 @@ class LinkedInSession:
 
     async def set_language_english(self):
         await self.goto_linkedin("https://www.linkedin.com/mypreferences/d/language", wait_until="domcontentloaded")
-        if is_auth_wall(self.page.url):
+        if is_auth_wall(self.page.url) or "mypreferences" not in self.page.url:
             return False
         select = self.page.locator("select").first
         try:
             await select.wait_for(timeout=10000)
-        except PlaywrightTimeoutError as exc:
-            raise RuntimeError("LinkedIn language settings page did not load") from exc
+        except PlaywrightTimeoutError:
+            return False
         current = await select.input_value()
         if current != "en_US":
             await select.select_option("en_US")
@@ -171,15 +171,25 @@ class LinkedInSource(LinkedInSession, JobSource):
 
     async def discover_jobs(self, config: RunConfig) -> AsyncIterator[Job]:
         await self.ensure_logged_in()
-        await self.open_jobs(
-            keywords=config.keywords or None,
-            location=config.location or None,
-            easy_apply=config.easy_apply,
-            work_type=config.work_type,
-        )
+        keywords_list = [k.strip() for k in (config.keywords or "").splitlines() if k.strip()] or [None]
+        seen_ids: set[str] = set()
+        total = 0
         try:
-            async for job in self.extract_jobs(max_jobs=config.max_apply):
-                yield job
+            for keyword in keywords_list:
+                if config.max_apply is not None and total >= config.max_apply:
+                    break
+                await self.open_jobs(
+                    keywords=keyword,
+                    location=config.location or None,
+                    easy_apply=config.easy_apply,
+                    work_type=config.work_type,
+                )
+                remaining = (config.max_apply - total) if config.max_apply else None
+                async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
+                    if job.job_id not in seen_ids:
+                        seen_ids.add(job.job_id)
+                        total += 1
+                        yield job
         finally:
             await self.save_session()
 
@@ -201,7 +211,11 @@ class LinkedInSource(LinkedInSession, JobSource):
         await self.page.wait_for_timeout(5000)
 
     async def load_job_ids(self):
-        await self.page.wait_for_selector("li[data-occludable-job-id]", timeout=30000)
+        try:
+            await self.page.wait_for_selector("li[data-occludable-job-id]", timeout=30000)
+        except PlaywrightTimeoutError:
+            print("No job cards found")
+            return []
         job_ids = []
         for _ in range(30):
             before_count = len(job_ids)
@@ -244,7 +258,7 @@ class LinkedInSource(LinkedInSession, JobSource):
             await self.page.wait_for_timeout(1000)
             return application_url
 
-    async def get_job_details(self, easy_apply):
+    async def get_job_details(self, easy_apply, fill_skill_gaps=False):
         detail_pane = self.page.locator(
             ".jobs-search__job-details--container, .job-view-layout, .jobs-details, .scaffold-layout__detail"
         ).first
@@ -259,7 +273,10 @@ class LinkedInSource(LinkedInSession, JobSource):
             modal = self.page.get_by_role("dialog", name="Preferences and skills match")
             await modal.wait_for()
             preferences = clean_list_items(await modal.locator("ul").first.locator("li").all_inner_texts())
-            skills = clean_list_items(await modal.locator("ul").nth(1).locator("li").all_inner_texts())
+            skills_ul = modal.locator("ul").nth(1)
+            skills = clean_list_items(await skills_ul.locator("li").all_inner_texts())
+            if fill_skill_gaps:
+                await self.add_missing_skills(skills_ul)
             await modal.get_by_role("button", name="Dismiss").click()
         application_url = await self.get_application_url(detail_pane, easy_apply)
         return {
@@ -270,7 +287,29 @@ class LinkedInSource(LinkedInSession, JobSource):
             "application_url": application_url,
         }
 
-    async def extract_jobs(self, max_jobs=None) -> AsyncIterator[Job]:
+    async def add_missing_skills(self, skills_ul):
+        lis = skills_ul.locator("li")
+        for idx in range(await lis.count()):
+            li = lis.nth(idx)
+            add_btn = li.get_by_role("button").filter(has_text=re.compile(r"^add$", re.I)).first
+            if not await add_btn.count():
+                add_btn = li.locator("button[aria-label*='Add']").first
+            if not await add_btn.count():
+                continue
+            await add_btn.click()
+            await self.page.wait_for_timeout(1500)
+            dialog = self.page.get_by_role("dialog").last
+            if await dialog.count():
+                save_btn = dialog.get_by_role("button", name=re.compile(r"save", re.I)).first
+                if await save_btn.count():
+                    await save_btn.click()
+                    await self.page.wait_for_timeout(1000)
+                    close_btn = self.page.get_by_role("button", name=re.compile(r"dismiss|close", re.I)).first
+                    if await close_btn.count():
+                        await close_btn.click()
+                        await self.page.wait_for_timeout(500)
+
+    async def extract_jobs(self, max_jobs=None, fill_skill_gaps=False) -> AsyncIterator[Job]:
         count = 0
         job_ids = await self.load_job_ids()
         for job_id in job_ids[:max_jobs]:
@@ -294,7 +333,7 @@ class LinkedInSource(LinkedInSession, JobSource):
                 "url": urljoin("https://www.linkedin.com", href),
                 "easy_apply": easy_apply,
             }
-            job.update(await self.get_job_details(easy_apply=easy_apply))
+            job.update(await self.get_job_details(easy_apply=easy_apply, fill_skill_gaps=fill_skill_gaps))
             count += 1
             extracted = Job.model_validate(job)
             print(f"Extracted {count}: {extracted.title}")

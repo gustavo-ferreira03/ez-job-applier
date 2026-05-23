@@ -136,6 +136,7 @@ class EZJobApplierServer:
         self.worker.pause()
         try:
             async with LinkedInSession(headless=True) as session:
+                await session.ensure_logged_in()
                 async with LinkedInSource(session=session) as source:
                     async for job in source.discover_jobs(config):
                         self.db.save_jobs([job])

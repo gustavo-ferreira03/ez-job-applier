@@ -79,6 +79,9 @@ class LinkedInEasyApplyApplier(LinkedInSession, BaseApplier):
 
                 submit = modal.get_by_role("button", name=re.compile("submit application", re.I)).first
                 if await submit.count():
+                    follow_cb = modal.get_by_role("checkbox", name=re.compile("follow", re.I)).first
+                    if await follow_cb.count() and await follow_cb.is_checked():
+                        await follow_cb.click()
                     if should_submit:
                         await submit.click()
                         await self.page.wait_for_timeout(2000)

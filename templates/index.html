@@ -79,6 +79,10 @@
     .notice.warn { border-color:#92400e; background:#2d1500; color:#fde68a; }
     .toast { position:fixed; right:18px; bottom:18px; z-index:300; max-width:min(420px, calc(100vw - 36px)); padding:11px 14px; border-radius:var(--r-sm); border:1px solid var(--border-hi); background:#131e33; color:var(--text); box-shadow:0 18px 45px #0007; opacity:0; transform:translateY(8px); transition:opacity .16s ease, transform .16s ease; }
     .toast.show { opacity:1; transform:none; }
+    input[type=checkbox].toggle { appearance:none; width:36px; height:20px; background:var(--border-hi); border:none; border-radius:99px; padding:0; cursor:pointer; position:relative; transition:background .15s; flex-shrink:0; }
+    input[type=checkbox].toggle::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:left .15s, background .15s; }
+    input[type=checkbox].toggle:checked { background:var(--blue); }
+    input[type=checkbox].toggle:checked::after { left:18px; background:#fff; }
   </style>
 </head>
 <body>
@@ -96,6 +100,7 @@
               <label class="f"><span>Max applications <small>(blank = ∞)</small></span><input name="max_apply" type="number" min="1" placeholder="unlimited"></label>
               <label class="f"><span>Easy Apply</span><select name="easy_apply"><option value="true">Yes</option><option value="false">No</option></select></label>
               <label class="f"><span>Work type</span><select name="work_type"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option><option value="remote,hybrid">Remote + Hybrid</option></select></label>
+              <label class="f"><span>Fill skill gaps</span><input type="checkbox" name="fill_skill_gaps" class="toggle"></label>
             </div>
             <div class="btn-row"><button class="primary" id="btn-start">Start</button><button class="danger" type="button" id="btn-cancel" hidden>Cancel run</button></div>
           </form>
@@ -331,6 +336,7 @@
     if (config.max_apply !== undefined) form.elements.max_apply.value = config.max_apply || '';
     if (config.easy_apply !== undefined) form.elements.easy_apply.value = config.easy_apply ? 'true' : 'false';
     if (config.work_type !== undefined) form.elements.work_type.value = config.work_type || '';
+    if (config.fill_skill_gaps !== undefined) form.elements.fill_skill_gaps.checked = !!config.fill_skill_gaps;
     configApplied = true;
   }
 
@@ -344,6 +350,7 @@
     const payload = Object.fromEntries(new FormData(event.target).entries());
     payload.easy_apply = payload.easy_apply === 'true';
     if (payload.max_apply) payload.max_apply = Number(payload.max_apply); else delete payload.max_apply;
+    payload.fill_skill_gaps = event.target.elements.fill_skill_gaps.checked;
     const response = await post('/runs', payload);
     if (!response.ok) alert(await response.text());
     else { runFormDirty = false; showToast('Run started'); }

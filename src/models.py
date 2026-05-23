@@ -75,6 +75,7 @@ class RunConfig(BaseModel):
     easy_apply: bool = True
     work_type: str | None = None
     max_apply: int | None = Field(default=None, ge=1)
+    fill_skill_gaps: bool = False
 
 
 class AnswerQuestionsRequest(BaseModel):
