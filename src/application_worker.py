@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 from collections.abc import Callable, Sequence
+from pathlib import Path
 
 from appliers.base import BaseApplier
 from db import Database
@@ -10,10 +11,18 @@ from sources.linkedin import LinkedInRateLimitedError
 
 
 class ApplicationWorker:
-    def __init__(self, db: Database, events: EventBus, applier_factories: list[Callable] | None = None, idle_sleep=2):
+    def __init__(
+        self,
+        db: Database,
+        events: EventBus,
+        applier_factories: list[Callable] | None = None,
+        cv_dir: Path | None = None,
+        idle_sleep=2,
+    ):
         self.db = db
         self.events = events
         self.applier_factories = applier_factories or []
+        self.cv_dir = cv_dir
         self.idle_sleep = idle_sleep
         self.task: asyncio.Task[None] | None = None
         self._stopping = False
@@ -78,6 +87,9 @@ class ApplicationWorker:
             self.db.set_application_status(application.application_id, ApplicationStatus.FAILED, "No applier found")
             await self.publish_application_event("application_failed", application, job, "No applier found")
             return
+
+        if self.cv_dir and application.cv_filename and hasattr(applier, "cv_path"):
+            applier.cv_path = str(self.cv_dir / application.cv_filename)  # type: ignore[attr-defined]
 
         await self.publish_application_event("application_started", application, job)
         self.db.set_application_status(application.application_id, ApplicationStatus.ANALYZING)

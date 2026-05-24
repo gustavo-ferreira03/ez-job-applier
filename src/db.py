@@ -67,6 +67,9 @@ class Database:
                 """
             )
             conn.execute("UPDATE applications SET status = 'NEEDS_INPUT' WHERE status = 'NEEDS_ANSWERS'")
+            app_cols = {r["name"] for r in conn.execute("PRAGMA table_info(applications)").fetchall()}
+            if "cv_filename" not in app_cols:
+                conn.execute("ALTER TABLE applications ADD COLUMN cv_filename TEXT")
 
     def _assert_no_legacy_schema(self, conn):
         row = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'jobs'").fetchone()
@@ -204,15 +207,15 @@ class Database:
                 (status.value, error_message, now(), application_id),
             )
 
-    def approve_application_submit(self, application_id: int):
+    def approve_application_submit(self, application_id: int, cv_filename: str | None = None):
         with self.connect() as conn:
             conn.execute(
                 """
                 UPDATE applications
-                SET submit_approved = 1, updated_at = ?
+                SET submit_approved = 1, cv_filename = ?, updated_at = ?
                 WHERE application_id = ? AND status = ?
                 """,
-                (now(), application_id, ApplicationStatus.READY_FOR_REVIEW.value),
+                (cv_filename, now(), application_id, ApplicationStatus.READY_FOR_REVIEW.value),
             )
 
     def skip_application(self, application_id: int):

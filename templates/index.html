@@ -17,10 +17,10 @@
     .pill.running::before { background:var(--blue); animation:blink 1.4s infinite; }
     @keyframes blink { 50% { opacity:.25; } }
     main { max-width:1220px; margin:0 auto; padding:18px; }
-    .grid { display:grid; grid-template-columns:minmax(0, 1fr) max-content; gap:14px; align-items:start; }
+    .grid { display:grid; grid-template-columns:minmax(0, 1fr) minmax(280px, auto); gap:14px; align-items:start; }
     .main { display:grid; gap:14px; }
     .jobs-rail { position:sticky; top:70px; max-height:calc(100vh - 88px); display:flex; flex-direction:column; }
-    .jobs-rail .bd { overflow:auto; padding:10px; }
+    .jobs-rail .bd { overflow-y:auto; overflow-x:hidden; padding:10px; }
     @media (max-width:980px) { .grid { grid-template-columns:1fr; } .jobs-rail { position:static; max-height:none; } }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
     .card.alert { border-color:#fbbf2450; }
@@ -54,10 +54,10 @@
     .actions { display:flex; gap:8px; margin-top:12px; }
     .empty { color:var(--dim); font-size:13px; margin:0; }
     .job-list { display:grid; gap:8px; }
-    .job-card { width:320px; min-height:86px; padding:10px 11px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; }
+    .job-card { width:100%; min-height:86px; padding:10px 11px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; }
     .job-card:hover { background:var(--surface-2); border-color:var(--border-hi); }
     .job-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-    .job-title { max-width:220px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; font-weight:700; line-height:1.25; }
+    .job-title { min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; font-weight:700; line-height:1.25; }
     .job-meta, .job-time { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); font-size:12px; margin-top:4px; }
     .job-time { color:var(--dim); font-size:11px; margin-top:7px; }
     .badge { display:inline-flex; align-items:center; border-radius:99px; padding:2px 8px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; white-space:nowrap; }
@@ -106,10 +106,13 @@
             </div>
             <div class="btn-row"><button class="primary" id="btn-start">Start</button><button class="danger" type="button" id="btn-cancel" hidden>Cancel run</button></div>
           </form>
+          <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="color:var(--dim);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">CVs</span><span class="count" id="count-cvs">0</span></div>
+            <div id="cv-list-bd"><p class="empty">No CVs uploaded.</p></div>
+          </div>
         </div>
       </section>
 
-      <section class="card" id="section-cvs"><div class="hd"><h2>CVs</h2><span class="count" id="count-cvs">0</span></div><div class="bd" id="cv-list-bd"><p class="empty">No CVs uploaded.</p></div></section>
       <section class="card" id="section-inputs"><div class="hd"><h2>Pending Input</h2><span class="count" id="count-inputs">0</span></div><div class="bd" id="inputs"><p class="empty">No pending input.</p></div></section>
       <section class="card" id="section-submits"><div class="hd"><h2>Submit Approvals</h2><span class="count" id="count-submits">0</span></div><div class="bd" id="submits"><p class="empty">No pending approvals.</p></div></section>
       <section class="card" id="section-external"><div class="hd"><h2>External Applications</h2><span class="count" id="count-external">0</span></div><div class="bd" id="external"><p class="empty">No external applications.</p></div></section>
@@ -203,10 +206,12 @@
       const busy = S.busy[app.application_id];
       const feedback = S.feedback[app.application_id];
       const approved = feedback?.type === 'approve';
+      const cvOptions = S.cvs.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
       return `
       <div class="action${busy ? ' busy' : ''}">
         <div class="title">${esc(app.title)}</div><div class="sub">${esc(app.company)}</div>
         ${questionGrid(app.questions || [])}
+        ${S.cvs.length ? `<div class="field" style="margin-top:8px"><label>CV for this application</label><select id="cv-override-${app.application_id}" ${busy || approved ? 'disabled' : ''}><option value="">Default</option>${cvOptions}</select></div>` : ''}
         ${actionNotice(app.application_id)}
         <div class="actions"><button class="ok" onclick="approveApplication(${app.application_id})" ${busy || approved ? 'disabled' : ''}>${isBusy(app.application_id, 'approve') ? 'Approving...' : approved ? 'Submit approved' : 'Submit application'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy || approved ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
       </div>`;
@@ -267,8 +272,10 @@
 
   async function approveApplication(applicationId) {
     setBusy(applicationId, 'approve');
+    const cvSelect = document.getElementById(`cv-override-${applicationId}`);
+    const cv_filename = cvSelect?.value || null;
     try {
-      const response = await post(`/applications/${applicationId}/approve`);
+      const response = await post(`/applications/${applicationId}/approve`, {cv_filename});
       if (!response.ok) throw new Error(await response.text());
       clearBusy(applicationId);
       setFeedback(applicationId, 'approve', 'Submit approved. The worker will submit it shortly.');

@@ -14,7 +14,7 @@ from application_worker import ApplicationWorker
 from appliers.linkedin_easy_apply import LinkedInEasyApplyApplier
 from db import Database
 from events import EventBus
-from models import AnswerQuestionsRequest, RunConfig
+from models import AnswerQuestionsRequest, ApproveRequest, RunConfig
 from sources.linkedin import LinkedInRateLimitedError, LinkedInSession, LinkedInSource
 
 CONFIG_PATH = Path("settings.json")
@@ -31,7 +31,7 @@ def _make_linkedin_applier():
     return LinkedInEasyApplyApplier(headless=False, cv_path=str(CV_DIR / cv) if cv else None)
 
 
-worker = ApplicationWorker(db, events, applier_factories=[_make_linkedin_applier])
+worker = ApplicationWorker(db, events, applier_factories=[_make_linkedin_applier], cv_dir=CV_DIR)
 
 
 @asynccontextmanager
@@ -135,7 +135,7 @@ async def get_cvs():
 
 @app.post("/cvs")
 async def upload_cv(file: UploadFile = File(...)):
-    filename = Path(file.filename).name
+    filename = Path(file.filename or "upload").name
     with (CV_DIR / filename).open("wb") as f:
         shutil.copyfileobj(file.file, f)
     return {"filename": filename}
@@ -172,11 +172,11 @@ async def answer_application(application_id: int, payload: AnswerQuestionsReques
 
 
 @app.post("/applications/{application_id}/approve")
-async def approve_application(application_id: int):
+async def approve_application(application_id: int, payload: ApproveRequest = ApproveRequest()):
     application = db.get_application(application_id)
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
-    db.approve_application_submit(application_id)
+    db.approve_application_submit(application_id, payload.cv_filename)
     await events.publish({"type": "application_submit_approved", "application_id": application_id})
     return {"ok": True}
 

@@ -35,9 +35,16 @@ class Application(BaseModel):
     job_id: str = Field(min_length=1)
     status: ApplicationStatus
     submit_approved: bool = False
+    cv_filename: str | None = None
     error_message: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+
+
+class ApproveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cv_filename: str | None = None
 
 
 class ApplicationQuestion(BaseModel):
