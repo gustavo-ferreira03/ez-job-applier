@@ -144,8 +144,8 @@ class LinkedInSession:
             await client.login()
 
 
-class LinkedInSource(LinkedInSession, JobSource):
-    name = "linkedin"
+class _BorrowedLinkedInSession:
+    """Mixin that allows a LinkedInSession subclass to borrow an existing session."""
 
     def __init__(self, session: "LinkedInSession | None" = None, **kwargs):
         self._external_session = session
@@ -155,19 +155,29 @@ class LinkedInSource(LinkedInSession, JobSource):
 
     async def __aenter__(self):
         if self._external_session is not None:
-            self.browser = self._external_session.browser
-            self.context = self._external_session.context
-            self.page = self._external_session.page
-            self.session_file = self._external_session.session_file
-            self.headless = self._external_session.headless
+            for attr in ("browser", "context", "session_file", "headless"):
+                setattr(self, attr, getattr(self._external_session, attr))
+            self.page = await self._borrow_page()
             self._borrowed = True
             return self
-        return await super().__aenter__()
+        return await super().__aenter__()  # type: ignore[misc]
 
     async def __aexit__(self, *args):
         if self._external_session is not None:
+            await self._release_page()
             return
-        return await super().__aexit__(*args)
+        return await super().__aexit__(*args)  # type: ignore[misc]
+
+    async def _borrow_page(self):
+        assert self._external_session is not None
+        return self._external_session.page
+
+    async def _release_page(self):
+        pass
+
+
+class LinkedInSource(_BorrowedLinkedInSession, LinkedInSession, JobSource):
+    name = "linkedin"
 
     async def discover_jobs(self, config: RunConfig) -> AsyncIterator[Job]:
         await self.ensure_logged_in()

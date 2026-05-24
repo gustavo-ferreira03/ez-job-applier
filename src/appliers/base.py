@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from models import AnalyzeResult, Application, ApplicationQuestion, Job, SubmitResult
+from models import Application, ApplicationQuestion, Job, SubmitResult
 
 
 class BaseApplier(ABC):
@@ -17,7 +17,7 @@ class BaseApplier(ABC):
         application: Application,
         job: Job,
         questions: list[ApplicationQuestion],
-    ) -> AnalyzeResult:
+    ) -> SubmitResult:
         pass
 
     @abstractmethod

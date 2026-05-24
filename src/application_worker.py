@@ -1,8 +1,8 @@
 import asyncio
-from collections.abc import Sequence
+import contextlib
+from collections.abc import Callable, Sequence
 
 from appliers.base import BaseApplier
-from appliers.linkedin_easy_apply import LinkedInEasyApplyApplier
 from db import Database
 from events import EventBus
 from models import Application, ApplicationStatus, Job
@@ -10,9 +10,10 @@ from sources.linkedin import LinkedInRateLimitedError
 
 
 class ApplicationWorker:
-    def __init__(self, db: Database, events: EventBus, idle_sleep=2):
+    def __init__(self, db: Database, events: EventBus, applier_factories: list[Callable] | None = None, idle_sleep=2):
         self.db = db
         self.events = events
+        self.applier_factories = applier_factories or []
         self.idle_sleep = idle_sleep
         self.task: asyncio.Task[None] | None = None
         self._stopping = False
@@ -54,8 +55,8 @@ class ApplicationWorker:
                     await asyncio.sleep(self.idle_sleep)
                     continue
 
-                async with LinkedInEasyApplyApplier(headless=False) as linkedin_applier:
-                    appliers = [linkedin_applier]
+                async with contextlib.AsyncExitStack() as stack:
+                    appliers = [await stack.enter_async_context(f()) for f in self.applier_factories]
                     while application and not self._stopping:
                         await self.process_application(application, appliers)
                         application = self.db.next_task()

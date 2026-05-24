@@ -3,36 +3,19 @@ import re
 from playwright.async_api import Error as PlaywrightError
 
 from appliers.base import BaseApplier
-from models import AnalyzeResult, Application, ApplicationQuestion, ApplicationStatus, Job, SubmitResult
-from sources.linkedin import LinkedInRateLimitedError, LinkedInSession
+from models import Application, ApplicationQuestion, ApplicationStatus, Job, SubmitResult
+from sources.linkedin import LinkedInRateLimitedError, LinkedInSession, _BorrowedLinkedInSession
 
 
-class LinkedInEasyApplyApplier(LinkedInSession, BaseApplier):
+class LinkedInEasyApplyApplier(_BorrowedLinkedInSession, LinkedInSession, BaseApplier):
     name = "linkedin_easy_apply"
     priority = 100
 
-    def __init__(self, session: "LinkedInSession | None" = None, **kwargs):
-        self._external_session = session
-        self._borrowed = False
-        if session is None:
-            super().__init__(**kwargs)
+    async def _borrow_page(self):
+        return await self.context.new_page()
 
-    async def __aenter__(self):
-        if self._external_session is not None:
-            self.browser = self._external_session.browser
-            self.context = self._external_session.context
-            self.page = await self.context.new_page()
-            self.session_file = self._external_session.session_file
-            self.headless = self._external_session.headless
-            self._borrowed = True
-            return self
-        return await super().__aenter__()
-
-    async def __aexit__(self, *args):
-        if self._external_session is not None:
-            await self.page.close()
-            return
-        return await super().__aexit__(*args)
+    async def _release_page(self):
+        await self.page.close()
 
     def matches(self, job: Job) -> bool:
         return job.easy_apply and "linkedin.com" in job.url.lower()
@@ -42,9 +25,8 @@ class LinkedInEasyApplyApplier(LinkedInSession, BaseApplier):
         application: Application,
         job: Job,
         questions: list[ApplicationQuestion],
-    ) -> AnalyzeResult:
-        result = await self.run_flow(job, questions, should_submit=False)
-        return AnalyzeResult(status=result.status, questions=result.questions, error_message=result.error_message)
+    ) -> SubmitResult:
+        return await self.run_flow(job, questions, should_submit=False)
 
     async def submit(
         self,

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -19,7 +20,7 @@ CONFIG_PATH = Path("settings.json")
 templates = Jinja2Templates(directory="templates")
 db = Database("jobs.db")
 events = EventBus()
-worker = ApplicationWorker(db, events)
+worker = ApplicationWorker(db, events, applier_factories=[lambda: LinkedInEasyApplyApplier(headless=False)])
 run_task: asyncio.Task[None] | None = None
 current_config = None
 
@@ -163,7 +164,9 @@ async def _run(config: RunConfig):
     try:
         async with LinkedInSession(headless=False) as session:
             await session.ensure_logged_in()
-            async with LinkedInSource(session=session) as source, LinkedInEasyApplyApplier(session=session) as applier:
+            async with contextlib.AsyncExitStack() as stack:
+                source = await stack.enter_async_context(LinkedInSource(session=session))
+                appliers = [await stack.enter_async_context(LinkedInEasyApplyApplier(session=session))]
                 async for job in source.discover_jobs(config):
                     db.save_jobs([job])
                     application = db.ensure_application_for_job(job.job_id)
@@ -178,9 +181,9 @@ async def _run(config: RunConfig):
                             "job_id": application.job_id,
                         }
                     )
-                    if applier.matches(job):
+                    if any(a.matches(job) for a in appliers):
                         try:
-                            await worker.process_application(application, [applier])
+                            await worker.process_application(application, appliers)
                         except LinkedInRateLimitedError as exc:
                             await events.publish({"type": "run_failed", "error": str(exc)})
                             return
@@ -188,7 +191,7 @@ async def _run(config: RunConfig):
                     retry = db.next_task()
                     while retry:
                         try:
-                            await worker.process_application(retry, [applier])
+                            await worker.process_application(retry, appliers)
                         except LinkedInRateLimitedError as exc:
                             await events.publish({"type": "run_failed", "error": str(exc)})
                             return

@@ -51,14 +51,6 @@ class ApplicationQuestion(BaseModel):
     options: list[str] = Field(default_factory=list)
 
 
-class AnalyzeResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    status: ApplicationStatus
-    questions: list[ApplicationQuestion] = Field(default_factory=list)
-    error_message: str | None = None
-
-
 class SubmitResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
