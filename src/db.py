@@ -113,13 +113,6 @@ class Database:
                     ),
                 )
 
-    def ensure_applications_for_easy_apply_jobs(self, jobs: list[Job]) -> list[Application]:
-        applications = []
-        for job in jobs:
-            if job.easy_apply:
-                applications.append(self.ensure_application_for_job(job.job_id))
-        return applications
-
     def ensure_application_for_job(self, job_id: str) -> Application:
         timestamp = now()
         with self.connect() as conn:
@@ -158,7 +151,7 @@ class Database:
                 """
                 SELECT
                     j.job_id, j.title, j.company, j.location, j.url, j.easy_apply,
-                    j.created_at, j.updated_at,
+                    j.application_url, j.created_at, j.updated_at,
                     a.application_id, a.status, a.submit_approved, a.error_message,
                     a.updated_at AS application_updated_at
                 FROM jobs j

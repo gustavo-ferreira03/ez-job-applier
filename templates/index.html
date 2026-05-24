@@ -44,6 +44,7 @@
     .ghost { background:var(--surface-2); color:var(--muted); border:1px solid var(--border-hi); }
     .danger { background:#3b0a0a; color:var(--red); border:1px solid #7f1d1d; }
     .ok { background:#0d2e1a; color:var(--green); border:1px solid #166534; }
+    a.ok { display:inline-flex; align-items:center; border-radius:var(--r-sm); padding:8px 16px; font-weight:700; text-decoration:none; cursor:pointer; }
     .action { background:var(--surface-2); border:1px solid var(--border-hi); border-radius:var(--r-sm); padding:12px 14px; }
     .action.busy { border-color:#38bdf866; }
     .action + .action { margin-top:8px; }
@@ -98,7 +99,7 @@
               <label class="f w2"><span>Keywords <small>(one per line)</small></span><textarea name="keywords" rows="2">python developer junior</textarea></label>
               <label class="f"><span>Location</span><input name="location" value="Brazil"></label>
               <label class="f"><span>Max applications <small>(blank = ∞)</small></span><input name="max_apply" type="number" min="1" placeholder="unlimited"></label>
-              <label class="f"><span>Easy Apply</span><select name="easy_apply"><option value="true">Yes</option><option value="false">No</option></select></label>
+              <label class="f"><span>Easy Apply only</span><input type="checkbox" name="easy_apply" class="toggle" checked></label>
               <label class="f"><span>Work type</span><select name="work_type"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option><option value="remote,hybrid">Remote + Hybrid</option></select></label>
               <label class="f"><span>Fill skill gaps</span><input type="checkbox" name="fill_skill_gaps" class="toggle"></label>
             </div>
@@ -109,6 +110,7 @@
 
       <section class="card" id="section-inputs"><div class="hd"><h2>Pending Questions</h2><span class="count" id="count-inputs">0</span></div><div class="bd" id="inputs"><p class="empty">No pending questions.</p></div></section>
       <section class="card" id="section-submits"><div class="hd"><h2>Submit Approvals</h2><span class="count" id="count-submits">0</span></div><div class="bd" id="submits"><p class="empty">No pending approvals.</p></div></section>
+      <section class="card" id="section-external"><div class="hd"><h2>External Applications</h2><span class="count" id="count-external">0</span></div><div class="bd" id="external"><p class="empty">No external applications.</p></div></section>
     </div>
 
     <aside class="card jobs-rail"><div class="hd"><h2>Jobs</h2><span class="count" id="count-jobs">0</span><span style="margin-left:auto;font-size:11px;color:var(--dim)">click for details</span></div><div class="bd"><div class="job-list" id="jobs"></div></div></aside>
@@ -164,10 +166,25 @@
   }
 
   function renderPending() {
+    S.external = S.jobs.filter(j => j.application_id && !j.easy_apply && j.application_url && j.status === 'FOUND');
     $('count-inputs').textContent = S.pending.length;
     $('count-submits').textContent = S.review.length;
+    $('count-external').textContent = S.external.length;
     $('section-inputs').className = 'card' + (S.pending.length ? ' alert' : '');
     $('section-submits').className = 'card' + (S.review.length ? ' alert' : '');
+    $('section-external').className = 'card' + (S.external.length ? ' alert' : '');
+    $('external').innerHTML = S.external.length ? S.external.map(job => {
+      const busy = S.busy[job.application_id];
+      return `
+      <div class="action${busy ? ' busy' : ''}">
+        <div class="title">${esc(job.title)}</div>
+        <div class="sub">${esc(job.company)}${job.location ? ' · ' + esc(job.location) : ''}</div>
+        <div class="actions">
+          <a class="ok" href="${esc(job.application_url)}" target="_blank" rel="noopener">Apply externally ↗</a>
+          <button class="ghost" onclick="skipApplication(${job.application_id})" ${busy ? 'disabled' : ''}>${isBusy(job.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button>
+        </div>
+      </div>`;
+    }).join('') : '<p class="empty">No external applications.</p>';
     $('inputs').innerHTML = S.pending.length ? S.pending.map(app => {
       const busy = S.busy[app.application_id];
       const feedback = S.feedback[app.application_id];
@@ -289,7 +306,7 @@
     if (!response.ok) return;
     const job = await response.json();
     $('modal-hd').innerHTML = `<h3>${esc(job.title)}</h3><div class="sub">${esc(job.company)}${job.location ? ' · ' + esc(job.location) : ''} ${badge(job.status)}</div>`;
-    $('modal-bd').innerHTML = `${job.error_message ? `<div class="err">${esc(job.error_message)}</div>` : ''}${section('About the job', job.about ? `<div class="box">${esc(job.about)}</div>` : '')}${section('Preferences', chips(job.preferences))}${section('Skills', chips(job.skills))}${section('Questions', questionGrid(job.questions || []))}`;
+    $('modal-bd').innerHTML = `${job.error_message ? `<div class="err">${esc(job.error_message)}</div>` : ''}${job.application_url && !job.easy_apply ? section('External application', `<a href="${esc(job.application_url)}" target="_blank" rel="noopener" style="color:var(--blue)">Open application form ↗</a>`) : ''}${section('About the job', job.about ? `<div class="box">${esc(job.about)}</div>` : '')}${section('Preferences', chips(job.preferences))}${section('Skills', chips(job.skills))}${section('Questions', questionGrid(job.questions || []))}`;
     $('modal-overlay').classList.add('open');
   }
 
@@ -334,7 +351,7 @@
     if (config.keywords !== undefined) form.elements.keywords.value = config.keywords || '';
     if (config.location !== undefined) form.elements.location.value = config.location || '';
     if (config.max_apply !== undefined) form.elements.max_apply.value = config.max_apply || '';
-    if (config.easy_apply !== undefined) form.elements.easy_apply.value = config.easy_apply ? 'true' : 'false';
+    if (config.easy_apply !== undefined) form.elements.easy_apply.checked = !!config.easy_apply;
     if (config.work_type !== undefined) form.elements.work_type.value = config.work_type || '';
     if (config.fill_skill_gaps !== undefined) form.elements.fill_skill_gaps.checked = !!config.fill_skill_gaps;
     configApplied = true;
@@ -348,7 +365,7 @@
     event.preventDefault();
     enableAudio();
     const payload = Object.fromEntries(new FormData(event.target).entries());
-    payload.easy_apply = payload.easy_apply === 'true';
+    payload.easy_apply = event.target.elements.easy_apply.checked;
     if (payload.max_apply) payload.max_apply = Number(payload.max_apply); else delete payload.max_apply;
     payload.fill_skill_gaps = event.target.elements.fill_skill_gaps.checked;
     const response = await post('/runs', payload);

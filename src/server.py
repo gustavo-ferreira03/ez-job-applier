@@ -166,19 +166,19 @@ async def _run(config: RunConfig):
             async with LinkedInSource(session=session) as source, LinkedInEasyApplyApplier(session=session) as applier:
                 async for job in source.discover_jobs(config):
                     db.save_jobs([job])
-                    applications = db.ensure_applications_for_easy_apply_jobs([job])
+                    application = db.ensure_application_for_job(job.job_id)
                     count += 1
                     await events.publish(
                         {"type": "job_discovered", "job_id": job.job_id, "title": job.title, "company": job.company}
                     )
-                    for application in applications:
-                        await events.publish(
-                            {
-                                "type": "application_created",
-                                "application_id": application.application_id,
-                                "job_id": application.job_id,
-                            }
-                        )
+                    await events.publish(
+                        {
+                            "type": "application_created",
+                            "application_id": application.application_id,
+                            "job_id": application.job_id,
+                        }
+                    )
+                    if applier.matches(job):
                         try:
                             await worker.process_application(application, [applier])
                         except LinkedInRateLimitedError as exc:
