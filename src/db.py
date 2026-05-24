@@ -7,7 +7,7 @@ from models import Application, ApplicationQuestion, ApplicationStatus, Job
 
 
 class Database:
-    def __init__(self, path="jobs.db"):
+    def __init__(self, path="applier.db"):
         self.path = Path(path)
 
     def connect(self):
@@ -67,6 +67,13 @@ class Database:
                 """
             )
             conn.execute("UPDATE applications SET status = 'NEEDS_INPUT' WHERE status = 'NEEDS_ANSWERS'")
+            conn.execute(
+                """
+                UPDATE applications SET status = 'EXTERNAL'
+                WHERE status = 'FOUND'
+                  AND job_id IN (SELECT job_id FROM jobs WHERE easy_apply = 0 AND application_url IS NOT NULL)
+                """
+            )
             app_cols = {r["name"] for r in conn.execute("PRAGMA table_info(applications)").fetchall()}
             if "cv_filename" not in app_cols:
                 conn.execute("ALTER TABLE applications ADD COLUMN cv_filename TEXT")
@@ -77,7 +84,7 @@ class Database:
             return
         columns = {column["name"] for column in conn.execute("PRAGMA table_info(jobs)").fetchall()}
         if "status" in columns or "applied_answers" in columns:
-            raise RuntimeError("Legacy jobs table detected. Delete jobs.db before running the new schema.")
+            raise RuntimeError("Legacy jobs table detected. Delete applier.db before running the new schema.")
 
     def save_jobs(self, jobs: list[Job]):
         timestamp = now()

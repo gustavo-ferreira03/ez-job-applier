@@ -11,6 +11,7 @@ class ApplicationStatus(str, Enum):
     SUBMITTED = "SUBMITTED"
     SKIPPED = "SKIPPED"
     FAILED = "FAILED"
+    EXTERNAL = "EXTERNAL"
 
 
 class Job(BaseModel):
@@ -47,6 +48,12 @@ class ApproveRequest(BaseModel):
     cv_filename: str | None = None
 
 
+class SetDefaultCVRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    filename: str | None = None
+
+
 class ApplicationQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -75,7 +82,6 @@ class RunConfig(BaseModel):
     work_type: str | None = None
     max_apply: int | None = Field(default=None, ge=1)
     fill_skill_gaps: bool = False
-    cv_filename: str | None = None
 
 
 class AnswerQuestionsRequest(BaseModel):

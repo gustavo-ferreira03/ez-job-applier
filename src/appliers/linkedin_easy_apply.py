@@ -46,14 +46,21 @@ class LinkedInEasyApplyApplier(_BorrowedLinkedInSession, LinkedInSession, BaseAp
         try:
             await self.ensure_logged_in()
             await self.goto_linkedin(job.url, wait_until="domcontentloaded")
-            await self.page.wait_for_timeout(2000)
+
             easy_apply = self.page.get_by_role("link").filter(has_text="Easy Apply").first
-            if not await easy_apply.count():
+            try:
+                await easy_apply.wait_for(timeout=3000)
+            except Exception:
                 easy_apply = self.page.get_by_role("button").filter(has_text="Easy Apply").first
+            if not await easy_apply.count():
+                return SubmitResult(status=ApplicationStatus.SKIPPED, questions=[], error_message="No Easy Apply button")
             await easy_apply.click()
 
             modal = self.page.get_by_role("dialog").last
-            await modal.wait_for()
+            try:
+                await modal.wait_for(timeout=5000)
+            except Exception:
+                return SubmitResult(status=ApplicationStatus.SKIPPED, questions=[], error_message="Already applied")
 
             for _ in range(20):
                 pending = []
@@ -133,16 +140,17 @@ class LinkedInEasyApplyApplier(_BorrowedLinkedInSession, LinkedInSession, BaseAp
             if not await field.is_visible() or not await field.is_enabled():
                 continue
             label = await self.field_label(field, f"text field {index + 1}")
+            field_type = (await field.get_attribute("type")) or "text"
             current_value = await field.input_value()
             answer = answers.get(label)
             if answer:
                 if current_value != answer:
                     await field.fill(answer)
-                collected.append(ApplicationQuestion(label=label, answer=answer, field_type="text"))
+                collected.append(ApplicationQuestion(label=label, answer=answer, field_type=field_type))
             elif current_value:
-                collected.append(ApplicationQuestion(label=label, answer=current_value, field_type="text"))
+                collected.append(ApplicationQuestion(label=label, answer=current_value, field_type=field_type))
             else:
-                pending.append(ApplicationQuestion(label=label, field_type="text"))
+                pending.append(ApplicationQuestion(label=label, field_type=field_type))
 
     async def fill_selects(self, modal, answers, pending, collected):
         selects = modal.locator("select")

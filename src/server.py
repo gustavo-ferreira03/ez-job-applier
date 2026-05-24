@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 import json
 import shutil
 from contextlib import asynccontextmanager
@@ -14,21 +13,25 @@ from application_worker import ApplicationWorker
 from appliers.linkedin_easy_apply import LinkedInEasyApplyApplier
 from db import Database
 from events import EventBus
-from models import AnswerQuestionsRequest, ApproveRequest, RunConfig
+from models import AnswerQuestionsRequest, ApplicationStatus, ApproveRequest, RunConfig, SetDefaultCVRequest
 from sources.linkedin import LinkedInRateLimitedError, LinkedInSession, LinkedInSource
 
 CONFIG_PATH = Path("settings.json")
 CV_DIR = Path("cvs")
 templates = Jinja2Templates(directory="templates")
-db = Database("jobs.db")
+db = Database("applier.db")
 events = EventBus()
 run_task: asyncio.Task[None] | None = None
 current_config = None
 
 
+def _cv_path() -> str | None:
+    cv = load_config().get("default_cv")
+    return str(CV_DIR / cv) if cv else None
+
+
 def _make_linkedin_applier():
-    cv = current_config.get("cv_filename") if current_config else None
-    return LinkedInEasyApplyApplier(headless=False, cv_path=str(CV_DIR / cv) if cv else None)
+    return LinkedInEasyApplyApplier(headless=False, cv_path=_cv_path())
 
 
 worker = ApplicationWorker(db, events, applier_factories=[_make_linkedin_applier], cv_dir=CV_DIR)
@@ -58,7 +61,9 @@ def load_config():
 
 
 def save_config(config):
-    CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+    existing = load_config()
+    existing.update(config)
+    CONFIG_PATH.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def is_run_active():
@@ -141,9 +146,22 @@ async def upload_cv(file: UploadFile = File(...)):
     return {"filename": filename}
 
 
+@app.post("/cvs/default")
+async def set_default_cv(payload: SetDefaultCVRequest):
+    cfg = load_config()
+    cfg["default_cv"] = Path(payload.filename).name if payload.filename else None
+    save_config(cfg)
+    return {"ok": True}
+
+
 @app.delete("/cvs/{filename}")
 async def delete_cv(filename: str):
-    (CV_DIR / Path(filename).name).unlink(missing_ok=True)
+    safe = Path(filename).name
+    (CV_DIR / safe).unlink(missing_ok=True)
+    cfg = load_config()
+    if cfg.get("default_cv") == safe:
+        cfg.pop("default_cv", None)
+        CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"ok": True}
 
 
@@ -181,6 +199,16 @@ async def approve_application(application_id: int, payload: ApproveRequest = App
     return {"ok": True}
 
 
+@app.post("/applications/{application_id}/mark-applied")
+async def mark_applied(application_id: int):
+    application = db.get_application(application_id)
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    db.set_application_status(application_id, ApplicationStatus.SUBMITTED)
+    await events.publish({"type": "application_submitted", "application_id": application_id})
+    return {"ok": True}
+
+
 @app.post("/applications/{application_id}/skip")
 async def skip_application(application_id: int):
     application = db.get_application(application_id)
@@ -198,10 +226,7 @@ async def _run(config: RunConfig):
     try:
         async with LinkedInSession(headless=False) as session:
             await session.ensure_logged_in()
-            async with contextlib.AsyncExitStack() as stack:
-                source = await stack.enter_async_context(LinkedInSource(session=session))
-                cv_path = str(CV_DIR / config.cv_filename) if config.cv_filename else None
-                appliers = [await stack.enter_async_context(LinkedInEasyApplyApplier(session=session, cv_path=cv_path))]
+            async with LinkedInSource(session=session) as source, LinkedInEasyApplyApplier(session=session, cv_path=_cv_path()) as applier:
                 async for job in source.discover_jobs(config):
                     db.save_jobs([job])
                     application = db.ensure_application_for_job(job.job_id)
@@ -216,17 +241,19 @@ async def _run(config: RunConfig):
                             "job_id": application.job_id,
                         }
                     )
-                    if any(a.matches(job) for a in appliers):
+                    if applier.matches(job):
                         try:
-                            await worker.process_application(application, appliers)
+                            await worker.process_application(application, [applier])
                         except LinkedInRateLimitedError as exc:
                             await events.publish({"type": "run_failed", "error": str(exc)})
                             return
+                    else:
+                        db.set_application_status(application.application_id, ApplicationStatus.EXTERNAL)
                     await events.publish({"type": "run_progress", "count": count, "job_id": job.job_id})
                     retry = db.next_task()
                     while retry:
                         try:
-                            await worker.process_application(retry, appliers)
+                            await worker.process_application(retry, [applier])
                         except LinkedInRateLimitedError as exc:
                             await events.publish({"type": "run_failed", "error": str(exc)})
                             return

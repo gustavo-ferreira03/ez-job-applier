@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+import json
 import re
 from pathlib import Path
 from typing import Union
@@ -45,7 +46,7 @@ def rate_limit_message(url, status=None):
 
 
 class LinkedInSession:
-    def __init__(self, session_file: Union[str, Path] = "linkedin_session.json", headless=False):
+    def __init__(self, session_file: Union[str, Path] = "session.json", headless=False):
         self.session_file = Path(session_file)
         self.headless = headless
         self._borrowed = False
@@ -66,7 +67,9 @@ class LinkedInSession:
         await self.browser.close()
 
     async def save_session(self):
-        await self.context.storage_state(path=str(self.session_file))
+        state = await self.context.storage_state()
+        state["origins"] = [o for o in state["origins"] if "linkedin.com" in o["origin"]]
+        self.session_file.write_text(json.dumps(state), encoding="utf-8")
         print(f"Session saved to: {self.session_file.resolve()}")
 
     async def reload_context(self):
@@ -129,12 +132,12 @@ class LinkedInSession:
     async def ensure_logged_in(self):
         if self._borrowed:
             return
-        if self.session_file.exists() and await self.set_language_english():
+        if self.session_file.exists() and await self.is_logged_in():
             return
         if self.headless:
             await self.login_headful()
             await self.reload_context()
-            if not await self.set_language_english():
+            if not await self.is_logged_in():
                 raise RuntimeError("LinkedIn login did not produce an authenticated session")
         else:
             await self.login()
