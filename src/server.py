@@ -106,8 +106,6 @@ async def state():
             "current_config": current_config,
         },
         "jobs": db.job_summary(),
-        "pending_input": db.pending_input_applications(),
-        "ready_for_review": db.ready_for_review_applications(),
         "events": list(events.history),
         "config": load_config(),
         "cvs": list_cvs(),

@@ -91,8 +91,13 @@ class ApplicationWorker:
         if self.cv_dir and application.cv_filename and hasattr(applier, "cv_path"):
             applier.cv_path = str(self.cv_dir / application.cv_filename)  # type: ignore[attr-defined]
 
-        await self.publish_application_event("application_started", application, job)
-        self.db.set_application_status(application.application_id, ApplicationStatus.ANALYZING)
+        await self.events.publish({
+            "type": "application_processing",
+            "application_id": application.application_id,
+            "job_id": application.job_id,
+            "title": job.title,
+            "company": job.company,
+        })
         questions = self.db.list_questions(application.application_id)
 
         try:
@@ -141,6 +146,5 @@ def event_type_for_status(status: ApplicationStatus):
         ApplicationStatus.SUBMITTED: "application_submitted",
         ApplicationStatus.SKIPPED: "application_skipped",
         ApplicationStatus.FAILED: "application_failed",
-        ApplicationStatus.ANALYZING: "application_started",
         ApplicationStatus.FOUND: "application_found",
     }[status]

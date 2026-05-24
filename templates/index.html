@@ -6,445 +6,551 @@
   <title>EZJobApplier</title>
   <style>
     * { box-sizing: border-box; }
-    :root { --bg:#0c1120; --surface:#111827; --surface-2:#1e293b; --border:#1e2d45; --border-hi:#334155; --text:#f1f5f9; --muted:#94a3b8; --dim:#64748b; --blue:#38bdf8; --green:#4ade80; --yellow:#fbbf24; --red:#f87171; --r:12px; --r-sm:8px; }
-    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,sans-serif; }
-    .topbar { position:sticky; top:0; z-index:50; height:52px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 28px; }
+    :root { --bg:#0c1120; --surface:#111827; --surface-2:#1e293b; --border:#1e2d45; --border-hi:#334155; --text:#f1f5f9; --muted:#94a3b8; --dim:#64748b; --blue:#38bdf8; --green:#4ade80; --yellow:#fbbf24; --red:#f87171; --purple:#a78bfa; --r:12px; --r-sm:8px; }
+    html, body { height:100%; margin:0; }
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border-hi); border-radius:99px; }
+    ::-webkit-scrollbar-thumb:hover { background:var(--dim); }
+    ::-webkit-scrollbar-corner { background:transparent; }
+    * { scrollbar-width:thin; scrollbar-color:var(--border-hi) transparent; }
+    body { background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; }
+
+    .topbar { flex:0 0 52px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; gap:10px; z-index:50; }
     .logo { font-weight:800; letter-spacing:-.02em; }
     .logo span { color:var(--blue); }
-    .pill { margin-left:auto; display:inline-flex; gap:6px; align-items:center; padding:4px 11px; border-radius:99px; background:var(--surface-2); color:var(--muted); font-size:12px; font-weight:700; }
+    .pill { display:inline-flex; gap:6px; align-items:center; padding:4px 11px; border-radius:99px; background:var(--surface-2); color:var(--muted); font-size:12px; font-weight:700; }
     .pill::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--border-hi); }
     .pill.running { background:#0c2d4a; color:var(--blue); }
     .pill.running::before { background:var(--blue); animation:blink 1.4s infinite; }
-    @keyframes blink { 50% { opacity:.25; } }
-    main { max-width:1220px; margin:0 auto; padding:18px; }
-    .grid { display:flex; gap:14px; align-items:flex-start; }
-    .main { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:14px; }
-    .jobs-rail { flex:0 0 320px; position:sticky; top:66px; max-height:calc(100vh - 88px); display:flex; flex-direction:column; }
-    .jobs-rail .bd { flex:1; min-height:0; overflow-y:auto; padding:10px; }
-    @media (max-width:980px) { .grid { flex-direction:column; } .main, .jobs-rail { width:100%; flex:none; } .jobs-rail { position:static; max-height:none; } }
-    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
-    .card.alert { border-color:#fbbf2450; }
-    .hd { min-height:42px; padding:11px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
-    .hd h2 { margin:0; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
-    .bd { padding:16px; }
-    .count { padding:1px 7px; border-radius:99px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; }
-    .form-grid { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
-    .f { display:flex; flex-direction:column; gap:5px; }
-    .form-grid .f { flex:1 1 calc(50% - 5px); min-width:240px; }
-    .f.w2 { flex-basis:100%; }
-    .f > span, .field label { color:var(--dim); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
-    small { color:var(--muted); font-weight:400; text-transform:none; }
-    input, select, textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border-hi); border-radius:var(--r-sm); padding:8px 11px; font:inherit; }
-    textarea { min-height:44px; resize:vertical; }
-    input:focus, select:focus, textarea:focus { outline:0; border-color:var(--blue); box-shadow:0 0 0 3px #38bdf818; }
-    .btn-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-    button { border:0; border-radius:var(--r-sm); padding:8px 16px; cursor:pointer; font-weight:700; }
+    @keyframes blink { 50%{opacity:.25;} }
+    .topbar-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+
+    button { border:0; border-radius:var(--r-sm); padding:7px 14px; cursor:pointer; font-weight:700; font:inherit; }
     button:hover { filter:brightness(1.12); }
     button:disabled { cursor:wait; opacity:.62; filter:none; }
     .primary { background:var(--blue); color:#04243a; }
     .ghost { background:var(--surface-2); color:var(--muted); border:1px solid var(--border-hi); }
     .danger { background:#3b0a0a; color:var(--red); border:1px solid #7f1d1d; }
     .ok { background:#0d2e1a; color:var(--green); border:1px solid #166534; }
-    a.ok { display:inline-flex; align-items:center; border-radius:var(--r-sm); padding:8px 16px; font-weight:700; text-decoration:none; cursor:pointer; }
-    .action { background:var(--surface-2); border:1px solid var(--border-hi); border-radius:var(--r-sm); padding:12px 14px; }
-    .action.busy { border-color:#38bdf866; }
-    .action + .action { margin-top:8px; }
-    .title { font-weight:700; }
-    .sub { color:var(--muted); font-size:12px; margin-bottom:8px; }
-    .field { margin-bottom:8px; }
-    .actions { display:flex; gap:8px; margin-top:12px; }
-    .empty { color:var(--dim); font-size:13px; margin:0; }
-    .job-list { display:flex; flex-direction:column; gap:8px; }
-    .job-card { width:100%; min-height:86px; padding:10px 11px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; }
+    .icon-btn { padding:7px 11px; font-size:16px; line-height:1; }
+    a.ok { display:inline-flex; align-items:center; border-radius:var(--r-sm); padding:7px 14px; font-weight:700; text-decoration:none; }
+
+    .board-wrap { flex:1; overflow:hidden; }
+    .board { height:100%; overflow-x:auto; overflow-y:hidden; display:flex; gap:12px; padding:12px 16px; align-items:flex-start; }
+
+    .column { flex:0 0 290px; width:290px; max-width:290px; min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--r); display:flex; flex-direction:column; max-height:calc(100vh - 76px); overflow:hidden; }
+    .column.dimmed { opacity:.65; }
+    .column.alert-yellow { border-color:#fbbf2440; }
+    .column.alert-blue { border-color:#38bdf840; }
+    .column.alert-purple { border-color:#a78bfa40; }
+
+    .col-header { flex:0 0 auto; padding:10px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+    .col-header h2 { margin:0; font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--dim); font-weight:800; }
+    .count { padding:1px 7px; border-radius:99px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; }
+    .spinner { width:10px; height:10px; border:2px solid var(--border-hi); border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; display:none; margin-left:auto; }
+    @keyframes spin { to{transform:rotate(360deg);} }
+    .col-body { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px; }
+
+    .job-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:10px 12px; cursor:pointer; }
     .job-card:hover { background:var(--surface-2); border-color:var(--border-hi); }
-    .job-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-    .job-title { min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; font-weight:700; line-height:1.25; }
-    .job-meta, .job-time { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); font-size:12px; margin-top:4px; }
-    .job-time { color:var(--dim); font-size:11px; margin-top:7px; }
-    .badge { display:inline-flex; align-items:center; border-radius:99px; padding:2px 8px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; white-space:nowrap; }
-    .s-FOUND { background:#1e293b; color:var(--muted); } .s-ANALYZING { background:#0c1f3d; color:var(--blue); } .s-NEEDS_INPUT { background:#2d1500; color:#fde68a; } .s-READY_FOR_REVIEW { background:#0c1f3d; color:#93c5fd; } .s-SUBMITTED { background:#0d2e1a; color:#86efac; } .s-SKIPPED { background:#1c1917; color:#a8a29e; } .s-FAILED { background:#300a0a; color:#fca5a5; } .s-EXTERNAL { background:#1a1a2e; color:#a78bfa; }
+    .job-card.c-needs-input { border-left:3px solid var(--yellow); }
+    .job-card.c-review { border-left:3px solid var(--blue); }
+    .job-card.c-external { border-left:3px solid var(--purple); }
+    .job-card.c-failed { border-left:3px solid var(--red); }
+    .job-card.c-processing { border:2px solid var(--blue); animation:pulse-border 1.4s infinite; }
+    @keyframes pulse-border { 50%{border-color:#38bdf840;} }
+    .card-spinner { width:11px; height:11px; border:2px solid var(--border-hi); border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; display:inline-block; flex-shrink:0; }
+    .job-title { font-weight:700; line-height:1.25; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .job-meta { color:var(--muted); font-size:12px; margin-top:4px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .job-foot { display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
+    .job-time { color:var(--dim); font-size:11px; }
+    .job-hint { font-size:11px; font-weight:700; }
+    .hint-warn { color:var(--yellow); }
+    .hint-err { color:var(--red); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:160px; }
+    .hint-info { color:var(--blue); }
+    .empty { color:var(--dim); font-size:13px; margin:0; padding:4px; }
+
     .overlay { display:none; position:fixed; inset:0; z-index:200; background:#0009; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; backdrop-filter:blur(4px); }
     .overlay.open { display:flex; }
     .modal { position:relative; width:100%; max-width:760px; background:#131e33; border:1px solid var(--border-hi); border-radius:16px; overflow:hidden; }
-    .modal-hd { padding:24px 28px 18px; border-bottom:1px solid var(--border); }
-    .modal-hd h3 { margin:0 36px 8px 0; }
-    .modal-bd { padding:22px 28px 28px; }
-    .close { position:absolute; top:18px; right:20px; width:28px; height:28px; padding:0; background:var(--surface-2); color:var(--muted); border:1px solid var(--border-hi); }
-    .section { margin-top:20px; } .section-name { color:var(--dim); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; margin-bottom:8px; }
-    .box { max-height:260px; overflow:auto; white-space:pre-wrap; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:14px; color:var(--muted); }
-    .chips, .qa-grid { display:flex; flex-wrap:wrap; gap:6px; }
-    .chip, .qa { background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:6px 10px; }
-    .qa-q { color:var(--dim); font-size:11px; } .qa-a { font-weight:700; }
-    .err { background:#1a0505; border:1px solid #7f1d1d; color:var(--red); border-radius:var(--r-sm); padding:12px; }
-    .notice { margin:10px 0 0; padding:9px 11px; border-radius:var(--r-sm); border:1px solid #38bdf866; background:#082f49; color:#bae6fd; font-size:12px; font-weight:700; }
-    .notice.ok { border-color:#166534; background:#052e16; color:#86efac; }
-    .notice.warn { border-color:#92400e; background:#2d1500; color:#fde68a; }
-    .toast { position:fixed; right:18px; bottom:18px; z-index:300; max-width:min(420px, calc(100vw - 36px)); padding:11px 14px; border-radius:var(--r-sm); border:1px solid var(--border-hi); background:#131e33; color:var(--text); box-shadow:0 18px 45px #0007; opacity:0; transform:translateY(8px); transition:opacity .16s ease, transform .16s ease; }
-    .toast.show { opacity:1; transform:none; }
+    .modal-hd { padding:22px 28px 16px; border-bottom:1px solid var(--border); }
+    .modal-hd h3 { margin:0 36px 6px 0; }
+    .modal-tabs { display:flex; border-bottom:1px solid var(--border); }
+    .modal-tab { flex:1; padding:10px 16px; background:transparent; border:0; border-radius:0; color:var(--muted); font-size:13px; font-weight:700; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+    .modal-tab:hover { color:var(--text); filter:none; }
+    .modal-tab.active { color:var(--blue); border-bottom-color:var(--blue); }
+    .modal-bd { padding:20px 28px 28px; }
+    .close { position:absolute; top:16px; right:18px; width:28px; height:28px; padding:0; background:var(--surface-2); color:var(--muted); border:1px solid var(--border-hi); border-radius:var(--r-sm); }
+
+    .form-grid { display:flex; flex-wrap:wrap; gap:10px; }
+    .f { display:flex; flex-direction:column; gap:5px; flex:1 1 calc(50% - 5px); min-width:200px; }
+    .f.w2 { flex-basis:100%; }
+    .f > span { color:var(--dim); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+    small { color:var(--muted); font-weight:400; text-transform:none; }
+    input, select, textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border-hi); border-radius:var(--r-sm); padding:8px 11px; font:inherit; }
+    textarea { min-height:60px; resize:vertical; }
+    input:focus, select:focus, textarea:focus { outline:0; border-color:var(--blue); box-shadow:0 0 0 3px #38bdf818; }
+    .btn-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
     input[type=checkbox].toggle { appearance:none; width:36px; height:20px; background:var(--border-hi); border:none; border-radius:99px; padding:0; cursor:pointer; position:relative; transition:background .15s; flex-shrink:0; }
     input[type=checkbox].toggle::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:left .15s, background .15s; }
     input[type=checkbox].toggle:checked { background:var(--blue); }
     input[type=checkbox].toggle:checked::after { left:18px; background:#fff; }
+
+    .section { margin-top:18px; }
+    .section:first-child { margin-top:0; }
+    .section-name { color:var(--dim); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; margin-bottom:8px; }
+    .box { max-height:200px; overflow:auto; white-space:pre-wrap; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:12px; color:var(--muted); }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip { background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:4px 9px; font-size:13px; }
+    .qa-grid { display:flex; flex-wrap:wrap; gap:6px; }
+    .qa { background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); padding:7px 10px; }
+    .qa-q { color:var(--dim); font-size:11px; }
+    .qa-a { font-weight:700; }
+    .err { background:#1a0505; border:1px solid #7f1d1d; color:var(--red); border-radius:var(--r-sm); padding:12px; }
+    .notice { padding:9px 11px; border-radius:var(--r-sm); border:1px solid #38bdf866; background:#082f49; color:#bae6fd; font-size:12px; font-weight:700; margin-top:10px; }
+    .notice.ok { border-color:#166534; background:#052e16; color:#86efac; }
+    .notice.warn { border-color:#92400e; background:#2d1500; color:#fde68a; }
+    .field { margin-bottom:10px; }
+    .field label { color:var(--dim); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:4px; }
+    .actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+    .sub { color:var(--muted); font-size:12px; margin-bottom:4px; }
+    .badge { display:inline-flex; align-items:center; border-radius:99px; padding:2px 8px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; white-space:nowrap; }
+    .s-FOUND{background:#1e293b;color:var(--muted);} .s-NEEDS_INPUT{background:#2d1500;color:#fde68a;} .s-READY_FOR_REVIEW{background:#0c1f3d;color:#93c5fd;} .s-SUBMITTED{background:#0d2e1a;color:#86efac;} .s-SKIPPED{background:#1c1917;color:#a8a29e;} .s-FAILED{background:#300a0a;color:#fca5a5;} .s-EXTERNAL{background:#1a1a2e;color:#a78bfa;}
+
+    .cv-item { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; }
+    .cv-name { font-weight:700; }
+    .cv-btns { display:flex; gap:6px; align-items:center; }
+
+    .toast { position:fixed; right:18px; bottom:18px; z-index:300; max-width:min(380px,calc(100vw - 36px)); padding:11px 14px; border-radius:var(--r-sm); border:1px solid var(--border-hi); background:#131e33; color:var(--text); box-shadow:0 18px 45px #0007; opacity:0; transform:translateY(8px); transition:opacity .16s ease,transform .16s ease; }
+    .toast.show { opacity:1; transform:none; }
   </style>
 </head>
 <body>
-<header class="topbar"><div class="logo">EZ<span>JobApplier</span></div><div class="pill" id="status">Idle</div></header>
-<main>
-  <div class="grid">
-    <div class="main">
-      <section class="card">
-        <div class="hd"><h2>Configuration</h2></div>
-        <div class="bd">
-          <form id="run-form">
-            <div class="form-grid">
-              <label class="f w2"><span>Keywords <small>(one per line)</small></span><textarea name="keywords" rows="2">python developer junior</textarea></label>
-              <label class="f"><span>Location</span><input name="location" value="Brazil"></label>
-              <label class="f"><span>Max applications <small>(blank = ∞)</small></span><input name="max_apply" type="number" min="1" placeholder="unlimited"></label>
-              <label class="f"><span>Easy Apply only</span><input type="checkbox" name="easy_apply" class="toggle" checked></label>
-              <label class="f"><span>Work type</span><select name="work_type"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option><option value="remote,hybrid">Remote + Hybrid</option></select></label>
-              <label class="f"><span>Fill skill gaps</span><input type="checkbox" name="fill_skill_gaps" class="toggle"></label>
-            </div>
-            <div class="btn-row"><button class="primary" id="btn-start">Start</button><button class="danger" type="button" id="btn-cancel" hidden>Cancel run</button></div>
-          </form>
-          <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="color:var(--dim);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">CVs</span><span class="count" id="count-cvs">0</span></div>
-            <div id="cv-list-bd"><p class="empty">No CVs uploaded.</p></div>
-          </div>
-        </div>
-      </section>
 
-      <section class="card" id="section-inputs"><div class="hd"><h2>Pending Input</h2><span class="count" id="count-inputs">0</span></div><div class="bd" id="inputs"><p class="empty">No pending input.</p></div></section>
-      <section class="card" id="section-submits"><div class="hd"><h2>Submit Approvals</h2><span class="count" id="count-submits">0</span></div><div class="bd" id="submits"><p class="empty">No pending approvals.</p></div></section>
-      <section class="card" id="section-external"><div class="hd"><h2>External Applications</h2><span class="count" id="count-external">0</span></div><div class="bd" id="external"><p class="empty">No external applications.</p></div></section>
-    </div>
-
-    <aside class="card jobs-rail"><div class="hd"><h2>Jobs</h2><span class="count" id="count-jobs">0</span><span style="margin-left:auto;font-size:11px;color:var(--dim)">click for details</span></div><div class="bd"><div class="job-list" id="jobs"></div></div></aside>
+<header class="topbar">
+  <div class="logo">EZ<span>JobApplier</span></div>
+  <div class="pill" id="status">Idle</div>
+  <div class="topbar-right">
+    <button class="primary" id="btn-start">Start</button>
+    <button class="danger" id="btn-cancel" hidden>Cancel</button>
+    <button class="ghost icon-btn" id="btn-settings" title="Settings">⚙</button>
   </div>
-</main>
+</header>
 
-<div class="overlay" id="modal-overlay"><div class="modal"><button class="close" id="modal-close">x</button><div class="modal-hd" id="modal-hd"></div><div class="modal-bd" id="modal-bd"></div></div></div>
+<div class="board-wrap">
+  <div class="board">
+    <div class="column" id="col-in-progress">
+      <div class="col-header">
+        <h2>Found</h2>
+        <span class="count" id="count-in-progress">0</span>
+        <span class="spinner" id="spinner-run"></span>
+      </div>
+      <div class="col-body" id="cards-in-progress"></div>
+    </div>
+    <div class="column" id="col-needs-input">
+      <div class="col-header"><h2>Needs Input</h2><span class="count" id="count-needs-input">0</span></div>
+      <div class="col-body" id="cards-needs-input"></div>
+    </div>
+    <div class="column" id="col-review">
+      <div class="col-header"><h2>Review</h2><span class="count" id="count-review">0</span></div>
+      <div class="col-body" id="cards-review"></div>
+    </div>
+    <div class="column" id="col-external">
+      <div class="col-header"><h2>External</h2><span class="count" id="count-external">0</span></div>
+      <div class="col-body" id="cards-external"></div>
+    </div>
+    <div class="column" id="col-submitted">
+      <div class="col-header"><h2>Submitted</h2><span class="count" id="count-submitted">0</span></div>
+      <div class="col-body" id="cards-submitted"></div>
+    </div>
+    <div class="column dimmed" id="col-done">
+      <div class="col-header"><h2>Done / Failed</h2><span class="count" id="count-done">0</span></div>
+      <div class="col-body" id="cards-done"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="settings-overlay">
+  <div class="modal">
+    <button class="close" id="settings-close">×</button>
+    <div class="modal-hd"><h3>Settings</h3></div>
+    <div class="modal-bd">
+      <form id="run-form">
+        <div class="form-grid">
+          <label class="f w2"><span>Keywords <small>(one per line)</small></span><textarea name="keywords" rows="3">python developer junior</textarea></label>
+          <label class="f"><span>Location</span><input name="location" value="Brazil"></label>
+          <label class="f"><span>Max applications <small>(blank = ∞)</small></span><input name="max_apply" type="number" min="1" placeholder="unlimited"></label>
+          <label class="f"><span>Easy Apply only</span><input type="checkbox" name="easy_apply" class="toggle" checked></label>
+          <label class="f"><span>Work type</span><select name="work_type"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option><option value="remote,hybrid">Remote + Hybrid</option></select></label>
+          <label class="f"><span>Fill skill gaps</span><input type="checkbox" name="fill_skill_gaps" class="toggle"></label>
+        </div>
+      </form>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="color:var(--dim);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">CVs</span>
+          <span class="count" id="count-cvs">0</span>
+        </div>
+        <div id="cv-list-bd"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="job-overlay">
+  <div class="modal">
+    <button class="close" id="job-close">×</button>
+    <div class="modal-hd" id="job-modal-hd"></div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tab-btn-info" onclick="switchTab('info')">Info</button>
+      <button class="modal-tab" id="tab-btn-actions" onclick="switchTab('actions')">Actions</button>
+    </div>
+    <div class="modal-bd" id="tab-info"></div>
+    <div class="modal-bd" id="tab-actions" hidden></div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
-  const S = { pending: [], review: [], jobs: [], cvs: [], default_cv: null, running: false, busy: {}, feedback: {} };
+  const S = { jobs:[], cvs:[], default_cv:null, running:false, busy:{}, feedback:{}, processing:new Set() };
   const $ = id => document.getElementById(id);
   const answerDrafts = {};
-  let configApplied = false;
-  let runFormDirty = false;
-  let refreshSerial = 0;
-  let toastTimer;
-  let audio;
+  let configApplied = false, runFormDirty = false, refreshSerial = 0, toastTimer, audio;
+  let openJobId = null, activeTab = 'info';
 
-  function esc(value) { return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function badge(status) { return `<span class="badge s-${status || 'FOUND'}">${String(status || 'FOUND').replace(/_/g, ' ')}</span>`; }
-  function fmtTime(iso) { return iso ? new Date(iso + 'Z').toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ''; }
-  function enableAudio() { audio ||= new AudioContext(); if (audio.state === 'suspended') audio.resume(); }
-  function playBell() { if (!audio || audio.state !== 'running') return; const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.001, audio.currentTime); g.gain.exponentialRampToValueAtTime(.2, audio.currentTime+.02); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime+.7); o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime+.75); }
-  async function post(url, body) { return fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined}); }
-  function answerKey(applicationId, label) { return `${applicationId}\u0000${label}`; }
-  function hasDraft(applicationId, label) { return Object.prototype.hasOwnProperty.call(answerDrafts, answerKey(applicationId, label)); }
-  function answerValue(applicationId, question) { return hasDraft(applicationId, question.label) ? answerDrafts[answerKey(applicationId, question.label)] : (question.answer || ''); }
-  function captureDrafts() { document.querySelectorAll('[data-answer-input]').forEach(input => rememberDraft(input.dataset.applicationId, input.dataset.label, input.value)); }
-  function rememberDraft(applicationId, label, value) { answerDrafts[answerKey(applicationId, label)] = value; }
-  function setBusy(applicationId, type) { S.busy[applicationId] = type; render(); }
-  function clearBusy(applicationId) { delete S.busy[applicationId]; }
-  function setFeedback(applicationId, type, message) { S.feedback[applicationId] = {type, message}; }
-  function clearFeedback(applicationId) { delete S.feedback[applicationId]; }
-  function isBusy(applicationId, type) { return S.busy[applicationId] === type; }
-  function busyMessage(type) { return {answers:'Submitting answers...', approve:'Approving submit...', skip:'Skipping application...'}[type] || 'Working...'; }
-  function showToast(message) {
-    const toast = $('toast');
-    toast.textContent = message;
-    toast.hidden = false;
-    toast.className = 'toast show';
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toast.classList.remove('show'); toast.hidden = true; }, 3200);
+  const COLUMNS = [
+    { id:'in-progress', statuses:['FOUND'] },
+    { id:'needs-input',  statuses:['NEEDS_INPUT'],       alert:'alert-yellow', defaultTab:'actions' },
+    { id:'review',       statuses:['READY_FOR_REVIEW'],  alert:'alert-blue',   defaultTab:'actions' },
+    { id:'external',     statuses:['EXTERNAL'],           alert:'alert-purple', defaultTab:'actions' },
+    { id:'submitted',    statuses:['SUBMITTED'] },
+    { id:'done',         statuses:['SKIPPED','FAILED'] },
+  ];
+
+  function esc(v) { return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function badge(s) { return `<span class="badge s-${s||'FOUND'}">${String(s||'FOUND').replace(/_/g,' ')}</span>`; }
+  function fmtTime(iso) { return iso ? new Date(iso+'Z').toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : ''; }
+  function enableAudio() { audio||=new AudioContext(); if(audio.state==='suspended')audio.resume(); }
+  function playBell() { if(!audio||audio.state!=='running')return; const o=audio.createOscillator(),g=audio.createGain(); o.frequency.value=880; g.gain.setValueAtTime(.001,audio.currentTime); g.gain.exponentialRampToValueAtTime(.2,audio.currentTime+.02); g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.7); o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime+.75); }
+  async function post(url,body) { return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}); }
+  function answerKey(aid,label) { return `${aid} ${label}`; }
+  function hasDraft(aid,label) { return Object.prototype.hasOwnProperty.call(answerDrafts,answerKey(aid,label)); }
+  function answerValue(aid,question) { return hasDraft(aid,question.label)?answerDrafts[answerKey(aid,question.label)]:(question.answer||''); }
+  function captureDrafts() { document.querySelectorAll('[data-answer-input]').forEach(el=>{ answerDrafts[answerKey(el.dataset.applicationId,el.dataset.label)]=el.value; }); }
+  function setBusy(aid,type) { S.busy[aid]=type; render(); }
+  function clearBusy(aid) { delete S.busy[aid]; }
+  function setFeedback(aid,type,message) { S.feedback[aid]={type,message}; }
+  function clearFeedback(aid) { delete S.feedback[aid]; }
+  function isBusy(aid,type) { return S.busy[aid]===type; }
+  function showToast(msg) { const t=$('toast'); t.textContent=msg; t.hidden=false; t.className='toast show'; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.classList.remove('show');t.hidden=true;},3200); }
+
+  function cardAccentClass(status) {
+    return {NEEDS_INPUT:'c-needs-input',READY_FOR_REVIEW:'c-review',EXTERNAL:'c-external',FAILED:'c-failed'}[status]||'';
+  }
+
+  function cardHint(job) {
+    if(job.status==='NEEDS_INPUT'&&job.unanswered_count>0)
+      return `<span class="job-hint hint-warn">${job.unanswered_count} unanswered</span>`;
+    if(job.status==='FAILED'&&job.error_message)
+      return `<span class="job-hint hint-err" title="${esc(job.error_message)}">${esc(job.error_message.slice(0,50))}</span>`;
+
+    return '';
+  }
+
+  function jobCard(job, defaultTab) {
+    const proc=S.processing.has(job.application_id)&&job.status!=='FOUND';
+    const cls=proc?'c-processing':cardAccentClass(job.status);
+    return `<div class="job-card ${cls}" onclick="openJobModal('${esc(job.job_id)}','${defaultTab||'info'}')">
+      <div class="job-title">${esc(job.title)}</div>
+      <div class="job-meta">${esc(job.company)}${job.location?' · '+esc(job.location):''}</div>
+      <div class="job-foot">
+        <span class="job-time">${fmtTime(job.application_updated_at||job.updated_at)}</span>
+        ${proc?'<span class="card-spinner"></span>':cardHint(job)}
+      </div>
+    </div>`;
   }
 
   function render() {
-    $('status').className = 'pill' + (S.running ? ' running' : '');
-    $('status').textContent = S.running ? 'Running' : 'Idle';
-    $('btn-start').hidden = S.running;
-    $('btn-cancel').hidden = !S.running;
-    renderPending();
-    renderJobs();
+    $('status').className='pill'+(S.running?' running':'');
+    $('status').textContent=S.running?'Running':'Idle';
+    $('btn-start').hidden=S.running;
+    $('btn-cancel').hidden=!S.running;
+    $('spinner-run').style.display=S.running?'block':'none';
+
+    COLUMNS.forEach(col => {
+      const jobs=S.jobs.filter(j=>col.statuses.includes(j.status));
+      $(`count-${col.id}`).textContent=jobs.length;
+      const colEl=$(`col-${col.id}`);
+      if(col.alert) { colEl.classList.toggle(col.alert, jobs.length>0); }
+      $(`cards-${col.id}`).innerHTML=jobs.length
+        ? jobs.map(j=>jobCard(j,col.defaultTab)).join('')
+        : '<p class="empty">No items.</p>';
+    });
   }
 
-  function renderPending() {
-    S.external = S.jobs.filter(j => j.status === 'EXTERNAL');
-    $('count-inputs').textContent = S.pending.length;
-    $('count-submits').textContent = S.review.length;
-    $('count-external').textContent = S.external.length;
-    $('section-inputs').className = 'card' + (S.pending.length ? ' alert' : '');
-    $('section-submits').className = 'card' + (S.review.length ? ' alert' : '');
-    $('section-external').className = 'card' + (S.external.length ? ' alert' : '');
-    $('external').innerHTML = S.external.length ? S.external.map(job => {
-      const busy = S.busy[job.application_id];
-      return `
-      <div class="action${busy ? ' busy' : ''}">
-        <div class="title">${esc(job.title)}</div>
-        <div class="sub">${esc(job.company)}${job.location ? ' · ' + esc(job.location) : ''}</div>
+  function renderCVs() {
+    $('count-cvs').textContent=S.cvs.length;
+    $('cv-list-bd').innerHTML=
+      (S.cvs.length
+        ? S.cvs.map(n=>{
+            const isDefault=n===S.default_cv;
+            return `<div class="cv-item">
+              <span class="cv-name">${esc(n)}</span>
+              <div class="cv-btns">
+                ${isDefault?'<span class="badge s-SUBMITTED">Default</span>':`<button class="ghost" style="padding:4px 10px;font-size:12px" type="button" onclick="setDefaultCV('${esc(n)}')">Set default</button>`}
+                <button class="danger" style="padding:4px 10px;font-size:12px" type="button" onclick="deleteCV('${esc(n)}')">Delete</button>
+              </div>
+            </div>`;
+          }).join('')
+        : '<p class="empty">No CVs uploaded.</p>')+
+      `<div style="margin-top:10px"><input type="file" id="cv-upload-input" accept=".pdf,.doc,.docx" hidden><button class="ghost" type="button" onclick="$('cv-upload-input').click()">Upload CV</button></div>`;
+    $('cv-upload-input').addEventListener('change',uploadCV,{once:true});
+  }
+
+  async function openJobModal(jobId, defaultTab='info') {
+    if($('settings-overlay').classList.contains('open')) $('settings-overlay').classList.remove('open');
+    const resp=await fetch(`/jobs/${jobId}`);
+    if(!resp.ok) return;
+    const job=await resp.json();
+    openJobId=jobId;
+    $('job-modal-hd').innerHTML=`<h3>${esc(job.title)}</h3><div class="sub">${esc(job.company)}${job.location?' · '+esc(job.location):''} ${badge(job.status)}</div>`;
+    renderInfoTab(job);
+    renderActionsTab(job);
+    switchTab(defaultTab);
+    $('job-overlay').classList.add('open');
+  }
+
+  function renderInfoTab(job) {
+    $('tab-info').innerHTML=[
+      job.error_message&&job.status!=='FAILED'?`<div class="err">${esc(job.error_message)}</div>`:'',
+      job.application_url&&!job.easy_apply?section('External Link',`<a href="${esc(job.application_url)}" target="_blank" rel="noopener" style="color:var(--blue)">Open application form ↗</a>`):'',
+      section('About',job.about?`<div class="box">${esc(job.about)}</div>`:''),
+      section('Preferences',chips(job.preferences)),
+      section('Skills',chips(job.skills)),
+      section('Questions',questionGrid(job.questions||[])),
+    ].join('');
+  }
+
+  function renderActionsTab(job) {
+    const aid=job.application_id;
+    const busy=aid?S.busy[aid]:null;
+    const feedback=aid?S.feedback[aid]:null;
+    let html='';
+    if(job.status==='NEEDS_INPUT') {
+      const unanswered=(job.questions||[]).filter(q=>!answerValue(aid,q));
+      const answered=(job.questions||[]).filter(q=>answerValue(aid,q));
+      const submitted=feedback?.type==='answers';
+      html=`${unanswered.map(q=>questionField(aid,q,Boolean(busy)||submitted)).join('')}
+        ${answered.length?`<div class="section"><div class="section-name">Already answered</div>${questionGrid(answered)}</div>`:''}
+        ${actionNotice(aid)}
         <div class="actions">
-          <a class="ok" href="${esc(job.application_url)}" target="_blank" rel="noopener">Apply externally ↗</a>
-          <button class="primary" onclick="markApplied(${job.application_id})" ${busy ? 'disabled' : ''}>${isBusy(job.application_id, 'mark-applied') ? 'Marking...' : 'Mark as Applied'}</button>
-          <button class="ghost" onclick="skipApplication(${job.application_id})" ${busy ? 'disabled' : ''}>${isBusy(job.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button>
-        </div>
+          <button class="primary" onclick="sendAnswers(${aid})" ${busy||submitted?'disabled':''}>${isBusy(aid,'answers')?'Submitting…':submitted?'Answers submitted':'Submit answers'}</button>
+          <button class="ghost" onclick="skipJob(${aid})" ${busy?'disabled':''}>${isBusy(aid,'skip')?'Skipping…':'Skip'}</button>
+        </div>`;
+    } else if(job.status==='READY_FOR_REVIEW') {
+      const approved=feedback?.type==='approve';
+      const cvOpts=S.cvs.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      html=`${questionGrid(job.questions||[])}
+        ${S.cvs.length?`<div class="field" style="margin-top:12px"><label>CV for this application</label><select id="cv-override-${aid}" ${busy||approved?'disabled':''}><option value="">${S.default_cv?`Default: ${esc(S.default_cv)}`:'No default set'}</option>${cvOpts}</select></div>`:''}
+        ${actionNotice(aid)}
+        <div class="actions">
+          <button class="ok" onclick="approveApplication(${aid})" ${busy||approved?'disabled':''}>${isBusy(aid,'approve')?'Approving…':approved?'Submit approved':'Submit application'}</button>
+          <button class="ghost" onclick="skipJob(${aid})" ${busy||approved?'disabled':''}>${isBusy(aid,'skip')?'Skipping…':'Skip'}</button>
+        </div>`;
+    } else if(job.status==='EXTERNAL') {
+      html=`<div class="actions">
+        ${job.application_url?`<a class="ok" href="${esc(job.application_url)}" target="_blank" rel="noopener">Apply externally ↗</a>`:''}
+        <button class="primary" onclick="markApplied(${aid})" ${busy?'disabled':''}>${isBusy(aid,'mark-applied')?'Marking…':'Mark as Applied'}</button>
+        <button class="ghost" onclick="skipJob(${aid})" ${busy?'disabled':''}>${isBusy(aid,'skip')?'Skipping…':'Skip'}</button>
       </div>`;
-    }).join('') : '<p class="empty">No external applications.</p>';
-    $('inputs').innerHTML = S.pending.length ? S.pending.map(app => {
-      const busy = S.busy[app.application_id];
-      const feedback = S.feedback[app.application_id];
-      const answered = feedback?.type === 'answers';
-      return `
-      <div class="action${busy ? ' busy' : ''}">
-        <div class="title">${esc(app.title)}</div><div class="sub">${esc(app.company)}</div>
-        ${(app.questions || []).map(q => questionField(app, q, Boolean(busy) || answered)).join('')}
-        ${actionNotice(app.application_id)}
-        <div class="actions"><button class="primary" onclick="sendAnswers(${app.application_id})" ${busy || answered ? 'disabled' : ''}>${isBusy(app.application_id, 'answers') ? 'Submitting...' : answered ? 'Answers submitted' : 'Submit answers'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
-      </div>`;
-    }).join('') : '<p class="empty">No pending input.</p>';
-    $('submits').innerHTML = S.review.length ? S.review.map(app => {
-      const busy = S.busy[app.application_id];
-      const feedback = S.feedback[app.application_id];
-      const approved = feedback?.type === 'approve';
-      const cvOptions = S.cvs.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-      return `
-      <div class="action${busy ? ' busy' : ''}">
-        <div class="title">${esc(app.title)}</div><div class="sub">${esc(app.company)}</div>
-        ${questionGrid(app.questions || [])}
-        ${S.cvs.length ? `<div class="field" style="margin-top:8px"><label>CV for this application</label><select id="cv-override-${app.application_id}" ${busy || approved ? 'disabled' : ''}><option value="">${S.default_cv ? `Default: ${esc(S.default_cv)}` : 'No default set'}</option>${cvOptions}</select></div>` : ''}
-        ${actionNotice(app.application_id)}
-        <div class="actions"><button class="ok" onclick="approveApplication(${app.application_id})" ${busy || approved ? 'disabled' : ''}>${isBusy(app.application_id, 'approve') ? 'Approving...' : approved ? 'Submit approved' : 'Submit application'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy || approved ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
-      </div>`;
-    }).join('') : '<p class="empty">No pending approvals.</p>';
-  }
-
-  function actionNotice(applicationId) {
-    const busy = S.busy[applicationId];
-    const feedback = S.feedback[applicationId];
-    if (busy) return `<div class="notice warn">${busyMessage(busy)}</div>`;
-    if (!feedback) return '';
-    return `<div class="notice ok">${esc(feedback.message)}</div>`;
-  }
-
-  function questionField(app, question, disabled) {
-    const value = answerValue(app.application_id, question);
-    const attrs = `data-answer-input data-application-id="${app.application_id}" data-label="${esc(question.label)}" ${disabled ? 'disabled' : ''}`;
-    if (question.options?.length) {
-      const options = question.options.map(option => `<option value="${esc(option)}" ${option === value ? 'selected' : ''}>${esc(option)}</option>`).join('');
-      return `<div class="field"><label>${esc(question.label)}</label><select ${attrs}>${options}</select></div>`;
+    } else if(job.status==='FAILED') {
+      html=`${job.error_message?`<div class="err" style="margin-bottom:12px">${esc(job.error_message)}</div>`:''}
+        <div class="actions"><button class="ghost" onclick="skipJob(${aid})" ${busy?'disabled':''}>${isBusy(aid,'skip')?'Skipping…':'Skip'}</button></div>`;
+    } else if(job.status==='FOUND') {
+      html='<p style="color:var(--muted);margin:0">Queued for processing.</p>';
+    } else {
+      html='<p style="color:var(--muted);margin:0">No actions available.</p>';
     }
-    return `<div class="field"><label>${esc(question.label)}</label><input ${attrs} value="${esc(value)}" placeholder="Answer" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswers(${app.application_id});}"></div>`;
+    $('tab-actions').innerHTML=html;
   }
 
-  function renderJobs() {
-    $('count-jobs').textContent = S.jobs.length;
-    $('jobs').innerHTML = S.jobs.length ? S.jobs.map(job => `
-      <div class="job-card" onclick="openJob('${job.job_id}')">
-        <div class="job-top"><div class="job-title">${esc(job.title)}</div>${badge(job.status)}</div>
-        <div class="job-meta">${esc(job.company)}${job.location ? ' · ' + esc(job.location) : ''}</div>
-        <div class="job-time">${fmtTime(job.application_updated_at || job.updated_at)}</div>
-      </div>`).join('') : '<p class="empty" style="padding:10px 4px">No jobs yet.</p>';
+  function switchTab(tab) {
+    activeTab=tab;
+    $('tab-btn-info').classList.toggle('active',tab==='info');
+    $('tab-btn-actions').classList.toggle('active',tab==='actions');
+    $('tab-info').hidden=tab!=='info';
+    $('tab-actions').hidden=tab!=='actions';
+  }
+
+  const BUSY_MSG={answers:'Submitting answers…',approve:'Approving…',skip:'Skipping…','mark-applied':'Marking…'};
+  function actionNotice(aid) {
+    const busy=S.busy[aid], fb=S.feedback[aid];
+    if(busy) return '<div class="notice warn">'+(BUSY_MSG[busy]||'Working…')+'</div>';
+    if(!fb) return '';
+    return '<div class="notice ok">'+esc(fb.message)+'</div>';
+  }
+
+  function questionField(aid, question, disabled) {
+    const value=answerValue(aid,question);
+    const attrs=`data-answer-input data-application-id="${aid}" data-label="${esc(question.label)}" ${disabled?'disabled':''}`;
+    if(question.options?.length) {
+      const opts=question.options.map(o=>`<option value="${esc(o)}" ${o===value?'selected':''}>${esc(o)}</option>`).join('');
+      return `<div class="field"><label>${esc(question.label)}</label><select ${attrs}>${opts}</select></div>`;
+    }
+    const itype=question.field_type&&question.field_type!=='text'?` type="${esc(question.field_type)}"`:' type="text"';
+    return `<div class="field"><label>${esc(question.label)}</label><input${itype} ${attrs} value="${esc(value)}" placeholder="Answer" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswers(${aid});}"></div>`;
   }
 
   function questionGrid(questions) {
-    return questions.length ? `<div class="qa-grid">${questions.map(q => `<div class="qa"><div class="qa-q">${esc(q.label)}</div><div class="qa-a">${esc(q.answer || '-')}</div></div>`).join('')}</div>` : '';
+    return questions.length?`<div class="qa-grid">${questions.map(q=>`<div class="qa"><div class="qa-q">${esc(q.label)}</div><div class="qa-a">${esc(q.answer||'-')}</div></div>`).join('')}</div>`:'';
   }
 
-  async function sendAnswers(applicationId) {
-    const app = S.pending.find(item => item.application_id === applicationId);
-    const answers = {};
-    document.querySelectorAll(`[data-answer-input][data-application-id="${applicationId}"]`).forEach(input => answers[input.dataset.label] = input.value);
-    setBusy(applicationId, 'answers');
+  function section(title, body) { return body?`<div class="section"><div class="section-name">${title}</div>${body}</div>`:''; }
+  function chips(items) { return Array.isArray(items)&&items.length?`<div class="chips">${items.map(i=>`<span class="chip">${esc(i)}</span>`).join('')}</div>`:''; }
+
+  async function sendAnswers(aid) {
+    captureDrafts();
+    const answers={};
+    document.querySelectorAll(`[data-answer-input][data-application-id="${aid}"]`).forEach(el=>answers[el.dataset.label]=el.value);
+    setBusy(aid,'answers');
     try {
-      const response = await post(`/applications/${applicationId}/answers`, {answers});
-      if (!response.ok) throw new Error(await response.text());
-      clearBusy(applicationId);
-      setFeedback(applicationId, 'answers', 'Answers submitted. The worker will continue from here.');
+      const resp=await post(`/applications/${aid}/answers`,{answers});
+      if(!resp.ok) throw new Error(await resp.text());
+      clearBusy(aid);
+      setFeedback(aid,'answers','Answers submitted. The worker will continue from here.');
       showToast('Answers submitted');
       await refreshState();
-    } catch (error) {
-      clearBusy(applicationId);
-      clearFeedback(applicationId);
-      render();
-      alert(error.message || String(error));
-    }
+      if(openJobId) { const r=await fetch(`/jobs/${openJobId}`); if(r.ok) renderActionsTab(await r.json()); }
+    } catch(err) { clearBusy(aid); clearFeedback(aid); render(); alert(err.message||String(err)); }
   }
 
-  async function approveApplication(applicationId) {
-    setBusy(applicationId, 'approve');
-    const cvSelect = document.getElementById(`cv-override-${applicationId}`);
-    const cv_filename = cvSelect?.value || null;
+  async function approveApplication(aid) {
+    setBusy(aid,'approve');
+    const cv_filename=document.getElementById(`cv-override-${aid}`)?.value||null;
     try {
-      const response = await post(`/applications/${applicationId}/approve`, {cv_filename});
-      if (!response.ok) throw new Error(await response.text());
-      clearBusy(applicationId);
-      setFeedback(applicationId, 'approve', 'Submit approved. The worker will submit it shortly.');
+      const resp=await post(`/applications/${aid}/approve`,{cv_filename});
+      if(!resp.ok) throw new Error(await resp.text());
+      clearBusy(aid);
+      setFeedback(aid,'approve','Submit approved. The worker will submit it shortly.');
       showToast('Submit approved');
       await refreshState();
-    } catch (error) {
-      clearBusy(applicationId);
-      clearFeedback(applicationId);
-      render();
-      alert(error.message || String(error));
-    }
+      if(openJobId) { const r=await fetch(`/jobs/${openJobId}`); if(r.ok) renderActionsTab(await r.json()); }
+    } catch(err) { clearBusy(aid); clearFeedback(aid); render(); alert(err.message||String(err)); }
   }
 
-  async function markApplied(applicationId) {
-    setBusy(applicationId, 'mark-applied');
+  async function markApplied(aid) {
+    setBusy(aid,'mark-applied');
     try {
-      const response = await post(`/applications/${applicationId}/mark-applied`);
-      if (!response.ok) throw new Error(await response.text());
-      const job = S.jobs.find(j => j.application_id === applicationId);
-      if (job) { job.status = 'SUBMITTED'; job.application_updated_at = new Date().toISOString().slice(0, 19); }
-      clearBusy(applicationId);
+      const resp=await post(`/applications/${aid}/mark-applied`);
+      if(!resp.ok) throw new Error(await resp.text());
+      const job=S.jobs.find(j=>j.application_id===aid);
+      if(job){job.status='SUBMITTED';job.application_updated_at=new Date().toISOString().slice(0,19);}
+      clearBusy(aid);
       showToast('Marked as applied');
-      render();
-      await refreshState();
-    } catch (error) {
-      clearBusy(applicationId);
-      render();
-      alert(error.message || String(error));
-    }
+      $('job-overlay').classList.remove('open'); openJobId=null;
+      render(); await refreshState();
+    } catch(err) { clearBusy(aid); render(); alert(err.message||String(err)); }
   }
 
-  async function skipApplication(applicationId) {
-    setBusy(applicationId, 'skip');
+  async function skipJob(aid) {
+    setBusy(aid,'skip');
     try {
-      const response = await post(`/applications/${applicationId}/skip`);
-      if (!response.ok) throw new Error(await response.text());
-      S.pending = S.pending.filter(item => item.application_id !== applicationId);
-      S.review = S.review.filter(item => item.application_id !== applicationId);
-      const job = S.jobs.find(item => item.application_id === applicationId);
-      if (job) { job.status = 'SKIPPED'; job.application_updated_at = new Date().toISOString().slice(0, 19); }
-      clearBusy(applicationId);
-      clearFeedback(applicationId);
+      const resp=await post(`/applications/${aid}/skip`);
+      if(!resp.ok) throw new Error(await resp.text());
+      const job=S.jobs.find(j=>j.application_id===aid);
+      if(job){job.status='SKIPPED';job.application_updated_at=new Date().toISOString().slice(0,19);}
+      clearBusy(aid); clearFeedback(aid);
       showToast('Application skipped');
-      render();
-      await refreshState();
-    } catch (error) {
-      clearBusy(applicationId);
-      render();
-      alert(error.message || String(error));
-    }
+      $('job-overlay').classList.remove('open'); openJobId=null;
+      render(); await refreshState();
+    } catch(err) { clearBusy(aid); render(); alert(err.message||String(err)); }
   }
-
-  async function openJob(jobId) {
-    const response = await fetch(`/jobs/${jobId}`);
-    if (!response.ok) return;
-    const job = await response.json();
-    $('modal-hd').innerHTML = `<h3>${esc(job.title)}</h3><div class="sub">${esc(job.company)}${job.location ? ' · ' + esc(job.location) : ''} ${badge(job.status)}</div>`;
-    $('modal-bd').innerHTML = `${job.error_message ? `<div class="err">${esc(job.error_message)}</div>` : ''}${job.application_url && !job.easy_apply ? section('External application', `<a href="${esc(job.application_url)}" target="_blank" rel="noopener" style="color:var(--blue)">Open application form ↗</a>`) : ''}${section('About the job', job.about ? `<div class="box">${esc(job.about)}</div>` : '')}${section('Preferences', chips(job.preferences))}${section('Skills', chips(job.skills))}${section('Questions', questionGrid(job.questions || []))}`;
-    $('modal-overlay').classList.add('open');
-  }
-
-  function section(title, body) { return body ? `<div class="section"><div class="section-name">${title}</div>${body}</div>` : ''; }
-  function chips(items) { return Array.isArray(items) && items.length ? `<div class="chips">${items.map(item => `<span class="chip">${esc(item)}</span>`).join('')}</div>` : ''; }
 
   async function refreshState() {
-    const serial = ++refreshSerial;
-    const response = await fetch('/state');
-    if (!response.ok) return;
-    const data = await response.json();
-    if (serial !== refreshSerial) return;
+    const serial=++refreshSerial;
+    const resp=await fetch('/state');
+    if(!resp.ok) return;
+    const data=await resp.json();
+    if(serial!==refreshSerial) return;
     captureDrafts();
-    S.running = data.run.running;
-    S.pending = data.pending_input || [];
-    S.review = data.ready_for_review || [];
-    S.jobs = data.jobs || [];
-    S.cvs = data.cvs || [];
-    S.default_cv = data.config?.default_cv || null;
-    syncLocalState();
-    if (!configApplied || !runFormDirty) applyConfig(data.config || {});
+    S.running=data.run.running;
+    S.jobs=data.jobs||[];
+    S.cvs=data.cvs||[];
+    S.default_cv=data.config?.default_cv||null;
+    syncFeedback();
+    if(!configApplied||!runFormDirty) applyConfig(data.config||{});
     render();
     renderCVs();
   }
 
-  function syncLocalState() {
-    const visible = new Set([...S.pending, ...S.review].map(app => String(app.application_id)));
-    Object.keys(S.feedback).forEach(applicationId => {
-      const feedback = S.feedback[applicationId];
-      const pendingApp = S.pending.find(app => String(app.application_id) === applicationId);
-      const reviewApp = S.review.find(app => String(app.application_id) === applicationId);
-      if (!visible.has(applicationId)) clearFeedback(applicationId);
-      if (feedback?.type === 'answers' && !pendingApp) clearFeedback(applicationId);
-      if (feedback?.type === 'answers' && pendingApp && (pendingApp.questions || []).some(q => !answerValue(applicationId, q))) clearFeedback(applicationId);
-      if (feedback?.type === 'approve' && !reviewApp) clearFeedback(applicationId);
+  function syncFeedback() {
+    const pendingIds=new Set(S.jobs.filter(j=>j.status==='NEEDS_INPUT').map(j=>String(j.application_id)));
+    const reviewIds=new Set(S.jobs.filter(j=>j.status==='READY_FOR_REVIEW').map(j=>String(j.application_id)));
+    Object.keys(S.feedback).forEach(aid=>{
+      const fb=S.feedback[aid];
+      if(fb?.type==='answers'&&!pendingIds.has(aid)) clearFeedback(aid);
+      if(fb?.type==='approve'&&!reviewIds.has(aid)) clearFeedback(aid);
     });
-    const activeQuestionKeys = new Set();
-    S.pending.forEach(app => (app.questions || []).forEach(q => activeQuestionKeys.add(answerKey(app.application_id, q.label))));
-    Object.keys(answerDrafts).forEach(key => { if (!activeQuestionKeys.has(key)) delete answerDrafts[key]; });
+    Object.keys(answerDrafts).forEach(k=>{ if(!pendingIds.has(k.split(' ')[0])) delete answerDrafts[k]; });
   }
 
   function applyConfig(config) {
-    if (configApplied && ($('run-form').contains(document.activeElement) || runFormDirty)) return;
-    const form = $('run-form');
-    if (config.keywords !== undefined) form.elements.keywords.value = config.keywords || '';
-    if (config.location !== undefined) form.elements.location.value = config.location || '';
-    if (config.max_apply !== undefined) form.elements.max_apply.value = config.max_apply || '';
-    if (config.easy_apply !== undefined) form.elements.easy_apply.checked = !!config.easy_apply;
-    if (config.work_type !== undefined) form.elements.work_type.value = config.work_type || '';
-    if (config.fill_skill_gaps !== undefined) form.elements.fill_skill_gaps.checked = !!config.fill_skill_gaps;
-    configApplied = true;
+    if(configApplied&&($('run-form').contains(document.activeElement)||runFormDirty)) return;
+    const form=$('run-form');
+    if(config.keywords!==undefined) form.elements.keywords.value=config.keywords||'';
+    if(config.location!==undefined) form.elements.location.value=config.location||'';
+    if(config.max_apply!==undefined) form.elements.max_apply.value=config.max_apply||'';
+    if(config.easy_apply!==undefined) form.elements.easy_apply.checked=!!config.easy_apply;
+    if(config.work_type!==undefined) form.elements.work_type.value=config.work_type||'';
+    if(config.fill_skill_gaps!==undefined) form.elements.fill_skill_gaps.checked=!!config.fill_skill_gaps;
+    configApplied=true;
   }
 
-  document.addEventListener('input', event => { if (event.target.matches('[data-answer-input]')) rememberDraft(event.target.dataset.applicationId, event.target.dataset.label, event.target.value); });
-  document.addEventListener('change', event => { if (event.target.matches('[data-answer-input]')) rememberDraft(event.target.dataset.applicationId, event.target.dataset.label, event.target.value); });
-  $('run-form').addEventListener('input', () => { runFormDirty = true; });
-  $('run-form').addEventListener('change', () => { runFormDirty = true; });
-  $('run-form').addEventListener('submit', async event => {
-    event.preventDefault();
+  document.addEventListener('input',e=>{ if(e.target.matches('[data-answer-input]')) answerDrafts[answerKey(e.target.dataset.applicationId,e.target.dataset.label)]=e.target.value; });
+  document.addEventListener('change',e=>{ if(e.target.matches('[data-answer-input]')) answerDrafts[answerKey(e.target.dataset.applicationId,e.target.dataset.label)]=e.target.value; });
+  $('run-form').addEventListener('input',()=>{ runFormDirty=true; });
+  $('run-form').addEventListener('change',()=>{ runFormDirty=true; });
+  $('run-form').addEventListener('submit', async e=>{
+    e.preventDefault();
     enableAudio();
-    const payload = Object.fromEntries(new FormData(event.target).entries());
-    payload.easy_apply = event.target.elements.easy_apply.checked;
-    if (payload.max_apply) payload.max_apply = Number(payload.max_apply); else delete payload.max_apply;
-    payload.fill_skill_gaps = event.target.elements.fill_skill_gaps.checked;
-    const response = await post('/runs', payload);
-    if (!response.ok) alert(await response.text());
-    else { runFormDirty = false; showToast('Run started'); }
+    const form=e.target;
+    const payload=Object.fromEntries(new FormData(form).entries());
+    payload.easy_apply=form.elements.easy_apply.checked;
+    if(payload.max_apply) payload.max_apply=Number(payload.max_apply); else delete payload.max_apply;
+    payload.fill_skill_gaps=form.elements.fill_skill_gaps.checked;
+    const resp=await post('/runs',payload);
+    if(!resp.ok) alert(await resp.text());
+    else { runFormDirty=false; showToast('Run started'); $('settings-overlay').classList.remove('open'); }
     await refreshState();
   });
-  $('btn-cancel').onclick = async () => { $('btn-cancel').disabled = true; await post('/runs/cancel'); showToast('Run cancellation requested'); await refreshState(); $('btn-cancel').disabled = false; };
-  $('modal-close').onclick = () => $('modal-overlay').classList.remove('open');
-  $('modal-overlay').onclick = event => { if (event.target === $('modal-overlay')) $('modal-overlay').classList.remove('open'); };
-  document.addEventListener('click', enableAudio, {once:true});
-  document.addEventListener('keydown', enableAudio, {once:true});
-  function renderCVs() {
-    $('count-cvs').textContent = S.cvs.length;
-    $('cv-list-bd').innerHTML =
-      (S.cvs.length ? S.cvs.map(n => {
-        const isDefault = n === S.default_cv;
-        return `<div class="action" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <span style="font-weight:700">${esc(n)}</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            ${isDefault
-              ? '<span class="badge s-SUBMITTED" style="flex-shrink:0">Default</span>'
-              : `<button class="ghost" type="button" onclick="setDefaultCV('${esc(n)}')">Set as default</button>`}
-            <button class="danger" type="button" onclick="deleteCV('${esc(n)}')">Delete</button>
-          </div>
-        </div>`;
-      }).join('') : '<p class="empty">No CVs uploaded.</p>') +
-      `<div class="btn-row">
-        <input type="file" id="cv-upload-input" accept=".pdf,.doc,.docx" hidden>
-        <button class="ghost" type="button" onclick="$('cv-upload-input').click()">Upload CV</button>
-      </div>`;
-    $('cv-upload-input').addEventListener('change', uploadCV, {once:true});
-  }
-  async function setDefaultCV(filename) {
-    const resp = await post('/cvs/default', {filename});
-    resp.ok ? (showToast('Default CV set'), await refreshState()) : alert(await resp.text());
-  }
-  async function uploadCV(event) {
-    const file = event.target.files[0]; if (!file) return;
-    const fd = new FormData(); fd.append('file', file);
-    const resp = await fetch('/cvs', {method:'POST', body: fd});
-    resp.ok ? (showToast('CV uploaded'), await refreshState()) : alert(await resp.text());
-  }
-  async function deleteCV(filename) {
-    const resp = await fetch(`/cvs/${encodeURIComponent(filename)}`, {method:'DELETE'});
-    resp.ok ? (showToast('CV deleted'), await refreshState()) : alert(await resp.text());
-  }
-  new EventSource('/events').onmessage = event => { const data = JSON.parse(event.data); if (['application_needs_input', 'application_ready_for_review'].includes(data.type)) playBell(); refreshState(); };
+
+  $('btn-start').onclick=()=>{ enableAudio(); $('run-form').requestSubmit(); };
+  $('btn-cancel').onclick=async()=>{ $('btn-cancel').disabled=true; await post('/runs/cancel'); showToast('Run cancellation requested'); await refreshState(); $('btn-cancel').disabled=false; };
+  $('btn-settings').onclick=()=>{ if($('job-overlay').classList.contains('open')) $('job-overlay').classList.remove('open'); $('settings-overlay').classList.toggle('open'); };
+  $('settings-close').onclick=()=>$('settings-overlay').classList.remove('open');
+  $('settings-overlay').onclick=e=>{ if(e.target===$('settings-overlay')) $('settings-overlay').classList.remove('open'); };
+  $('job-close').onclick=()=>{ $('job-overlay').classList.remove('open'); openJobId=null; };
+  $('job-overlay').onclick=e=>{ if(e.target===$('job-overlay')){ $('job-overlay').classList.remove('open'); openJobId=null; } };
+
+  document.addEventListener('click',enableAudio,{once:true});
+  document.addEventListener('keydown',enableAudio,{once:true});
+
+  async function setDefaultCV(filename) { const r=await post('/cvs/default',{filename}); r.ok?(showToast('Default CV set'),await refreshState()):alert(await r.text()); }
+  async function uploadCV(e) { const file=e.target.files[0]; if(!file) return; const fd=new FormData(); fd.append('file',file); const r=await fetch('/cvs',{method:'POST',body:fd}); r.ok?(showToast('CV uploaded'),await refreshState()):alert(await r.text()); }
+  async function deleteCV(filename) { const r=await fetch(`/cvs/${encodeURIComponent(filename)}`,{method:'DELETE'}); r.ok?(showToast('CV deleted'),await refreshState()):alert(await r.text()); }
+
+  new EventSource('/events').onmessage=e=>{
+    const data=JSON.parse(e.data);
+    if(data.type==='application_processing') {
+      if(data.application_id) S.processing.add(data.application_id);
+      render();
+      return;
+    }
+    if(data.application_id) S.processing.delete(data.application_id);
+    if(['application_needs_input','application_ready_for_review'].includes(data.type)) playBell();
+    refreshState();
+  };
   refreshState();
 </script>
 </body>

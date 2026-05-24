@@ -67,6 +67,7 @@ class Database:
                 """
             )
             conn.execute("UPDATE applications SET status = 'NEEDS_INPUT' WHERE status = 'NEEDS_ANSWERS'")
+            conn.execute("UPDATE applications SET status = 'FOUND' WHERE status = 'ANALYZING'")
             conn.execute(
                 """
                 UPDATE applications SET status = 'EXTERNAL'
@@ -164,7 +165,10 @@ class Database:
                     j.job_id, j.title, j.company, j.location, j.url, j.easy_apply,
                     j.application_url, j.created_at, j.updated_at,
                     a.application_id, a.status, a.submit_approved, a.error_message,
-                    a.updated_at AS application_updated_at
+                    a.updated_at AS application_updated_at,
+                    (SELECT COUNT(*) FROM application_questions q
+                     WHERE q.application_id = a.application_id
+                       AND (q.answer IS NULL OR q.answer = '')) AS unanswered_count
                 FROM jobs j
                 LEFT JOIN applications a ON a.job_id = j.job_id
                 ORDER BY COALESCE(a.updated_at, j.updated_at) DESC
@@ -289,31 +293,6 @@ class Database:
                 (timestamp, application_id),
             )
 
-    def pending_input_applications(self):
-        return self._applications_with_questions(ApplicationStatus.NEEDS_INPUT)
-
-    def ready_for_review_applications(self):
-        return self._applications_with_questions(ApplicationStatus.READY_FOR_REVIEW)
-
-    def _applications_with_questions(self, status: ApplicationStatus):
-        with self.connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT a.*, j.title, j.company, j.location
-                FROM applications a
-                JOIN jobs j ON j.job_id = a.job_id
-                WHERE a.status = ?
-                ORDER BY a.updated_at
-                """,
-                (status.value,),
-            ).fetchall()
-        items = []
-        for row in rows:
-            item = dict(row)
-            unanswered_only = status == ApplicationStatus.NEEDS_INPUT
-            item["questions"] = [q.model_dump() for q in self.list_questions(row["application_id"], unanswered_only=unanswered_only)]
-            items.append(item)
-        return items
 
 
 def now():

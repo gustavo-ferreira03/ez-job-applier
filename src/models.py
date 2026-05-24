@@ -5,7 +5,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ApplicationStatus(str, Enum):
     FOUND = "FOUND"
-    ANALYZING = "ANALYZING"
     NEEDS_INPUT = "NEEDS_INPUT"
     READY_FOR_REVIEW = "READY_FOR_REVIEW"
     SUBMITTED = "SUBMITTED"
