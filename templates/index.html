@@ -61,7 +61,7 @@
     .job-meta, .job-time { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); font-size:12px; margin-top:4px; }
     .job-time { color:var(--dim); font-size:11px; margin-top:7px; }
     .badge { display:inline-flex; align-items:center; border-radius:99px; padding:2px 8px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; white-space:nowrap; }
-    .s-FOUND { background:#1e293b; color:var(--muted); } .s-ANALYZING { background:#0c1f3d; color:var(--blue); } .s-NEEDS_ANSWERS { background:#2d1500; color:#fde68a; } .s-READY_FOR_REVIEW { background:#0c1f3d; color:#93c5fd; } .s-SUBMITTED { background:#0d2e1a; color:#86efac; } .s-SKIPPED { background:#1c1917; color:#a8a29e; } .s-FAILED { background:#300a0a; color:#fca5a5; }
+    .s-FOUND { background:#1e293b; color:var(--muted); } .s-ANALYZING { background:#0c1f3d; color:var(--blue); } .s-NEEDS_INPUT { background:#2d1500; color:#fde68a; } .s-READY_FOR_REVIEW { background:#0c1f3d; color:#93c5fd; } .s-SUBMITTED { background:#0d2e1a; color:#86efac; } .s-SKIPPED { background:#1c1917; color:#a8a29e; } .s-FAILED { background:#300a0a; color:#fca5a5; }
     .overlay { display:none; position:fixed; inset:0; z-index:200; background:#0009; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; backdrop-filter:blur(4px); }
     .overlay.open { display:flex; }
     .modal { position:relative; width:100%; max-width:760px; background:#131e33; border:1px solid var(--border-hi); border-radius:16px; overflow:hidden; }
@@ -102,13 +102,15 @@
               <label class="f"><span>Easy Apply only</span><input type="checkbox" name="easy_apply" class="toggle" checked></label>
               <label class="f"><span>Work type</span><select name="work_type"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option><option value="remote,hybrid">Remote + Hybrid</option></select></label>
               <label class="f"><span>Fill skill gaps</span><input type="checkbox" name="fill_skill_gaps" class="toggle"></label>
+              <label class="f"><span>CV</span><select name="cv_filename" id="cv-select"><option value="">None</option></select></label>
             </div>
             <div class="btn-row"><button class="primary" id="btn-start">Start</button><button class="danger" type="button" id="btn-cancel" hidden>Cancel run</button></div>
           </form>
         </div>
       </section>
 
-      <section class="card" id="section-inputs"><div class="hd"><h2>Pending Questions</h2><span class="count" id="count-inputs">0</span></div><div class="bd" id="inputs"><p class="empty">No pending questions.</p></div></section>
+      <section class="card" id="section-cvs"><div class="hd"><h2>CVs</h2><span class="count" id="count-cvs">0</span></div><div class="bd" id="cv-list-bd"><p class="empty">No CVs uploaded.</p></div></section>
+      <section class="card" id="section-inputs"><div class="hd"><h2>Pending Input</h2><span class="count" id="count-inputs">0</span></div><div class="bd" id="inputs"><p class="empty">No pending input.</p></div></section>
       <section class="card" id="section-submits"><div class="hd"><h2>Submit Approvals</h2><span class="count" id="count-submits">0</span></div><div class="bd" id="submits"><p class="empty">No pending approvals.</p></div></section>
       <section class="card" id="section-external"><div class="hd"><h2>External Applications</h2><span class="count" id="count-external">0</span></div><div class="bd" id="external"><p class="empty">No external applications.</p></div></section>
     </div>
@@ -121,7 +123,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
-  const S = { pending: [], review: [], jobs: [], running: false, busy: {}, feedback: {} };
+  const S = { pending: [], review: [], jobs: [], cvs: [], running: false, busy: {}, feedback: {} };
   const $ = id => document.getElementById(id);
   const answerDrafts = {};
   let configApplied = false;
@@ -196,7 +198,7 @@
         ${actionNotice(app.application_id)}
         <div class="actions"><button class="primary" onclick="sendAnswers(${app.application_id})" ${busy || answered ? 'disabled' : ''}>${isBusy(app.application_id, 'answers') ? 'Submitting...' : answered ? 'Answers submitted' : 'Submit answers'}</button><button class="ghost" onclick="skipApplication(${app.application_id})" ${busy ? 'disabled' : ''}>${isBusy(app.application_id, 'skip') ? 'Skipping...' : 'Skip'}</button></div>
       </div>`;
-    }).join('') : '<p class="empty">No pending questions.</p>';
+    }).join('') : '<p class="empty">No pending input.</p>';
     $('submits').innerHTML = S.review.length ? S.review.map(app => {
       const busy = S.busy[app.application_id];
       const feedback = S.feedback[app.application_id];
@@ -321,12 +323,14 @@
     if (serial !== refreshSerial) return;
     captureDrafts();
     S.running = data.run.running;
-    S.pending = data.pending_questions || [];
+    S.pending = data.pending_input || [];
     S.review = data.ready_for_review || [];
     S.jobs = data.jobs || [];
+    S.cvs = data.cvs || [];
     syncLocalState();
     if (!configApplied || !runFormDirty) applyConfig(data.config || {});
     render();
+    renderCVs();
   }
 
   function syncLocalState() {
@@ -354,6 +358,7 @@
     if (config.easy_apply !== undefined) form.elements.easy_apply.checked = !!config.easy_apply;
     if (config.work_type !== undefined) form.elements.work_type.value = config.work_type || '';
     if (config.fill_skill_gaps !== undefined) form.elements.fill_skill_gaps.checked = !!config.fill_skill_gaps;
+    if (config.cv_filename !== undefined) form.elements.cv_filename.value = config.cv_filename || '';
     configApplied = true;
   }
 
@@ -368,6 +373,7 @@
     payload.easy_apply = event.target.elements.easy_apply.checked;
     if (payload.max_apply) payload.max_apply = Number(payload.max_apply); else delete payload.max_apply;
     payload.fill_skill_gaps = event.target.elements.fill_skill_gaps.checked;
+    payload.cv_filename = event.target.elements.cv_filename.value || null;
     const response = await post('/runs', payload);
     if (!response.ok) alert(await response.text());
     else { runFormDirty = false; showToast('Run started'); }
@@ -378,7 +384,35 @@
   $('modal-overlay').onclick = event => { if (event.target === $('modal-overlay')) $('modal-overlay').classList.remove('open'); };
   document.addEventListener('click', enableAudio, {once:true});
   document.addEventListener('keydown', enableAudio, {once:true});
-  new EventSource('/events').onmessage = event => { const data = JSON.parse(event.data); if (['application_needs_answers', 'application_ready_for_review'].includes(data.type)) playBell(); refreshState(); };
+  function renderCVs() {
+    $('count-cvs').textContent = S.cvs.length;
+    const select = $('cv-select');
+    const cur = select.value;
+    select.innerHTML = '<option value="">None</option>' +
+      S.cvs.map(n => `<option value="${esc(n)}" ${n===cur?'selected':''}>${esc(n)}</option>`).join('');
+    $('cv-list-bd').innerHTML =
+      (S.cvs.length ? S.cvs.map(n => `
+        <div class="action" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span style="font-weight:700">${esc(n)}</span>
+          <button class="danger" type="button" onclick="deleteCV('${esc(n)}')">Delete</button>
+        </div>`).join('') : '<p class="empty">No CVs uploaded.</p>') +
+      `<div class="btn-row">
+        <input type="file" id="cv-upload-input" accept=".pdf,.doc,.docx" hidden>
+        <button class="ghost" type="button" onclick="$('cv-upload-input').click()">Upload CV</button>
+      </div>`;
+    $('cv-upload-input').addEventListener('change', uploadCV, {once:true});
+  }
+  async function uploadCV(event) {
+    const file = event.target.files[0]; if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    const resp = await fetch('/cvs', {method:'POST', body: fd});
+    resp.ok ? (showToast('CV uploaded'), await refreshState()) : alert(await resp.text());
+  }
+  async function deleteCV(filename) {
+    const resp = await fetch(`/cvs/${encodeURIComponent(filename)}`, {method:'DELETE'});
+    resp.ok ? (showToast('CV deleted'), await refreshState()) : alert(await resp.text());
+  }
+  new EventSource('/events').onmessage = event => { const data = JSON.parse(event.data); if (['application_needs_input', 'application_ready_for_review'].includes(data.type)) playBell(); refreshState(); };
   refreshState();
 </script>
 </body>

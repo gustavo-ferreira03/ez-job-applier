@@ -66,6 +66,7 @@ class Database:
                 )
                 """
             )
+            conn.execute("UPDATE applications SET status = 'NEEDS_INPUT' WHERE status = 'NEEDS_ANSWERS'")
 
     def _assert_no_legacy_schema(self, conn):
         row = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'jobs'").fetchone()
@@ -176,7 +177,7 @@ class Database:
                 ORDER BY a.updated_at
                 LIMIT 1
                 """,
-                (ApplicationStatus.NEEDS_ANSWERS.value,),
+                (ApplicationStatus.NEEDS_INPUT.value,),
             ).fetchone()
             if row:
                 return application_from_row(row)
@@ -278,8 +279,8 @@ class Database:
                 (timestamp, application_id),
             )
 
-    def pending_question_applications(self):
-        return self._applications_with_questions(ApplicationStatus.NEEDS_ANSWERS)
+    def pending_input_applications(self):
+        return self._applications_with_questions(ApplicationStatus.NEEDS_INPUT)
 
     def ready_for_review_applications(self):
         return self._applications_with_questions(ApplicationStatus.READY_FOR_REVIEW)
@@ -299,7 +300,7 @@ class Database:
         items = []
         for row in rows:
             item = dict(row)
-            unanswered_only = status == ApplicationStatus.NEEDS_ANSWERS
+            unanswered_only = status == ApplicationStatus.NEEDS_INPUT
             item["questions"] = [q.model_dump() for q in self.list_questions(row["application_id"], unanswered_only=unanswered_only)]
             items.append(item)
         return items

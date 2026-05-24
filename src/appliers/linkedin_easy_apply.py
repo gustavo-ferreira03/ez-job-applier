@@ -11,6 +11,10 @@ class LinkedInEasyApplyApplier(_BorrowedLinkedInSession, LinkedInSession, BaseAp
     name = "linkedin_easy_apply"
     priority = 100
 
+    def __init__(self, session=None, cv_path=None, **kwargs):
+        self.cv_path = cv_path
+        super().__init__(session=session, **kwargs)
+
     async def _borrow_page(self):
         return await self.context.new_page()
 
@@ -55,10 +59,11 @@ class LinkedInEasyApplyApplier(_BorrowedLinkedInSession, LinkedInSession, BaseAp
                 pending = []
                 await self.fill_text_fields(modal, answers, pending, collected)
                 await self.fill_selects(modal, answers, pending, collected)
+                await self.fill_file_fields(modal)
 
                 if pending:
                     await self.close_modal(modal)
-                    return SubmitResult(status=ApplicationStatus.NEEDS_ANSWERS, questions=collected + pending)
+                    return SubmitResult(status=ApplicationStatus.NEEDS_INPUT, questions=collected + pending)
 
                 submit = modal.get_by_role("button", name=re.compile("submit application", re.I)).first
                 if await submit.count():
@@ -113,6 +118,13 @@ class LinkedInEasyApplyApplier(_BorrowedLinkedInSession, LinkedInSession, BaseAp
                     await label.click(force=True)
             except Exception:
                 pass
+
+    async def fill_file_fields(self, modal):
+        if not self.cv_path:
+            return
+        file_inputs = modal.locator("input[type=file]")
+        for index in range(await file_inputs.count()):
+            await file_inputs.nth(index).set_input_files(self.cv_path)
 
     async def fill_text_fields(self, modal, answers, pending, collected):
         fields = modal.locator("input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=radio]), textarea")

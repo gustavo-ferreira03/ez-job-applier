@@ -1,11 +1,12 @@
 import asyncio
 import contextlib
 import json
+import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
 
@@ -17,16 +18,25 @@ from models import AnswerQuestionsRequest, RunConfig
 from sources.linkedin import LinkedInRateLimitedError, LinkedInSession, LinkedInSource
 
 CONFIG_PATH = Path("settings.json")
+CV_DIR = Path("cvs")
 templates = Jinja2Templates(directory="templates")
 db = Database("jobs.db")
 events = EventBus()
-worker = ApplicationWorker(db, events, applier_factories=[lambda: LinkedInEasyApplyApplier(headless=False)])
 run_task: asyncio.Task[None] | None = None
 current_config = None
 
 
+def _make_linkedin_applier():
+    cv = current_config.get("cv_filename") if current_config else None
+    return LinkedInEasyApplyApplier(headless=False, cv_path=str(CV_DIR / cv) if cv else None)
+
+
+worker = ApplicationWorker(db, events, applier_factories=[_make_linkedin_applier])
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    CV_DIR.mkdir(exist_ok=True)
     db.init()
     worker.start()
     try:
@@ -53,6 +63,10 @@ def save_config(config):
 
 def is_run_active():
     return run_task is not None and not run_task.done()
+
+
+def list_cvs() -> list[str]:
+    return sorted(p.name for p in CV_DIR.glob("*") if p.is_file())
 
 
 @app.get("/")
@@ -87,10 +101,11 @@ async def state():
             "current_config": current_config,
         },
         "jobs": db.job_summary(),
-        "pending_questions": db.pending_question_applications(),
+        "pending_input": db.pending_input_applications(),
         "ready_for_review": db.ready_for_review_applications(),
         "events": list(events.history),
         "config": load_config(),
+        "cvs": list_cvs(),
     }
 
 
@@ -111,6 +126,25 @@ async def cancel_run():
         return {"cancelled": False}
     run_task.cancel()
     return {"cancelled": True}
+
+
+@app.get("/cvs")
+async def get_cvs():
+    return {"files": list_cvs()}
+
+
+@app.post("/cvs")
+async def upload_cv(file: UploadFile = File(...)):
+    filename = Path(file.filename).name
+    with (CV_DIR / filename).open("wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"filename": filename}
+
+
+@app.delete("/cvs/{filename}")
+async def delete_cv(filename: str):
+    (CV_DIR / Path(filename).name).unlink(missing_ok=True)
+    return {"ok": True}
 
 
 @app.get("/jobs/{job_id}")
@@ -166,7 +200,8 @@ async def _run(config: RunConfig):
             await session.ensure_logged_in()
             async with contextlib.AsyncExitStack() as stack:
                 source = await stack.enter_async_context(LinkedInSource(session=session))
-                appliers = [await stack.enter_async_context(LinkedInEasyApplyApplier(session=session))]
+                cv_path = str(CV_DIR / config.cv_filename) if config.cv_filename else None
+                appliers = [await stack.enter_async_context(LinkedInEasyApplyApplier(session=session, cv_path=cv_path))]
                 async for job in source.discover_jobs(config):
                     db.save_jobs([job])
                     application = db.ensure_application_for_job(job.job_id)

@@ -124,7 +124,7 @@ class ApplicationWorker:
 
 def event_type_for_status(status: ApplicationStatus):
     return {
-        ApplicationStatus.NEEDS_ANSWERS: "application_needs_answers",
+        ApplicationStatus.NEEDS_INPUT: "application_needs_input",
         ApplicationStatus.READY_FOR_REVIEW: "application_ready_for_review",
         ApplicationStatus.SUBMITTED: "application_submitted",
         ApplicationStatus.SKIPPED: "application_skipped",

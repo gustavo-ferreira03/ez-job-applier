@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ApplicationStatus(str, Enum):
     FOUND = "FOUND"
     ANALYZING = "ANALYZING"
-    NEEDS_ANSWERS = "NEEDS_ANSWERS"
+    NEEDS_INPUT = "NEEDS_INPUT"
     READY_FOR_REVIEW = "READY_FOR_REVIEW"
     SUBMITTED = "SUBMITTED"
     SKIPPED = "SKIPPED"
@@ -68,6 +68,7 @@ class RunConfig(BaseModel):
     work_type: str | None = None
     max_apply: int | None = Field(default=None, ge=1)
     fill_skill_gaps: bool = False
+    cv_filename: str | None = None
 
 
 class AnswerQuestionsRequest(BaseModel):
