@@ -96,6 +96,10 @@
     input[type=checkbox].toggle::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:left .15s, background .15s; }
     input[type=checkbox].toggle:checked { background:var(--blue); }
     input[type=checkbox].toggle:checked::after { left:18px; background:#fff; }
+    input[type=checkbox].toggle.premium:checked { background:var(--yellow); }
+    .check-group { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:2px; }
+    .check-group label { display:flex; align-items:center; gap:5px; font-size:13px; cursor:pointer; color:var(--muted); }
+    .check-group input[type=checkbox] { width:14px; height:14px; accent-color:var(--blue); cursor:pointer; }
 
     .section { margin-top:18px; }
     .section:first-child { margin-top:0; }
@@ -116,7 +120,7 @@
     .actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
     .sub { color:var(--muted); font-size:12px; margin-bottom:4px; }
     .badge { display:inline-flex; align-items:center; border-radius:99px; padding:2px 8px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:800; white-space:nowrap; }
-    .s-FOUND{background:#1e293b;color:var(--muted);} .s-NEEDS_INPUT{background:#2d1500;color:#fde68a;} .s-READY_FOR_REVIEW{background:#0c1f3d;color:#93c5fd;} .s-SUBMITTED{background:#0d2e1a;color:#86efac;} .s-SKIPPED{background:#1c1917;color:#a8a29e;} .s-FAILED{background:#300a0a;color:#fca5a5;} .s-EXTERNAL{background:#1a1a2e;color:#a78bfa;}
+    .s-FOUND{background:#1e293b;color:var(--muted);} .s-NEEDS_INPUT{background:#2d1500;color:#fde68a;} .s-READY_FOR_REVIEW{background:#0c1f3d;color:#93c5fd;} .s-SUBMITTED{background:#0d2e1a;color:#86efac;} .s-SKIPPED{background:#1c1917;color:#a8a29e;} .s-REJECTED{background:#1c1917;color:#a8a29e;} .s-FAILED{background:#300a0a;color:#fca5a5;} .s-EXTERNAL{background:#1a1a2e;color:#a78bfa;}
 
     .cv-item { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-sm); margin-bottom:6px; }
     .cv-name { font-weight:700; }
@@ -165,7 +169,7 @@
       <div class="col-body" id="cards-submitted"></div>
     </div>
     <div class="column dimmed" id="col-done">
-      <div class="col-header"><h2>Done / Failed</h2><span class="count" id="count-done">0</span></div>
+      <div class="col-header"><h2>Rejected</h2><span class="count" id="count-done">0</span></div>
       <div class="col-body" id="cards-done"></div>
     </div>
   </div>
@@ -183,7 +187,11 @@
           <label class="f"><span>Max applications <small>(blank = ∞)</small></span><input name="max_apply" type="number" min="1" placeholder="unlimited"></label>
           <label class="f"><span>Easy Apply only</span><input type="checkbox" name="easy_apply" class="toggle" checked></label>
           <label class="f"><span>Work type</span><select name="work_type"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="onsite">On-site</option><option value="remote,hybrid">Remote + Hybrid</option></select></label>
+          <label class="f"><span>Date posted</span><select name="date_posted"><option value="">Any time</option><option value="month">Past month</option><option value="week">Past week</option><option value="day">Past 24 hours</option></select></label>
+          <div class="f w2"><span style="color:var(--dim);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Experience level</span><div class="check-group"><label><input type="checkbox" name="experience_level" value="entry">Entry level</label><label><input type="checkbox" name="experience_level" value="associate">Associate</label><label><input type="checkbox" name="experience_level" value="mid_senior">Mid-Senior</label><label><input type="checkbox" name="experience_level" value="director">Director</label><label><input type="checkbox" name="experience_level" value="executive">Executive</label></div></div>
+          <div class="f w2"><span style="color:var(--dim);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Job type</span><div class="check-group"><label><input type="checkbox" name="job_type" value="full_time">Full-time</label><label><input type="checkbox" name="job_type" value="part_time">Part-time</label><label><input type="checkbox" name="job_type" value="contract">Contract</label><label><input type="checkbox" name="job_type" value="temporary">Temporary</label><label><input type="checkbox" name="job_type" value="internship">Internship</label></div></div>
           <label class="f"><span>Fill skill gaps</span><input type="checkbox" name="fill_skill_gaps" class="toggle"></label>
+          <label class="f"><span>Top Applicant <small style="color:var(--yellow)">★ Premium</small></span><input type="checkbox" name="include_top_applicant" class="toggle premium"></label>
         </div>
       </form>
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
@@ -225,7 +233,7 @@
     { id:'review',       statuses:['READY_FOR_REVIEW'],  alert:'alert-blue',   defaultTab:'actions' },
     { id:'external',     statuses:['EXTERNAL'],           alert:'alert-purple', defaultTab:'actions' },
     { id:'submitted',    statuses:['SUBMITTED'] },
-    { id:'done',         statuses:['SKIPPED','FAILED'] },
+    { id:'done',         statuses:['REJECTED','SKIPPED','FAILED'] },
   ];
 
   function esc(v) { return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -503,6 +511,10 @@
     if(config.max_apply!==undefined) form.elements.max_apply.value=config.max_apply||'';
     if(config.easy_apply!==undefined) form.elements.easy_apply.checked=!!config.easy_apply;
     if(config.work_type!==undefined) form.elements.work_type.value=config.work_type||'';
+    if(config.date_posted!==undefined) form.elements.date_posted.value=config.date_posted||'';
+    if(config.experience_level!==undefined) form.querySelectorAll('[name=experience_level]').forEach(cb=>{cb.checked=(config.experience_level||[]).includes(cb.value);});
+    if(config.job_type!==undefined) form.querySelectorAll('[name=job_type]').forEach(cb=>{cb.checked=(config.job_type||[]).includes(cb.value);});
+    if(config.include_top_applicant!==undefined) form.elements.include_top_applicant.checked=!!config.include_top_applicant;
     if(config.fill_skill_gaps!==undefined) form.elements.fill_skill_gaps.checked=!!config.fill_skill_gaps;
     configApplied=true;
   }
@@ -515,10 +527,15 @@
     e.preventDefault();
     enableAudio();
     const form=e.target;
-    const payload=Object.fromEntries(new FormData(form).entries());
+    const fd=new FormData(form);
+    const payload=Object.fromEntries(fd.entries());
     payload.easy_apply=form.elements.easy_apply.checked;
-    if(payload.max_apply) payload.max_apply=Number(payload.max_apply); else delete payload.max_apply;
     payload.fill_skill_gaps=form.elements.fill_skill_gaps.checked;
+    payload.include_top_applicant=form.elements.include_top_applicant?.checked||false;
+    payload.experience_level=fd.getAll('experience_level');
+    payload.job_type=fd.getAll('job_type');
+    if(!payload.date_posted) delete payload.date_posted;
+    if(payload.max_apply) payload.max_apply=Number(payload.max_apply); else delete payload.max_apply;
     const resp=await post('/runs',payload);
     if(!resp.ok) alert(await resp.text());
     else { runFormDirty=false; showToast('Run started'); $('settings-overlay').classList.remove('open'); }

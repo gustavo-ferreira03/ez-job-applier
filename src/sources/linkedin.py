@@ -200,8 +200,29 @@ class LinkedInSource(_BorrowedLinkedInSession, LinkedInSession, JobSource):
                             location=config.location or None,
                             easy_apply=config.easy_apply,
                             work_type=config.work_type,
+                            experience_level=config.experience_level,
+                            job_type=config.job_type,
+                            date_posted=config.date_posted,
                             start=start,
                         )
+                        remaining = (config.max_apply - total) if config.max_apply else None
+                        page_new = 0
+                        async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
+                            if job.job_id not in seen_ids:
+                                seen_ids.add(job.job_id)
+                                total += 1
+                                page_new += 1
+                                any_found = True
+                                yield job
+                        if page_new == 0:
+                            break
+                        start += 25
+                if config.include_top_applicant:
+                    start = 0
+                    while True:
+                        if config.max_apply is not None and total >= config.max_apply:
+                            break
+                        await self.open_top_applicant(start=start)
                         remaining = (config.max_apply - total) if config.max_apply else None
                         page_new = 0
                         async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
@@ -220,19 +241,39 @@ class LinkedInSource(_BorrowedLinkedInSession, LinkedInSession, JobSource):
         finally:
             await self.save_session()
 
-    async def open_jobs(self, keywords=None, location=None, easy_apply=False, work_type=None, start=0):
+    _EXP_MAP = {"entry": "2", "associate": "3", "mid_senior": "4", "director": "5", "executive": "6"}
+    _JT_MAP = {"full_time": "F", "part_time": "P", "contract": "C", "temporary": "T", "internship": "I"}
+    _DATE_MAP = {"day": "r86400", "week": "r604800", "month": "r2592000"}
+
+    async def open_jobs(self, keywords=None, location=None, easy_apply=False, work_type=None,
+                        experience_level=None, job_type=None, date_posted=None, start=0):
         wt_map = {"remote": "2", "hybrid": "3", "onsite": "1"}
         wt_parts = [wt_map[w.strip()] for w in (work_type or "").split(",") if w.strip() in wt_map]
+        exp_parts = [self._EXP_MAP[e] for e in (experience_level or []) if e in self._EXP_MAP]
+        jt_parts = [self._JT_MAP[j] for j in (job_type or []) if j in self._JT_MAP]
         filters = {
             "keywords": keywords,
             "location": location,
             "f_AL": "true" if easy_apply else None,
             "f_WT": ",".join(wt_parts) if wt_parts else None,
+            "f_E": ",".join(exp_parts) if exp_parts else None,
+            "f_JT": ",".join(jt_parts) if jt_parts else None,
+            "f_TPR": self._DATE_MAP.get(date_posted) if date_posted else None,
             "start": start or None,
         }
         query = urlencode({k: v for k, v in filters.items() if v})
         url = "https://www.linkedin.com/jobs/search/" + (f"?{query}" if query else "")
         print(f"Opening jobs page: {url}")
+        await self.goto_linkedin(url, wait_until="domcontentloaded")
+        if is_auth_wall(self.page.url):
+            raise RuntimeError("LinkedIn session expired; log in again")
+        await self.page.wait_for_timeout(5000)
+
+    async def open_top_applicant(self, start=0):
+        url = "https://www.linkedin.com/jobs/collections/top-applicant/"
+        if start:
+            url += f"?start={start}"
+        print(f"Opening top applicant collection: {url}")
         await self.goto_linkedin(url, wait_until="domcontentloaded")
         if is_auth_wall(self.page.url):
             raise RuntimeError("LinkedIn session expired; log in again")

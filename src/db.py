@@ -68,6 +68,7 @@ class Database:
             )
             conn.execute("UPDATE applications SET status = 'NEEDS_INPUT' WHERE status = 'NEEDS_ANSWERS'")
             conn.execute("UPDATE applications SET status = 'FOUND' WHERE status = 'ANALYZING'")
+            conn.execute("UPDATE applications SET status = 'REJECTED' WHERE status = 'SKIPPED'")
             conn.execute(
                 """
                 UPDATE applications SET status = 'EXTERNAL'
@@ -239,7 +240,7 @@ class Database:
                 SET status = ?, submit_approved = 0, error_message = NULL, updated_at = ?
                 WHERE application_id = ?
                 """,
-                (ApplicationStatus.SKIPPED.value, timestamp, application_id),
+                (ApplicationStatus.REJECTED.value, timestamp, application_id),
             )
 
     def list_questions(self, application_id: int, unanswered_only=False) -> list[ApplicationQuestion]:

@@ -144,7 +144,8 @@ def event_type_for_status(status: ApplicationStatus):
         ApplicationStatus.NEEDS_INPUT: "application_needs_input",
         ApplicationStatus.READY_FOR_REVIEW: "application_ready_for_review",
         ApplicationStatus.SUBMITTED: "application_submitted",
-        ApplicationStatus.SKIPPED: "application_skipped",
+        ApplicationStatus.SKIPPED: "application_rejected",
+        ApplicationStatus.REJECTED: "application_rejected",
         ApplicationStatus.FAILED: "application_failed",
         ApplicationStatus.FOUND: "application_found",
     }[status]

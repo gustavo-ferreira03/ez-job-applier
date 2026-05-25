@@ -213,7 +213,7 @@ async def skip_application(application_id: int):
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
     db.skip_application(application_id)
-    await events.publish({"type": "application_skipped", "application_id": application_id})
+    await events.publish({"type": "application_rejected", "application_id": application_id})
     return {"ok": True}
 
 

@@ -9,6 +9,7 @@ class ApplicationStatus(str, Enum):
     READY_FOR_REVIEW = "READY_FOR_REVIEW"
     SUBMITTED = "SUBMITTED"
     SKIPPED = "SKIPPED"
+    REJECTED = "REJECTED"
     FAILED = "FAILED"
     EXTERNAL = "EXTERNAL"
 
@@ -79,6 +80,10 @@ class RunConfig(BaseModel):
     location: str | None = None
     easy_apply: bool = True
     work_type: str | None = None
+    experience_level: list[str] = Field(default_factory=list)
+    job_type: list[str] = Field(default_factory=list)
+    date_posted: str | None = None
+    include_top_applicant: bool = False
     max_apply: int | None = Field(default=None, ge=1)
     fill_skill_gaps: bool = False
 
