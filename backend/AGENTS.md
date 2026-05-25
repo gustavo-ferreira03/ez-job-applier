@@ -11,7 +11,7 @@
 ## Setup And Commands
 - Dependencies are declared in `pyproject.toml`; this repo uses `uv.lock` and `[tool.uv] package = false`.
 - Syntax check: `python -m py_compile src/server.py src/models.py src/db.py src/events.py src/application_worker.py src/sources/base.py src/sources/linkedin.py src/appliers/base.py src/appliers/linkedin_easy_apply.py`.
-- Run server UI: `python src/server.py` from the repo root, then open `http://127.0.0.1:8000`.
+- Run server UI: `python src/server.py` from `backend/`, then open `http://127.0.0.1:8000`.
 
 ## Git Workflow
 - Use Conventional Commits for commit messages, e.g. `feat: add application URL capture` or `docs: update agent instructions`.
