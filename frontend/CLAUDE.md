@@ -40,4 +40,3 @@
 - keep interactions obvious
 - reduce cognitive load
 - every element needs purpose
-- use @lucide/svelte icons through per-icon imports, e.g. `import X from '@lucide/svelte/icons/x'`
