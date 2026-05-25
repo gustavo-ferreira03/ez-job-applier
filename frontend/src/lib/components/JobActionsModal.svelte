@@ -14,65 +14,27 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="modal-overlay">
-	<button class="modal-backdrop" type="button" aria-label="Close modal" onclick={onClose}></button>
-	<div class="modal" role="dialog" aria-modal="true" aria-label="Job actions" tabindex="-1">
-		<button class="modal-close" type="button" aria-label="Close modal" onclick={onClose}>
+<div class="z-modal fixed inset-0 flex items-start justify-center bg-black/72 p-4">
+	<button
+		class="absolute inset-0 cursor-default border-0 bg-transparent"
+		type="button"
+		aria-label="Close modal"
+		onclick={onClose}
+	></button>
+	<div
+		class="relative mt-12 min-h-[min(520px,calc(100vh-96px))] w-[min(760px,100%)] border border-border-default bg-surface-raised shadow-lg"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Job actions"
+		tabindex="-1"
+	>
+		<button
+			class="absolute top-[14px] right-[14px] inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center border border-border-default bg-surface-overlay p-0 text-[#4a6a88] hover:border-border-strong hover:text-[#7aaac8] focus-visible:border-border-strong focus-visible:text-[#7aaac8] focus-visible:outline-0"
+			type="button"
+			aria-label="Close modal"
+			onclick={onClose}
+		>
 			<X size={16} strokeWidth={2.25} aria-hidden="true" />
 		</button>
 	</div>
 </div>
-
-<style>
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		background: rgb(0 0 0 / 0.72);
-		padding: 16px;
-		z-index: 100;
-	}
-
-	.modal-backdrop {
-		position: absolute;
-		inset: 0;
-		cursor: default;
-		border: 0;
-		background: transparent;
-	}
-
-	.modal {
-		position: relative;
-		margin-top: 48px;
-		min-height: min(520px, calc(100vh - 96px));
-		width: min(760px, 100%);
-		border: 1px solid #1a2e48;
-		background: #0b1829;
-		box-shadow: 0 24px 56px rgb(0 0 0 / 0.55);
-	}
-
-	.modal-close {
-		position: absolute;
-		top: 14px;
-		right: 14px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 36px;
-		min-width: 36px;
-		cursor: pointer;
-		border: 1px solid #1a2e48;
-		background: #0f1e34;
-		color: #4a6a88;
-		padding: 0;
-	}
-
-	.modal-close:hover,
-	.modal-close:focus-visible {
-		border-color: #26405f;
-		color: #7aaac8;
-		outline: 0;
-	}
-</style>

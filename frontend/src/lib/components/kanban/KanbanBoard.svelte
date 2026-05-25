@@ -42,33 +42,11 @@
 	}
 </script>
 
-<section class="kanban" aria-label="Application kanban board">
+<section
+	class="flex min-h-[calc(100vh-72px)] gap-4 overflow-x-auto overflow-y-hidden p-4 max-[760px]:min-h-auto max-[760px]:flex-col max-[760px]:overflow-visible"
+	aria-label="Application kanban board"
+>
 	{#each columns as column (column.id)}
-		<KanbanColumn
-			{column}
-			jobs={jobsForColumn(column)}
-			{processingIds}
-			{onOpenJob}
-		/>
+		<KanbanColumn {column} jobs={jobsForColumn(column)} {processingIds} {onOpenJob} />
 	{/each}
 </section>
-
-<style>
-	.kanban {
-		display: flex;
-		min-height: calc(100vh - 72px);
-		gap: 16px;
-		overflow-x: auto;
-		overflow-y: hidden;
-		padding: 16px;
-	}
-
-	@media (max-width: 760px) {
-		.kanban {
-			min-height: auto;
-			flex-direction: column;
-			overflow: visible;
-			padding: 16px;
-		}
-	}
-</style>

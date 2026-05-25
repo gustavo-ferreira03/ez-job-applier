@@ -15,14 +15,13 @@
 	function closeModal() {
 		selectedJob = null;
 	}
-
 </script>
 
 <svelte:head>
 	<title>EZJobApplier Kanban</title>
 </svelte:head>
 
-<main class="page-shell">
+<main class="min-h-screen bg-surface-base font-sans text-text-primary">
 	<AppHeader />
 
 	<KanbanBoard jobs={mockJobs} {processingIds} onOpenJob={openMockJob} />
@@ -31,20 +30,3 @@
 		<JobActionsModal onClose={closeModal} />
 	{/if}
 </main>
-
-<style>
-	.page-shell {
-		min-height: 100vh;
-		background: #070d1a;
-		color: #dce8f5;
-		font-family:
-			Instrument Sans,
-			ui-sans-serif,
-			system-ui,
-			-apple-system,
-			BlinkMacSystemFont,
-			'Segoe UI',
-			sans-serif;
-	}
-
-</style>
