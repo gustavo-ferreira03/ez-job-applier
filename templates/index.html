@@ -148,7 +148,6 @@
       <div class="col-header">
         <h2>Found</h2>
         <span class="count" id="count-in-progress">0</span>
-        <span class="spinner" id="spinner-run"></span>
       </div>
       <div class="col-body" id="cards-in-progress"></div>
     </div>
@@ -284,7 +283,6 @@
     $('status').textContent=S.running?'Running':'Idle';
     $('btn-start').hidden=S.running;
     $('btn-cancel').hidden=!S.running;
-    $('spinner-run').style.display=S.running?'block':'none';
 
     COLUMNS.forEach(col => {
       const jobs=S.jobs.filter(j=>col.statuses.includes(j.status));
