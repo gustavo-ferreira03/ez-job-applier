@@ -1,76 +1,116 @@
 @import 'tailwindcss';
 
 @theme {
-	/* Typography */
+	/* ─── Typography ─────────────────────────────────────────── */
 	--font-sans:
 		'Instrument Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
 		Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
 
-	/* Colors */
-	--color-brand-50: #082f49;
-	--color-brand-100: #0c2d4a;
-	--color-brand-500: #38bdf8;
-	--color-brand-600: #0ea5e9;
-	--color-brand-700: #bae6fd;
+	/* ─── Surfaces (dark navy, layered) ─────────────────────── */
+	--color-surface-base:    #070d1a; /* page background            */
+	--color-surface-raised:  #0b1829; /* header, columns, modals    */
+	--color-surface-overlay: #0f1e34; /* cards, popovers            */
+	--color-surface-hover:   #152440; /* interactive hover          */
+	--color-surface-active:  #1c2e50; /* pressed / selected         */
 
-	--color-success-50: #052e16;
+	/* ─── Borders ────────────────────────────────────────────── */
+	--color-border-subtle:  #172c46; /* column lines, dividers     */
+	--color-border-default: #1a2e48; /* card borders               */
+	--color-border-strong:  #26405f; /* hover / focus borders      */
+
+	/* ─── Text ───────────────────────────────────────────────── */
+	--color-text-primary:   #dce8f5; /* headings, card titles      */
+	--color-text-secondary: #7a9ab8; /* company names, labels      */
+	--color-text-muted:     #3d5878; /* locations, meta            */
+	--color-text-faint:     #2f4d68; /* timestamps, de-emphasized  */
+	--color-text-placeholder: #1e3a58;
+
+	/* ─── Brand (sky blue) ───────────────────────────────────── */
+	--color-brand-on:  #03111e; /* text rendered on brand bg  */
+	--color-brand-50:  #070d1a;
+	--color-brand-100: #0b1829;
+	--color-brand-200: #0c2d4a;
+	--color-brand-300: #0e4c7a;
+	--color-brand-400: #1580c0;
+	--color-brand-500: #38bdf8; /* primary brand              */
+	--color-brand-600: #0ea5e9;
+	--color-brand-700: #7dd3fc;
+	--color-brand-800: #bae6fd;
+	--color-brand-900: #e0f2fe;
+
+	/* ─── Warn (amber) ───────────────────────────────────────── */
+	--color-warn-50:  #1a1000;
+	--color-warn-100: #2a1c00;
+	--color-warn-500: #f59e0b; /* primary warn               */
+	--color-warn-600: #fbbf24;
+	--color-warn-700: #fde68a;
+
+	/* ─── Success (green) ────────────────────────────────────── */
+	--color-success-50:  #052e16;
+	--color-success-100: #0a4c24;
 	--color-success-500: #4ade80;
 	--color-success-600: #86efac;
+	--color-success-700: #bbf7d0;
 
-	--color-danger-50: #300a0a;
-	--color-danger-500: #f87171;
+	/* ─── Danger (red) ───────────────────────────────────────── */
+	--color-danger-50:  #1a0505;
+	--color-danger-100: #2c0a0a;
+	--color-danger-500: #f87171; /* primary danger             */
 	--color-danger-600: #fca5a5;
+	--color-danger-700: #fecaca;
 
-	--color-gray-50: #0c1120;
-	--color-gray-100: #111827;
-	--color-gray-200: #1e2d45;
-	--color-gray-300: #334155;
-	--color-gray-400: #64748b;
-	--color-gray-500: #94a3b8;
-	--color-gray-600: #cbd5e1;
-	--color-gray-700: #e2e8f0;
-	--color-gray-800: #f1f5f9;
-	--color-gray-900: #f8fafc;
+	/* ─── Purple (external / special) ───────────────────────── */
+	--color-purple-50:  #0f0a1a;
+	--color-purple-100: #1e1030;
+	--color-purple-500: #a78bfa; /* primary purple             */
+	--color-purple-600: #c4b5fd;
+	--color-purple-700: #ddd6fe;
 
-	--color-white: #111827;
-	--color-black: #000000;
+	/* ─── Gray scale (light → dark) ─────────────────────────── */
+	--color-gray-50:  #f8fafc;
+	--color-gray-100: #e2e8f0;
+	--color-gray-200: #94a3b8;
+	--color-gray-300: #64748b;
+	--color-gray-400: #3d5878;
+	--color-gray-500: #26405f;
+	--color-gray-600: #1a2e48;
+	--color-gray-700: #172c46;
+	--color-gray-800: #0f1e34;
+	--color-gray-900: #070d1a;
 
-	/* Spacing (8px base) */
-	--spacing-0: 0px;
-	--spacing-1: 4px;
-	--spacing-2: 8px;
-	--spacing-3: 12px;
-	--spacing-4: 16px;
-	--spacing-5: 20px;
-	--spacing-6: 24px;
-	--spacing-8: 32px;
+	/* ─── Spacing (8px base scale) ───────────────────────────── */
+	--spacing-0:  0px;
+	--spacing-1:  4px;
+	--spacing-2:  8px;
+	--spacing-3:  12px;
+	--spacing-4:  16px;
+	--spacing-5:  20px;
+	--spacing-6:  24px;
+	--spacing-8:  32px;
 	--spacing-10: 40px;
 	--spacing-12: 48px;
 	--spacing-16: 64px;
 	--spacing-20: 80px;
 
-	/* Border Radius */
+	/* ─── Border radius ──────────────────────────────────────── */
 	--radius-none: 0px;
-	--radius-sm: 2px;
-	--radius-md: 4px;
-	--radius-lg: 8px;
 
-	/* Shadows */
-	--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.25);
-	--shadow-md: 0 8px 24px -12px rgb(0 0 0 / 0.6);
-	--shadow-lg: 0 18px 45px rgb(0 0 0 / 0.45);
+	/* ─── Shadows ────────────────────────────────────────────── */
+	--shadow-sm: 0 1px 3px rgb(0 0 0 / 0.35);
+	--shadow-md: 0 2px 8px rgb(0 0 0 / 0.45);
+	--shadow-lg: 0 24px 56px rgb(0 0 0 / 0.55);
 
-	/* Z-index scale */
-	--z-base: 0;
+	/* ─── Z-index scale ──────────────────────────────────────── */
+	--z-base:     0;
 	--z-dropdown: 10;
-	--z-sticky: 50;
-	--z-modal: 100;
-	--z-toast: 200;
+	--z-sticky:   50;
+	--z-modal:    100;
+	--z-toast:    200;
 
-	/* Container */
-	--container-sm: 640px;
-	--container-md: 768px;
-	--container-lg: 1024px;
-	--container-xl: 1280px;
+	/* ─── Containers ─────────────────────────────────────────── */
+	--container-sm:  640px;
+	--container-md:  768px;
+	--container-lg:  1024px;
+	--container-xl:  1280px;
 	--container-2xl: 1536px;
 }
