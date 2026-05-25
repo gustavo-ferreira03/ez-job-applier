@@ -6,6 +6,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
 
@@ -16,10 +17,11 @@ from events import EventBus
 from models import AnswerQuestionsRequest, ApplicationStatus, ApproveRequest, RunConfig, SetDefaultCVRequest
 from sources.linkedin import LinkedInRateLimitedError, LinkedInSession, LinkedInSource
 
-CONFIG_PATH = Path("settings.json")
-CV_DIR = Path("cvs")
-templates = Jinja2Templates(directory="templates")
-db = Database("applier.db")
+ROOT = Path(__file__).resolve().parent.parent
+CONFIG_PATH = ROOT / "settings.json"
+CV_DIR = ROOT / "cvs"
+templates = Jinja2Templates(directory=str(ROOT / "templates"))
+db = Database(ROOT / "applier.db")
 events = EventBus()
 run_task: asyncio.Task[None] | None = None
 current_config = None
@@ -49,6 +51,13 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def load_config():

@@ -5,7 +5,7 @@
 	interface Props {
 		jobs: JobSummary[];
 		processingIds?: Set<number>;
-		onOpenJob?: (jobId: string, defaultTab: KanbanTab) => void;
+		onOpenJob?: (job: JobSummary, defaultTab: KanbanTab) => void;
 	}
 
 	let { jobs, processingIds = new Set<number>(), onOpenJob = () => undefined }: Props = $props();

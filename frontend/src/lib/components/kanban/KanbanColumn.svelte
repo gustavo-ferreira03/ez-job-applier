@@ -6,7 +6,7 @@
 		column: KanbanColumnDef;
 		jobs: JobSummary[];
 		processingIds: Set<number>;
-		onOpenJob: (jobId: string, defaultTab: KanbanTab) => void;
+		onOpenJob: (job: JobSummary, defaultTab: KanbanTab) => void;
 	}
 
 	let { column, jobs, processingIds, onOpenJob }: Props = $props();
@@ -66,7 +66,7 @@
 				<KanbanCard
 					{job}
 					processing={isProcessing(job)}
-					onOpen={() => onOpenJob(job.job_id, column.defaultTab ?? 'info')}
+					onOpen={() => onOpenJob(job, column.defaultTab ?? 'info')}
 				/>
 			{/each}
 		{:else}
