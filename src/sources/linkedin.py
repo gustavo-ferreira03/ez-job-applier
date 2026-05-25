@@ -190,6 +190,24 @@ class LinkedInSource(_BorrowedLinkedInSession, LinkedInSession, JobSource):
             while True:
                 seen_ids: set[str] = set()
                 any_found = False
+                if config.include_top_applicant:
+                    start = 0
+                    while True:
+                        if config.max_apply is not None and total >= config.max_apply:
+                            break
+                        await self.open_top_applicant(start=start)
+                        remaining = (config.max_apply - total) if config.max_apply else None
+                        page_new = 0
+                        async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
+                            if job.job_id not in seen_ids:
+                                seen_ids.add(job.job_id)
+                                total += 1
+                                page_new += 1
+                                any_found = True
+                                yield job
+                        if page_new == 0:
+                            break
+                        start += 25
                 for keyword in keywords_list:
                     start = 0
                     while True:
@@ -205,24 +223,6 @@ class LinkedInSource(_BorrowedLinkedInSession, LinkedInSession, JobSource):
                             date_posted=config.date_posted,
                             start=start,
                         )
-                        remaining = (config.max_apply - total) if config.max_apply else None
-                        page_new = 0
-                        async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
-                            if job.job_id not in seen_ids:
-                                seen_ids.add(job.job_id)
-                                total += 1
-                                page_new += 1
-                                any_found = True
-                                yield job
-                        if page_new == 0:
-                            break
-                        start += 25
-                if config.include_top_applicant:
-                    start = 0
-                    while True:
-                        if config.max_apply is not None and total >= config.max_apply:
-                            break
-                        await self.open_top_applicant(start=start)
                         remaining = (config.max_apply - total) if config.max_apply else None
                         page_new = 0
                         async for job in self.extract_jobs(max_jobs=remaining, fill_skill_gaps=config.fill_skill_gaps):
