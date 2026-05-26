@@ -12,7 +12,7 @@
 
 	const cls = $derived(
 		[
-			'flex w-full cursor-pointer flex-col border border-l-[3px] border-border-default border-l-transparent bg-surface-overlay px-[14px] pt-[14px] pb-3 text-left text-text-primary shadow-sm transition-[background,box-shadow] duration-100 hover:border-border-strong hover:border-l-transparent hover:bg-surface-hover hover:shadow-md focus-visible:border-border-strong focus-visible:border-l-transparent focus-visible:bg-surface-hover focus-visible:shadow-md focus-visible:ring-1 focus-visible:ring-brand-500 focus-visible:ring-inset focus-visible:outline-0',
+			'flex w-full cursor-pointer flex-col rounded-[var(--radius-card)] border border-l-[3px] border-border-default border-l-transparent bg-surface-overlay px-[14px] pt-[14px] pb-3 text-left text-text-primary shadow-sm transition-[background,box-shadow] duration-100 hover:border-border-strong hover:border-l-transparent hover:bg-surface-hover hover:shadow-md focus-visible:border-border-strong focus-visible:border-l-transparent focus-visible:bg-surface-hover focus-visible:shadow-md focus-visible:ring-1 focus-visible:ring-brand-500 focus-visible:ring-inset focus-visible:outline-0',
 			processing
 				? 'border-brand-500/40 border-l-brand-500 hover:border-brand-500/60 hover:border-l-brand-500 focus-visible:border-brand-500/60 focus-visible:border-l-brand-500'
 				: job.status === 'NEEDS_INPUT'

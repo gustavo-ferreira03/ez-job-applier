@@ -19,7 +19,7 @@
 
 	const cls = $derived(
 		[
-			'flex max-h-[calc(100vh-104px)] flex-[0_0_272px] flex-col overflow-hidden border border-border-subtle bg-surface-raised max-[760px]:max-h-none max-[760px]:w-full max-[760px]:basis-auto',
+			'flex max-h-[calc(100vh-104px)] flex-[0_0_272px] flex-col overflow-hidden rounded-[var(--radius-card)] border border-border-subtle bg-surface-raised max-[760px]:max-h-none max-[760px]:w-full max-[760px]:basis-auto',
 			column.muted ? 'opacity-55' : '',
 			column.alert === 'yellow' && jobs.length > 0 ? 'border-warn-500/45' : '',
 			column.alert === 'blue' && jobs.length > 0 ? 'border-brand-500/45' : '',
@@ -42,7 +42,7 @@
 
 	const countCls = $derived(
 		[
-			'ml-auto min-w-6 bg-surface-overlay px-[6px] text-center text-[11px] leading-5 font-bold text-text-muted tabular-nums',
+			'ml-auto min-w-6 rounded-[6px] bg-surface-overlay px-[6px] text-center text-[11px] leading-5 font-bold text-text-muted tabular-nums',
 			column.alert === 'yellow' && jobs.length > 0 ? 'text-[#8a6020]' : '',
 			column.alert === 'blue' && jobs.length > 0 ? 'text-[#276280]' : '',
 			column.alert === 'purple' && jobs.length > 0 ? 'text-[#5840a0]' : ''
@@ -71,7 +71,7 @@
 			{/each}
 		{:else}
 			<p
-				class="m-0 border border-dashed border-border-subtle px-4 py-5 text-center text-xs text-[#1e3450]"
+				class="m-0 rounded-[var(--radius-card)] border border-dashed border-border-subtle px-4 py-5 text-center text-xs text-[#1e3450]"
 			>
 				Empty
 			</p>

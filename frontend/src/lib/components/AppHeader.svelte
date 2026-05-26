@@ -44,7 +44,7 @@
 	<div class="flex items-center gap-2 max-[640px]:w-full">
 		{#if appState.run.running}
 			<button
-				class="inline-flex min-h-9 cursor-pointer items-center justify-center gap-[6px] border border-border-default bg-surface-overlay px-4 text-[13px] font-bold tracking-[0.01em] text-text-secondary transition-[filter] duration-100 hover:border-border-strong hover:text-text-primary focus-visible:outline-0 max-[640px]:flex-1"
+				class="inline-flex min-h-9 cursor-pointer items-center justify-center gap-[6px] rounded-[var(--radius-card)] border border-border-default bg-surface-overlay px-4 text-[13px] font-bold tracking-[0.01em] text-text-secondary transition-[filter] duration-100 hover:border-border-strong hover:text-text-primary focus-visible:outline-0 max-[640px]:flex-1"
 				type="button"
 				onclick={handleStop}
 			>
@@ -53,7 +53,7 @@
 			</button>
 		{:else}
 			<button
-				class="inline-flex min-h-9 cursor-pointer items-center justify-center gap-[6px] border border-transparent bg-brand-500 px-4 text-[13px] font-bold tracking-[0.01em] text-brand-on transition-[filter] duration-100 hover:brightness-110 focus-visible:outline-0 focus-visible:brightness-110 max-[640px]:flex-1"
+				class="inline-flex min-h-9 cursor-pointer items-center justify-center gap-[6px] rounded-[var(--radius-card)] border border-transparent bg-brand-500 px-4 text-[13px] font-bold tracking-[0.01em] text-brand-on transition-[filter] duration-100 hover:brightness-110 focus-visible:outline-0 focus-visible:brightness-110 max-[640px]:flex-1"
 				type="button"
 				onclick={onOpenSettings}
 			>
@@ -63,7 +63,7 @@
 		{/if}
 
 		<button
-			class="inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center border border-border-default bg-surface-overlay p-0 text-[13px] font-bold text-[#4a6a88] transition-[filter] duration-100 hover:border-border-strong hover:text-[#7aaac8] focus-visible:border-border-strong focus-visible:text-[#7aaac8] focus-visible:outline-0"
+			class="inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-[var(--radius-card)] border border-border-default bg-surface-overlay p-0 text-[13px] font-bold text-[#4a6a88] transition-[filter] duration-100 hover:border-border-strong hover:text-[#7aaac8] focus-visible:border-border-strong focus-visible:text-[#7aaac8] focus-visible:outline-0"
 			type="button"
 			aria-label="Settings"
 			onclick={onOpenSettings}
