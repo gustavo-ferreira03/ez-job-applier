@@ -9,6 +9,10 @@ export async function getContext(): Promise<BrowserContext> {
             userDataDir: "./chrome-profile",
             headless: false,
             viewport: { width: 1280, height: 720 },
+            // On Linux/WSL the OS keyring is unavailable, so Chromium can't decrypt
+            // cookies it wrote in a previous session. --password-store=basic stores
+            // them unencrypted so the session survives browser restarts.
+            args: ["--password-store=basic"],
         });
     }
     return context;

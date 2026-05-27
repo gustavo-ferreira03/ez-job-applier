@@ -5,6 +5,11 @@ import resumesRouter from "./repositories/resumes/router";
 
 const app = new Hono();
 
+app.onError((err, c) => {
+    console.error(err);
+    return c.json({ error: err.message }, 500);
+});
+
 app.route("/linkedin", linkedinRouter);
 app.route("/resumes", resumesRouter);
 
