@@ -31,6 +31,7 @@ export async function openContext(options: {
                 "--disable-session-crashed-bubble",
             ],
         });
+        context.setDefaultTimeout(10 * 60 * 1000);
         activeContext = context;
         context.once("close", () => {
             if (activeContext === context) activeContext = null;
