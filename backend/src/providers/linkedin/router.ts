@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { closeContext } from "../../browser";
 import { listJobIds, saveJob } from "../../repositories/jobs/services/storage";
+import { closeLinkedinContext, saveLinkedinSession } from "./browser";
 import { login } from "./services/auth";
 import { discoverJobs } from "./services/jobs";
 import { withPage, withVisiblePage, requireAuth } from "./middleware";
@@ -12,9 +12,10 @@ const router = new Hono();
 router.post("/auth", withVisiblePage, async (c) => {
     try {
         await login(c.var.page);
+        await saveLinkedinSession(c.var.context);
         return c.json({ success: true });
     } finally {
-        await closeContext(c.var.context);
+        await closeLinkedinContext(c.var.context);
     }
 });
 
@@ -41,9 +42,10 @@ router.get("/jobs", withPage, requireAuth, async (c) => {
                 await saveJob(job);
                 await s.writeSSE({ event: "job", data: JSON.stringify(job) });
             }
+            await saveLinkedinSession(c.var.context);
             await s.writeSSE({ event: "done", data: "" });
         } finally {
-            await closeContext(c.var.context);
+            await closeLinkedinContext(c.var.context);
         }
     });
 });
