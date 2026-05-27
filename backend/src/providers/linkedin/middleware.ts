@@ -10,11 +10,7 @@ export const withPage = createMiddleware<{ Variables: Variables }>(
         const context = await getContext();
         const page = context.pages()[0] ?? (await context.newPage());
         c.set("page", page);
-        try {
-            await next();
-        } finally {
-            await closeContext();
-        }
+        await next();
     },
 );
 
@@ -22,6 +18,7 @@ export const requireAuth = createMiddleware<{ Variables: Variables }>(
     async (c, next) => {
         const page = c.var.page;
         if (!(await isLoggedIn(page))) {
+            await closeContext();
             return c.json(
                 { error: "Not authenticated. Call POST /auth first." },
                 401,

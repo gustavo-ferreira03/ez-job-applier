@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { stream } from "hono/streaming";
+import { streamSSE } from "hono/streaming";
+import { closeContext } from "../../browser";
 import { login } from "./services/auth";
-import { isLoggedIn } from "./services/status";
 import { discoverJobs } from "./services/jobs";
 import { withPage, requireAuth } from "./middleware";
 import type { SearchConfig } from "./services/types";
@@ -10,12 +10,8 @@ const router = new Hono();
 
 router.post("/auth", withPage, async (c) => {
     await login(c.var.page);
+    await closeContext();
     return c.json({ success: true });
-});
-
-router.get("/status", withPage, async (c) => {
-    const loggedIn = await isLoggedIn(c.var.page);
-    return c.json({ loggedIn });
 });
 
 router.get("/jobs", withPage, requireAuth, async (c) => {
@@ -25,9 +21,7 @@ router.get("/jobs", withPage, requireAuth, async (c) => {
         location: q.location,
         easyApply: q.easyApply === "true",
         workType: q.workType,
-        experienceLevel: q.experienceLevel
-            ? q.experienceLevel.split(",")
-            : undefined,
+        experienceLevel: q.experienceLevel ? q.experienceLevel.split(",") : undefined,
         jobType: q.jobType ? q.jobType.split(",") : undefined,
         datePosted: q.datePosted,
         maxJobs: q.maxJobs ? Number(q.maxJobs) : undefined,
@@ -36,9 +30,14 @@ router.get("/jobs", withPage, requireAuth, async (c) => {
     };
 
     const page = c.var.page;
-    return stream(c, async (s) => {
-        for await (const job of discoverJobs(page, config)) {
-            await s.write(JSON.stringify(job) + "\n");
+    return streamSSE(c, async (s) => {
+        try {
+            for await (const job of discoverJobs(page, config)) {
+                await s.writeSSE({ event: "job", data: JSON.stringify(job) });
+            }
+            await s.writeSSE({ event: "done", data: "" });
+        } finally {
+            await closeContext();
         }
     });
 });
