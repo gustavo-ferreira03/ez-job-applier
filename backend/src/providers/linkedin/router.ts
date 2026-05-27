@@ -1,19 +1,20 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import { closeContext } from "../../browser";
 import { listJobIds, saveJob } from "../../repositories/jobs/services/storage";
 import { login } from "./services/auth";
 import { discoverJobs } from "./services/jobs";
-import { withPage, requireAuth } from "./middleware";
+import { withPage, withVisiblePage, requireAuth } from "./middleware";
 import type { SearchConfig } from "./services/types";
 
 const router = new Hono();
 
-router.post("/auth", withPage, async (c) => {
+router.post("/auth", withVisiblePage, async (c) => {
     try {
         await login(c.var.page);
         return c.json({ success: true });
     } finally {
-        await c.var.page.close().catch(() => undefined);
+        await closeContext(c.var.context);
     }
 });
 
@@ -42,7 +43,7 @@ router.get("/jobs", withPage, requireAuth, async (c) => {
             }
             await s.writeSSE({ event: "done", data: "" });
         } finally {
-            await page.close().catch(() => undefined);
+            await closeContext(c.var.context);
         }
     });
 });

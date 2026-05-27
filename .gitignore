@@ -18,3 +18,4 @@ cvs/
 
 chrome-profile/
 node_modules/
+dist/
