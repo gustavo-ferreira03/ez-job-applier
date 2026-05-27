@@ -49,6 +49,29 @@ async function initialize(): Promise<void> {
         )
     `);
 
+    await client.execute(`
+        CREATE TABLE IF NOT EXISTS linkedin_applications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            linkedin_job_id TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL DEFAULT 'FOUND',
+            resume_filename TEXT,
+            error_message TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    await client.execute(`
+        CREATE TABLE IF NOT EXISTS linkedin_application_questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            application_id INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            answer TEXT,
+            field_type TEXT,
+            options TEXT NOT NULL DEFAULT '[]'
+        )
+    `);
+
     const existingJobsTable = await client.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'jobs'",
     );
