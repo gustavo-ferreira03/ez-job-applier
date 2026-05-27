@@ -29,3 +29,8 @@ lerna-debug.log*
 
 # uploads
 storage/
+
+# sqlite runtime files
+*.db
+*.db-shm
+*.db-wal

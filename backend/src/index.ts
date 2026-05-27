@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import jobsRouter from "./repositories/jobs/router";
 import linkedinRouter from "./providers/linkedin/router";
 import resumesRouter from "./repositories/resumes/router";
 
@@ -11,6 +12,7 @@ app.onError((err, c) => {
 });
 
 app.route("/linkedin", linkedinRouter);
+app.route("/jobs", jobsRouter);
 app.route("/resumes", resumesRouter);
 
 app.get("/", (c) => {

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { closeContext } from "../../browser";
+import { listJobIds, saveJob } from "../../repositories/jobs/services/storage";
 import { login } from "./services/auth";
 import { discoverJobs } from "./services/jobs";
 import { withPage, requireAuth } from "./middleware";
@@ -27,12 +28,14 @@ router.get("/jobs", withPage, requireAuth, async (c) => {
         maxJobs: q.maxJobs ? Number(q.maxJobs) : undefined,
         includeTopApplicant: q.includeTopApplicant === "true",
         fillSkillGaps: q.fillSkillGaps === "true",
+        skipJobIds: await listJobIds(),
     };
 
     const page = c.var.page;
     return streamSSE(c, async (s) => {
         try {
             for await (const job of discoverJobs(page, config)) {
+                await saveJob(job);
                 await s.writeSSE({ event: "job", data: JSON.stringify(job) });
             }
             await s.writeSSE({ event: "done", data: "" });

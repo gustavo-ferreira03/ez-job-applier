@@ -22,4 +22,5 @@ export interface SearchConfig {
     maxJobs?: number;
     includeTopApplicant?: boolean;
     fillSkillGaps?: boolean;
+    skipJobIds?: Set<string>;
 }

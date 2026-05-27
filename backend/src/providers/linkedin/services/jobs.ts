@@ -268,12 +268,21 @@ async function* extractJobs(
     page: Page,
     maxJobs?: number,
     fillSkillGaps = false,
+    skipJobIds = new Set<string>(),
+    onCandidate?: (jobId: string) => void,
 ): AsyncGenerator<Job> {
     let count = 0;
     const jobIds = await loadJobIds(page);
-    const limited = maxJobs != null ? jobIds.slice(0, maxJobs) : jobIds;
 
-    for (const jobId of limited) {
+    for (const jobId of jobIds) {
+        if (maxJobs != null && count >= maxJobs) break;
+        onCandidate?.(jobId);
+
+        if (skipJobIds.has(jobId)) {
+            console.log(`Skipping already-saved job: ${jobId}`);
+            continue;
+        }
+
         const card = page
             .locator(`li[data-occludable-job-id="${jobId}"]`)
             .first();
@@ -362,11 +371,12 @@ export async function* discoverJobs(
                     page,
                     remaining,
                     config.fillSkillGaps,
+                    config.skipJobIds,
+                    () => pageNew++,
                 )) {
                     if (!seenIds.has(job.jobId)) {
                         seenIds.add(job.jobId);
                         total++;
-                        pageNew++;
                         anyFound = true;
                         yield job;
                     }
@@ -392,11 +402,12 @@ export async function* discoverJobs(
                     page,
                     remaining,
                     config.fillSkillGaps,
+                    config.skipJobIds,
+                    () => pageNew++,
                 )) {
                     if (!seenIds.has(job.jobId)) {
                         seenIds.add(job.jobId);
                         total++;
-                        pageNew++;
                         anyFound = true;
                         yield job;
                     }
