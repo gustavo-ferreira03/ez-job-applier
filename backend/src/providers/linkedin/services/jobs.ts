@@ -1,5 +1,5 @@
 import type { Locator, Page } from "playwright-core";
-import type { Job, SearchConfig } from "./types";
+import type { LinkedinJob, SearchConfig } from "./types";
 
 const EXP_MAP: Record<string, string> = {
     entry: "2",
@@ -213,7 +213,7 @@ async function getJobDetails(
     page: Page,
     easyApply: boolean,
     fillSkillGaps: boolean,
-): Promise<Partial<Job>> {
+): Promise<Partial<LinkedinJob>> {
     const detailPane = page
         .locator(
             ".jobs-search__job-details--container, .job-view-layout, .jobs-details, .scaffold-layout__detail",
@@ -270,7 +270,7 @@ async function* extractJobs(
     fillSkillGaps = false,
     skipJobIds = new Set<string>(),
     onCandidate?: (jobId: string) => void,
-): AsyncGenerator<Job> {
+): AsyncGenerator<LinkedinJob> {
     let count = 0;
     const jobIds = await loadJobIds(page);
 
@@ -311,7 +311,7 @@ async function* extractJobs(
         );
         const details = await getJobDetails(page, easyApply, fillSkillGaps);
 
-        const job: Job = {
+        const job: LinkedinJob = {
             jobId,
             provider: "linkedin",
             title: title.split("\n")[0].trim(),
@@ -346,7 +346,7 @@ async function* extractJobs(
 export async function* discoverJobs(
     page: Page,
     config: SearchConfig,
-): AsyncGenerator<Job> {
+): AsyncGenerator<LinkedinJob> {
     const keywordsList = (config.keywords ?? "")
         .split("\n")
         .map((k) => k.trim())

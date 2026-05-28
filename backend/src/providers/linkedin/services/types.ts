@@ -6,6 +6,13 @@ export type {
     ApplyResult,
 } from "../../../core/types";
 
+import type { Job } from "../../../core/types";
+
+/** LinkedIn-specific job — extends the core Job with LinkedIn-only fields */
+export interface LinkedinJob extends Job {
+    easyApply: boolean;
+}
+
 // LinkedIn-specific search config
 export interface SearchConfig {
     keywords?: string;

@@ -14,7 +14,6 @@ export interface Job {
     company: string;
     location: string;
     url: string;
-    easyApply: boolean;
     preferences: string[];
     skills: string[];
     about: string | null;
@@ -38,10 +37,11 @@ export interface DiscoverConfig {
     provider: string;
     keywords?: string;
     location?: string;
-    easyApply?: boolean;
     workType?: string;
     experienceLevel?: string[];
     jobType?: string[];
     datePosted?: string;
     maxJobs?: number;
+    /** Provider-specific options (e.g. { easyApply: true } for LinkedIn) */
+    options?: Record<string, unknown>;
 }

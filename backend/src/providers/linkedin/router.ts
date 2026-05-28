@@ -64,8 +64,6 @@ router.get("/jobs", withPage, requireAuth, async (c) => {
 router.get("/easy-apply/:jobId/questions", withPage, requireAuth, async (c) => {
     const job = await getJob(c.req.param("jobId"));
     if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
-    if (!job.easyApply)
-        throw new HTTPException(400, { message: "Vaga não é Easy Apply" });
 
     const defaultResume = await getDefaultResume();
     const resumePath = defaultResume
@@ -101,8 +99,6 @@ router.get("/easy-apply/:jobId/questions", withPage, requireAuth, async (c) => {
 router.post("/easy-apply/:jobId/submit", withPage, requireAuth, async (c) => {
     const job = await getJob(c.req.param("jobId"));
     if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
-    if (!job.easyApply)
-        throw new HTTPException(400, { message: "Vaga não é Easy Apply" });
 
     type ApplyBody = { answers?: Record<string, string>; resumeFilename?: string };
     const body: ApplyBody = await c.req.json<ApplyBody>().catch(() => ({}));

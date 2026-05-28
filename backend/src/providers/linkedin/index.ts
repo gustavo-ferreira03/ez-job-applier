@@ -27,16 +27,19 @@ export const linkedinProvider: IJobProvider = {
         try {
             await login(page);
 
+            const opts = config.options ?? {};
             const searchConfig: SearchConfig = {
                 keywords: config.keywords,
                 location: config.location,
-                easyApply: config.easyApply,
                 workType: config.workType,
                 experienceLevel: config.experienceLevel,
                 jobType: config.jobType,
                 datePosted: config.datePosted,
                 maxJobs: config.maxJobs,
                 skipJobIds: skipIds,
+                easyApply: opts.easyApply === true,
+                includeTopApplicant: opts.includeTopApplicant === true,
+                fillSkillGaps: opts.fillSkillGaps === true,
             };
 
             for await (const job of discoverJobsService(page, searchConfig)) {

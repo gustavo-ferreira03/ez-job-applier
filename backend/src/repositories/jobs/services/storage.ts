@@ -3,6 +3,8 @@ import { db, initDb } from "../../../db/client";
 import { linkedinJobs, type LinkedinJobRow } from "../../../db/schema";
 import type { Job } from "../../../core/types";
 
+type SaveableJob = Job & { easyApply?: boolean };
+
 function now(): string {
     return new Date().toISOString();
 }
@@ -31,7 +33,6 @@ export function jobFromRow(row: LinkedinJobRow): Job {
         company: row.company,
         location: row.location,
         url: row.url,
-        easyApply: row.easyApply,
         preferences: parseList(row.preferences),
         skills: parseList(row.skills),
         about: row.about,
@@ -39,7 +40,7 @@ export function jobFromRow(row: LinkedinJobRow): Job {
     };
 }
 
-export async function saveJob(job: Job): Promise<void> {
+export async function saveJob(job: SaveableJob): Promise<void> {
     await initDb();
     const timestamp = now();
 
@@ -51,7 +52,7 @@ export async function saveJob(job: Job): Promise<void> {
             company: job.company,
             location: job.location,
             url: job.url,
-            easyApply: job.easyApply,
+            easyApply: job.easyApply ?? false,
             preferences: serializeList(job.preferences),
             skills: serializeList(job.skills),
             about: job.about,
@@ -66,7 +67,7 @@ export async function saveJob(job: Job): Promise<void> {
                 company: job.company,
                 location: job.location,
                 url: job.url,
-                easyApply: job.easyApply,
+                easyApply: job.easyApply ?? false,
                 preferences: serializeList(job.preferences),
                 skills: serializeList(job.skills),
                 about: job.about,
