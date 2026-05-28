@@ -24,20 +24,27 @@ async function existingSessionFile(): Promise<string | undefined> {
 
 export async function openLinkedinContext(options: {
     visible: boolean;
+    searchLocale?: "pt-BR" | "en-US";
 }): Promise<BrowserContext> {
     if (activeContext) {
         throw new Error("LinkedIn browser is already running. Wait for the current action to finish.");
     }
 
+    const locale = options.searchLocale ?? "pt-BR";
+    const acceptLanguage =
+        locale === "pt-BR"
+            ? "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6"
+            : "en-US,en;q=0.9";
+
     const context = await launchContext({
         headless: !options.visible,
-        locale: "en-US",
+        locale,
         viewport: { width: 960, height: 640 },
         launchOptions: { slowMo: 50 },
         args: ["--window-size=960,640"],
         contextOptions: {
             storageState: await existingSessionFile(),
-            extraHTTPHeaders: { "Accept-Language": "en-US,en;q=0.9" },
+            extraHTTPHeaders: { "Accept-Language": acceptLanguage },
         },
     });
     context.setDefaultTimeout(10 * 60 * 1000);

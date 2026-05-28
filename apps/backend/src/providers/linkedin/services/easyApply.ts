@@ -113,10 +113,7 @@ async function fillSelects(
             continue;
         }
 
-        const isPlaceholder =
-            !selected ||
-            selected.toLowerCase().includes("select") ||
-            selected.toLowerCase().includes("selecionar");
+        const isPlaceholder = !selected || selected.toLowerCase().includes("select");
 
         if (!isPlaceholder) {
             collected.push({

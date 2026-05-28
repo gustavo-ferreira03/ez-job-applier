@@ -18,14 +18,17 @@
 		if (e.key === 'Escape') onClose();
 	}
 
-	async function handleBrowserVisibleToggle() {
-		const next = !appState.settings.browserVisible;
+	async function handleSetting(patch: Partial<typeof appState.settings>) {
 		try {
-			const updated = await api.updateAppSettings({ browserVisible: next });
+			const updated = await api.updateAppSettings(patch);
 			appState.settings = updated;
 		} catch {
 			toastState.show('Failed to update settings');
 		}
+	}
+
+	function handleBrowserVisibleToggle() {
+		handleSetting({ browserVisible: !appState.settings.browserVisible });
 	}
 
 	async function handleUpload(e: Event) {
@@ -131,6 +134,26 @@
 						></span>
 					</div>
 				</button>
+			</div>
+
+			<!-- Search locale -->
+			<div>
+				<p class="mb-1 text-sm font-medium text-text-primary">Search language</p>
+				<p class="mb-3 text-xs text-text-muted">Affects which job listings LinkedIn returns for your keywords</p>
+				<div class="flex gap-0">
+					{#each [{ value: 'pt-BR', label: 'Português (BR)' }, { value: 'en-US', label: 'English (US)' }] as opt (opt.value)}
+						<button
+							class="flex-1 border px-3 py-2 text-[13px] font-bold transition-colors duration-100 focus-visible:outline-0
+								{appState.settings.searchLocale === opt.value
+									? 'border-brand-500 bg-brand-500/15 text-brand-400 z-10'
+									: 'border-border-default bg-surface-overlay text-text-muted hover:border-border-strong hover:text-text-secondary -ml-px first:ml-0'}"
+							type="button"
+							onclick={() => handleSetting({ searchLocale: opt.value as 'pt-BR' | 'en-US' })}
+						>
+							{opt.label}
+						</button>
+					{/each}
+				</div>
 			</div>
 
 			<!-- Resumes -->

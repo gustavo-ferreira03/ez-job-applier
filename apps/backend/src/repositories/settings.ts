@@ -4,9 +4,10 @@ import { fileURLToPath } from "node:url";
 
 export interface AppSettings {
     browserVisible: boolean;
+    searchLocale: "pt-BR" | "en-US";
 }
 
-const defaults: AppSettings = { browserVisible: false };
+const defaults: AppSettings = { browserVisible: false, searchLocale: "pt-BR" };
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(moduleDir, "..", "..");

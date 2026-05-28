@@ -65,6 +65,7 @@ export interface DiscoveryJob {
 
 export interface AppSettings {
 	browserVisible: boolean;
+	searchLocale: 'pt-BR' | 'en-US';
 }
 
 export interface AutoApplyStatus {

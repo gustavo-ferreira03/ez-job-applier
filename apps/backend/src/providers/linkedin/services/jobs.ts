@@ -226,7 +226,7 @@ async function getJobDetails(
 
     const aboutSection = detailPane
         .locator("article")
-        .filter({ hasText: "About the job" })
+        .filter({ hasText: /about the job/i })
         .first();
     await aboutSection.locator("p, li").first().waitFor();
     const about = await aboutSection.innerText();
@@ -240,9 +240,7 @@ async function getJobDetails(
         .first();
     if (await skillsBtn.count()) {
         await skillsBtn.click();
-        const modal = page.getByRole("dialog", {
-            name: "Preferences and skills match",
-        });
+        const modal = page.getByRole("dialog").last();
         await modal.waitFor();
         preferences = cleanListItems(
             await modal.locator("ul").first().locator("li").allInnerTexts(),
@@ -250,7 +248,8 @@ async function getJobDetails(
         const skillsUl = modal.locator("ul").nth(1);
         skills = cleanListItems(await skillsUl.locator("li").allInnerTexts());
         if (fillSkillGaps) await addMissingSkills(page, skillsUl);
-        await modal.getByRole("button", { name: "Dismiss" }).click();
+        const dismissBtn = modal.getByRole("button", { name: /dismiss|close/i }).first();
+        if (await dismissBtn.count()) await dismissBtn.click();
     }
 
     const applicationUrl = await getApplicationUrl(page, detailPane, easyApply);
@@ -298,7 +297,7 @@ async function* extractJobs(
                 .allInnerTexts()
         ).map((t) => t.trim());
 
-        if (labels.some((l) => l.toLowerCase() === "applied")) {
+        if (labels.some((l) => /^applied$/i.test(l.trim()))) {
             console.log(`Skipping already-applied job: ${jobId}`);
             continue;
         }
@@ -306,9 +305,7 @@ async function* extractJobs(
         await card.click();
         await page.waitForTimeout(1000);
 
-        const easyApply = labels.some((l) =>
-            l.toLowerCase().includes("easy apply"),
-        );
+        const easyApply = labels.some((l) => /easy apply/i.test(l));
         const details = await getJobDetails(page, easyApply, fillSkillGaps);
 
         const job: LinkedinJob = {

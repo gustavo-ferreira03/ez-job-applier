@@ -19,8 +19,8 @@ export const linkedinProvider: IJobProvider = {
     },
 
     async createSession(): Promise<IJobProviderSession> {
-        const { browserVisible } = await getSettings();
-        const context = await openLinkedinContext({ visible: browserVisible });
+        const { browserVisible, searchLocale } = await getSettings();
+        const context = await openLinkedinContext({ visible: browserVisible, searchLocale });
 
         // Two pages: one stays on the search/listing, the other opens job forms
         const discoveryPage = context.pages()[0] ?? (await context.newPage());

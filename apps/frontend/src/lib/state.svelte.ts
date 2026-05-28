@@ -12,7 +12,7 @@ class AppState {
 	jobs = $state<JobSummary[]>([]);
 	discovery = $state<DiscoveryJob | null>(null);
 	autoApply = $state<AutoApplyStatus>({ running: false, applied: 0, failed: 0 });
-	settings = $state<AppSettings>({ browserVisible: false });
+	settings = $state<AppSettings>({ browserVisible: false, searchLocale: 'pt-BR' });
 	resumes = $state<string[]>([]);
 	defaultResume = $state<string | null>(null);
 	discoverConfig = $state<DiscoverConfig>(defaultConfig());
