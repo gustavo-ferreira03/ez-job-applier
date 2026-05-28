@@ -1,70 +1,135 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
-import path from "node:path";
-import { getDefaultResume, setDefaultResume } from "../repositories/resumes/services/settings";
 import {
-    deleteResume,
     listResumes,
-    resumeExists,
     saveResume,
+    deleteResume,
+    resumeExists,
 } from "../repositories/resumes/services/storage";
+import {
+    getDefaultResume,
+    setDefaultResume,
+} from "../repositories/resumes/services/settings";
 
-const router = new Hono();
-
-router.get("/", async (c) => {
-    const [files, defaultResume] = await Promise.all([
-        listResumes(),
-        getDefaultResume(),
-    ]);
-    return c.json({ files, default: defaultResume });
+const FilenameParam = z.object({
+    filename: z.string().openapi({
+        param: { name: "filename", in: "path" },
+        example: "meu-cv.pdf",
+    }),
 });
 
-router.post("/", async (c) => {
-    const body = await c.req.parseBody();
+const router = new OpenAPIHono();
 
-    const entry = Object.entries(body).find(([, v]) => v instanceof File);
-    if (!entry) {
-        throw new HTTPException(400, { message: "Nenhum arquivo enviado" });
-    }
+router.openapi(
+    createRoute({
+        method: "get",
+        path: "/resumes",
+        tags: ["Resumes"],
+        summary: "List uploaded resumes and the current default",
+        responses: {
+            200: { description: "List of resumes" },
+        },
+    }),
+    async (c) => {
+        const [files, defaultResume] = await Promise.all([
+            listResumes(),
+            getDefaultResume(),
+        ]);
+        return c.json({ resumes: files, default: defaultResume });
+    },
+);
 
-    const [key, value] = entry;
-    const file = new File([await (value as File).arrayBuffer()], key, { type: "application/pdf" });
+router.openapi(
+    createRoute({
+        method: "post",
+        path: "/resumes",
+        tags: ["Resumes"],
+        summary: "Upload a resume (PDF only)",
+        responses: {
+            201: { description: "Resume uploaded" },
+            400: { description: "Invalid file" },
+        },
+    }),
+    async (c) => {
+        const body = await c.req.parseBody();
+        const file = body["file"];
 
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-        throw new HTTPException(400, { message: "Apenas arquivos PDF são aceitos" });
-    }
-
-    const filename = await saveResume(file);
-    return c.json({ filename });
-});
-
-router.post("/default", async (c) => {
-    const { filename } = await c.req.json<{ filename: string | null }>();
-
-    if (filename !== null) {
-        const safe = path.basename(filename);
-        if (!(await resumeExists(safe))) {
-            throw new HTTPException(404, { message: "Arquivo não encontrado" });
+        if (!(file instanceof File)) {
+            throw new HTTPException(400, { message: "Field 'file' must be a file" });
         }
-        await setDefaultResume(safe);
-    } else {
-        await setDefaultResume(null);
-    }
 
-    return c.json({ ok: true });
-});
+        if (!file.name.toLowerCase().endsWith(".pdf")) {
+            throw new HTTPException(400, { message: "Only PDF files are allowed" });
+        }
 
-router.delete("/:filename", async (c) => {
-    const safe = path.basename(c.req.param("filename"));
+        const filename = await saveResume(file);
+        return c.json({ filename }, 201);
+    },
+);
 
-    await deleteResume(safe).catch(() => {
-        throw new HTTPException(404, { message: "Arquivo não encontrado" });
-    });
+router.openapi(
+    createRoute({
+        method: "post",
+        path: "/resumes/default",
+        tags: ["Resumes"],
+        summary: "Set the default resume",
+        request: {
+            body: {
+                content: {
+                    "application/json": {
+                        schema: z.object({
+                            filename: z.string().nullable().openapi({ example: "meu-cv.pdf" }),
+                        }),
+                    },
+                },
+                required: true,
+            },
+        },
+        responses: {
+            200: { description: "Default updated" },
+            404: { description: "Resume not found" },
+        },
+    }),
+    async (c) => {
+        const { filename } = await c.req.json<{ filename: string | null }>();
 
-    const current = await getDefaultResume();
-    if (current === safe) await setDefaultResume(null);
+        if (filename !== null && !(await resumeExists(filename))) {
+            throw new HTTPException(404, { message: "Resume not found" });
+        }
 
-    return c.json({ ok: true });
-});
+        await setDefaultResume(filename);
+        return c.json({ default: filename });
+    },
+);
+
+router.openapi(
+    createRoute({
+        method: "delete",
+        path: "/resumes/{filename}",
+        tags: ["Resumes"],
+        summary: "Delete a resume",
+        request: { params: FilenameParam },
+        responses: {
+            200: { description: "Deleted" },
+            404: { description: "Resume not found" },
+        },
+    }),
+    async (c) => {
+        const { filename } = c.req.valid("param");
+
+        if (!(await resumeExists(filename))) {
+            throw new HTTPException(404, { message: "Resume not found" });
+        }
+
+        await deleteResume(filename);
+
+        const defaultResume = await getDefaultResume();
+        if (defaultResume === filename) {
+            await setDefaultResume(null);
+        }
+
+        return c.json({ ok: true });
+    },
+);
 
 export default router;

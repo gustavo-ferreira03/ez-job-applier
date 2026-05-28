@@ -78,6 +78,27 @@ async function initialize(): Promise<void> {
         )
     `);
 
+    await client.execute(`
+        CREATE TABLE IF NOT EXISTS discoveries (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL,
+            config TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'running',
+            discovered INTEGER NOT NULL DEFAULT 0,
+            started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            finished_at TEXT,
+            error_message TEXT
+        )
+    `);
+
+    await client.execute(`
+        UPDATE discoveries
+        SET status = 'failed',
+            error_message = 'Server restarted',
+            finished_at = CURRENT_TIMESTAMP
+        WHERE status = 'running'
+    `);
+
     // Migrate data from legacy linkedin_jobs table
     const oldJobs = await client.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'linkedin_jobs'",

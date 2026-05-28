@@ -60,7 +60,7 @@ async function fillTextFields(
         if (!(await field.isVisible()) || !(await field.isEnabled())) continue;
 
         const label = await fieldLabel(field, `text field ${i + 1}`);
-        const fieldType = (await field.getAttribute("type")) ?? "text";
+        const fieldType = ((await field.getAttribute("type")) ?? "text") as ApplicationQuestion["fieldType"];
         const current = await field.inputValue();
         const answer = answers[label];
 

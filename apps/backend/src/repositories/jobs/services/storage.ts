@@ -102,6 +102,12 @@ export async function getJobRow(provider: string, externalId: string): Promise<J
     return row ?? null;
 }
 
+export async function getJobById(id: number): Promise<Job | null> {
+    await initDb();
+    const [row] = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
+    return row ? jobFromRow(row) : null;
+}
+
 export async function listJobIds(provider?: string): Promise<Set<string>> {
     await initDb();
     const rows = provider

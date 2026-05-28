@@ -33,7 +33,7 @@ export function questionFromRow(row: ApplicationQuestionRow): ApplicationQuestio
     return {
         label: row.label,
         answer: row.answer ?? undefined,
-        fieldType: row.fieldType ?? undefined,
+        fieldType: (row.fieldType ?? undefined) as ApplicationQuestion["fieldType"],
         options: parseOptions(row.options),
     };
 }

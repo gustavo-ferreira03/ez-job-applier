@@ -48,3 +48,17 @@ export type NewApplicationRow = typeof applications.$inferInsert;
 
 export type ApplicationQuestionRow = typeof applicationQuestions.$inferSelect;
 export type NewApplicationQuestionRow = typeof applicationQuestions.$inferInsert;
+
+export const discoveries = sqliteTable("discoveries", {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull(),
+    config: text("config").notNull(),
+    status: text("status").notNull().default("running"),
+    discovered: integer("discovered").notNull().default(0),
+    startedAt: text("started_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    finishedAt: text("finished_at"),
+    errorMessage: text("error_message"),
+});
+
+export type DiscoveryRow = typeof discoveries.$inferSelect;
+export type NewDiscoveryRow = typeof discoveries.$inferInsert;

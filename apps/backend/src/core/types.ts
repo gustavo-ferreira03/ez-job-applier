@@ -20,19 +20,6 @@ export interface Job {
     applicationUrl: string | null;
 }
 
-export interface ApplicationQuestion {
-    label: string;
-    answer?: string;
-    fieldType?: string;
-    options?: string[];
-}
-
-export interface ApplyResult {
-    status: ApplicationStatus;
-    questions: ApplicationQuestion[];
-    errorMessage?: string;
-}
-
 export interface DiscoverConfig {
     provider: string;
     keywords?: string;
@@ -42,6 +29,18 @@ export interface DiscoverConfig {
     jobType?: string[];
     datePosted?: string;
     maxJobs?: number;
-    /** Provider-specific options (e.g. { easyApply: true } for LinkedIn) */
     options?: Record<string, unknown>;
+}
+
+export interface ApplicationQuestion {
+    label: string;
+    answer?: string;
+    fieldType?: "text" | "select" | "checkbox" | "radio" | "file" | "date";
+    options?: string[];
+}
+
+export interface ApplyResult {
+    status: ApplicationStatus;
+    questions: ApplicationQuestion[];
+    errorMessage?: string;
 }

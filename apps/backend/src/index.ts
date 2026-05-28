@@ -2,8 +2,9 @@ import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
+import discoveriesRouter from "./routes/discoveries";
 import jobsRouter from "./routes/jobs";
-import runsRouter from "./routes/runs";
+import applicationsRouter from "./routes/applications";
 import resumesRouter from "./routes/resumes";
 import { registerProvider } from "./core/registry";
 import { linkedinProvider } from "./providers/linkedin/index";
@@ -19,9 +20,10 @@ app.onError((err, c) => {
     return c.json({ error: err.message }, 500);
 });
 
+app.route("/", discoveriesRouter);
 app.route("/", jobsRouter);
-app.route("/", runsRouter);
-app.route("/resumes", resumesRouter);
+app.route("/", applicationsRouter);
+app.route("/", resumesRouter);
 
 app.doc("/openapi", {
     openapi: "3.0.0",
