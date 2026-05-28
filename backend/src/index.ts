@@ -1,5 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { openAPIRouteHandler } from "hono-openapi";
+import { apiReference } from "@scalar/hono-api-reference";
 import coreRouter from "./core/router";
 import linkedinRouter from "./providers/linkedin/router";
 import resumesRouter from "./repositories/resumes/router";
@@ -19,6 +21,21 @@ app.route("/", coreRouter);
 app.route("/linkedin", linkedinRouter);
 app.route("/resumes", resumesRouter);
 
+app.get(
+    "/openapi",
+    openAPIRouteHandler(app, {
+        documentation: {
+            info: { title: "EZ Job Applier API", version: "1.0.0" },
+            servers: [{ url: "http://localhost:3000" }],
+        },
+    }),
+);
+
+app.get(
+    "/docs",
+    apiReference({ url: "/openapi", theme: "saturn" }),
+);
+
 serve(
     {
         fetch: app.fetch,
@@ -26,5 +43,6 @@ serve(
     },
     (info) => {
         console.log(`Server is running on http://localhost:${info.port}`);
+        console.log(`API docs available at http://localhost:${info.port}/docs`);
     },
 );
