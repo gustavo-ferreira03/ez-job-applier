@@ -5,6 +5,9 @@ __pycache__/
 .env
 .env.*
 
+*.json
+*.db
+
 .vscode/
 .agents/
 .claude/
@@ -16,3 +19,5 @@ cvs/
 chrome-profile/
 node_modules/
 dist/
+
+!gitkeep
