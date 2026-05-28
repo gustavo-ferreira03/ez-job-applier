@@ -19,6 +19,7 @@ class AppState {
 
 	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private autoApplyTimer: ReturnType<typeof setInterval> | null = null;
+	private backgroundTimer: ReturnType<typeof setInterval> | null = null;
 	private lastDiscovered = 0;
 	private lastApplied = 0;
 
@@ -38,6 +39,7 @@ class AppState {
 			if (autoApplyRes.running) {
 				this.startAutoApplyPolling();
 			}
+			this.startBackgroundPolling();
 		} catch (e) {
 			console.error('Failed to load state:', e);
 		}
@@ -60,17 +62,11 @@ class AppState {
 		this.pollTimer = setInterval(async () => {
 			try {
 				const updated = await getDiscovery(discoveryId);
-				const prev = this.lastDiscovered;
 				this.discovery = updated;
 				this.lastDiscovered = updated.discovered;
 
-				if (updated.discovered > prev) {
-					await this.refreshJobs();
-				}
-
 				if (updated.status !== 'running') {
 					this.stopPolling();
-					await this.refreshJobs();
 				}
 			} catch (e) {
 				console.error('Discovery poll failed:', e);
@@ -93,17 +89,11 @@ class AppState {
 		this.autoApplyTimer = setInterval(async () => {
 			try {
 				const status = await getAutoApplyStatus();
-				const prev = this.lastApplied;
 				this.autoApply = status;
 				this.lastApplied = status.applied;
 
-				if (status.applied > prev) {
-					await this.refreshJobs();
-				}
-
 				if (!status.running) {
 					this.stopAutoApplyPolling();
-					await this.refreshJobs();
 				}
 			} catch (e) {
 				console.error('Auto-apply poll failed:', e);
@@ -116,6 +106,12 @@ class AppState {
 			clearInterval(this.autoApplyTimer);
 			this.autoApplyTimer = null;
 		}
+	}
+
+	// Background polling — always active, keeps kanban in sync
+	startBackgroundPolling() {
+		if (this.backgroundTimer !== null) return;
+		this.backgroundTimer = setInterval(() => this.refreshJobs(), 3000);
 	}
 }
 

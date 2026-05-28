@@ -1,6 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, initDb } from "../../../db/client";
 import {
+    jobs,
     applications,
     applicationQuestions,
     type ApplicationRow,
@@ -140,6 +141,16 @@ export async function listJobIdsByStatus(status: string): Promise<number[]> {
         .from(applications)
         .where(eq(applications.status, status));
     return rows.map((r) => r.jobId);
+}
+
+export async function listFoundJobIds(): Promise<number[]> {
+    await initDb();
+    const rows = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .leftJoin(applications, eq(applications.jobId, jobs.id))
+        .where(isNull(applications.id));
+    return rows.map((r) => r.id);
 }
 
 export async function answerQuestions(
