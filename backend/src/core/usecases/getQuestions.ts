@@ -14,22 +14,27 @@ export async function getQuestions(jobId: string): Promise<ApplyResult> {
     if (!job) throw new Error(`Job "${jobId}" not found`);
 
     const provider = getProviderForJob(job);
+    const session = await provider.createSession();
 
-    const defaultResume = await getDefaultResume();
-    const resumePath = defaultResume
-        ? path.join(RESUMES_DIR, defaultResume)
-        : undefined;
+    try {
+        const defaultResume = await getDefaultResume();
+        const resumePath = defaultResume
+            ? path.join(RESUMES_DIR, defaultResume)
+            : undefined;
 
-    const result = await provider.getQuestions(job, resumePath);
+        const result = await session.getQuestions(job, resumePath);
 
-    const application = await upsertApplication(
-        job.provider,
-        job.jobId,
-        result.status,
-        defaultResume ?? undefined,
-        result.errorMessage,
-    );
-    await replaceQuestions(application.id, result.questions);
+        const application = await upsertApplication(
+            job.provider,
+            job.jobId,
+            result.status,
+            defaultResume ?? undefined,
+            result.errorMessage,
+        );
+        await replaceQuestions(application.id, result.questions);
 
-    return result;
+        return result;
+    } finally {
+        await session.close();
+    }
 }

@@ -5,6 +5,8 @@ import { listJobs, getJob } from "../repositories/jobs/services/storage";
 import {
     getApplication,
     getQuestions,
+    upsertApplication,
+    answerQuestions,
 } from "../repositories/applications/services/storage";
 import { discoverJobs } from "./usecases/discoverJobs";
 import { getQuestions as getQuestionsUseCase } from "./usecases/getQuestions";
@@ -75,6 +77,55 @@ router.post("/jobs/:jobId/apply", async (c) => {
         body.resumeFilename,
     );
     return c.json(result);
+});
+
+/**
+ * POST /jobs/:jobId/answers
+ * Body: { answers: Record<string, string> }
+ * Saves answers for pending questions without re-opening the form.
+ */
+router.post("/jobs/:jobId/answers", async (c) => {
+    const job = await getJob(c.req.param("jobId"));
+    if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
+
+    const body = await c.req.json<{ answers: Record<string, string> }>();
+    if (!body.answers || typeof body.answers !== "object")
+        throw new HTTPException(400, { message: "Campo 'answers' é obrigatório" });
+
+    const application = await getApplication(job.provider, job.jobId);
+    if (!application)
+        throw new HTTPException(404, { message: "Candidatura não encontrada. Chame GET /jobs/:id/questions primeiro." });
+
+    await answerQuestions(application.id, body.answers);
+    const questions = await getQuestions(application.id);
+
+    return c.json({ application, questions });
+});
+
+/**
+ * POST /jobs/:jobId/skip
+ * Marks the application as skipped.
+ */
+router.post("/jobs/:jobId/skip", async (c) => {
+    const job = await getJob(c.req.param("jobId"));
+    if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
+
+    const application = await upsertApplication(job.provider, job.jobId, "SKIPPED");
+
+    return c.json({ application });
+});
+
+/**
+ * POST /jobs/:jobId/mark-applied
+ * Marks the application as submitted without going through the automated flow.
+ */
+router.post("/jobs/:jobId/mark-applied", async (c) => {
+    const job = await getJob(c.req.param("jobId"));
+    if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
+
+    const application = await upsertApplication(job.provider, job.jobId, "SUBMITTED");
+
+    return c.json({ application });
 });
 
 export default router;

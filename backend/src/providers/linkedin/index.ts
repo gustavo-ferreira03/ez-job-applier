@@ -1,4 +1,4 @@
-import type { IJobProvider } from "../../core/interfaces";
+import type { IJobProvider, IJobProviderSession } from "../../core/interfaces";
 import type { ApplyResult, DiscoverConfig, Job } from "../../core/types";
 import {
     openLinkedinContext,
@@ -17,79 +17,64 @@ export const linkedinProvider: IJobProvider = {
         return job.url.toLowerCase().includes("linkedin.com");
     },
 
-    async *discoverJobs(
-        config: DiscoverConfig,
-        skipIds: Set<string>,
-    ): AsyncGenerator<Job> {
+    async createSession(): Promise<IJobProviderSession> {
         const context = await openLinkedinContext({ visible: false });
-        const page = context.pages()[0] ?? (await context.newPage());
 
-        try {
-            await login(page);
+        // Two pages: one stays on the search/listing, the other opens job forms
+        const discoveryPage = context.pages()[0] ?? (await context.newPage());
+        const applyPage = await context.newPage();
 
-            const opts = config.options ?? {};
-            const searchConfig: SearchConfig = {
-                keywords: config.keywords,
-                location: config.location,
-                workType: config.workType,
-                experienceLevel: config.experienceLevel,
-                jobType: config.jobType,
-                datePosted: config.datePosted,
-                maxJobs: config.maxJobs,
-                skipJobIds: skipIds,
-                easyApply: opts.easyApply === true,
-                includeTopApplicant: opts.includeTopApplicant === true,
-                fillSkillGaps: opts.fillSkillGaps === true,
-            };
+        // Login once — session is shared across all pages in the same context
+        await login(discoveryPage);
 
-            for await (const job of discoverJobsService(page, searchConfig)) {
-                yield { ...job, provider: "linkedin" };
-            }
+        return {
+            async *discoverJobs(
+                config: DiscoverConfig,
+                skipIds: Set<string>,
+            ): AsyncGenerator<Job> {
+                const opts = config.options ?? {};
+                const searchConfig: SearchConfig = {
+                    keywords: config.keywords,
+                    location: config.location,
+                    workType: config.workType,
+                    experienceLevel: config.experienceLevel,
+                    jobType: config.jobType,
+                    datePosted: config.datePosted,
+                    maxJobs: config.maxJobs,
+                    skipJobIds: skipIds,
+                    easyApply: opts.easyApply === true,
+                    includeTopApplicant: opts.includeTopApplicant === true,
+                    fillSkillGaps: opts.fillSkillGaps === true,
+                };
 
-            await saveLinkedinSession(context);
-        } finally {
-            await closeLinkedinContext(context);
-        }
-    },
+                for await (const job of discoverJobsService(discoveryPage, searchConfig)) {
+                    yield { ...job, provider: "linkedin" };
+                }
+            },
 
-    async getQuestions(job: Job, resumePath?: string): Promise<ApplyResult> {
-        const context = await openLinkedinContext({ visible: false });
-        const page = context.pages()[0] ?? (await context.newPage());
+            async getQuestions(job: Job, resumePath?: string): Promise<ApplyResult> {
+                return runEasyApply(applyPage, job.url, {
+                    resumePath,
+                    shouldSubmit: false,
+                });
+            },
 
-        try {
-            await login(page);
+            async apply(
+                job: Job,
+                answers: Record<string, string>,
+                resumePath?: string,
+            ): Promise<ApplyResult> {
+                return runEasyApply(applyPage, job.url, {
+                    answers,
+                    resumePath,
+                    shouldSubmit: true,
+                });
+            },
 
-            const result = await runEasyApply(page, job.url, {
-                resumePath,
-                shouldSubmit: false,
-            });
-            await saveLinkedinSession(context);
-            return result;
-        } finally {
-            await closeLinkedinContext(context);
-        }
-    },
-
-    async apply(
-        job: Job,
-        answers: Record<string, string>,
-        resumePath?: string,
-    ): Promise<ApplyResult> {
-        const context = await openLinkedinContext({ visible: false });
-        const page = context.pages()[0] ?? (await context.newPage());
-
-        try {
-            await login(page);
-
-            const result = await runEasyApply(page, job.url, {
-                answers,
-                resumePath,
-                shouldSubmit: true,
-            });
-            await saveLinkedinSession(context);
-            return result;
-        } finally {
-            await closeLinkedinContext(context);
-        }
+            async close(): Promise<void> {
+                await saveLinkedinSession(context);
+                await closeLinkedinContext(context);
+            },
+        };
     },
 };

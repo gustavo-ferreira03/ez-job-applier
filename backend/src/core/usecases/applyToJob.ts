@@ -20,31 +20,36 @@ export async function applyToJob(
     if (!job) throw new Error(`Job "${jobId}" not found`);
 
     const provider = getProviderForJob(job);
+    const session = await provider.createSession();
 
-    // Merge persisted answers with answers from the request
-    const existing = await getApplication(job.provider, job.jobId);
-    if (existing) {
-        const persisted = await getQuestions(existing.id);
-        for (const q of persisted) {
-            if (q.answer && !answers[q.label]) {
-                answers[q.label] = q.answer;
+    try {
+        // Merge persisted answers with answers from the request
+        const existing = await getApplication(job.provider, job.jobId);
+        if (existing) {
+            const persisted = await getQuestions(existing.id);
+            for (const q of persisted) {
+                if (q.answer && !answers[q.label]) {
+                    answers[q.label] = q.answer;
+                }
             }
         }
+
+        const filename = resumeFilename ?? (await getDefaultResume()) ?? undefined;
+        const resumePath = filename ? path.join(RESUMES_DIR, filename) : undefined;
+
+        const result = await session.apply(job, answers, resumePath);
+
+        const application = await upsertApplication(
+            job.provider,
+            job.jobId,
+            result.status,
+            filename,
+            result.errorMessage,
+        );
+        await replaceQuestions(application.id, result.questions);
+
+        return result;
+    } finally {
+        await session.close();
     }
-
-    const filename = resumeFilename ?? (await getDefaultResume()) ?? undefined;
-    const resumePath = filename ? path.join(RESUMES_DIR, filename) : undefined;
-
-    const result = await provider.apply(job, answers, resumePath);
-
-    const application = await upsertApplication(
-        job.provider,
-        job.jobId,
-        result.status,
-        filename,
-        result.errorMessage,
-    );
-    await replaceQuestions(application.id, result.questions);
-
-    return result;
 }
