@@ -31,6 +31,11 @@
 		try {
 			detail = await api.getJob(job.id);
 			selectedResume = detail.resumeFilename ?? '';
+			if (job.status === 'READY_FOR_REVIEW') {
+				for (const q of detail.questions) {
+					if (q.answer != null) answerInputs[q.label] = q.answer;
+				}
+			}
 		} catch {
 			loadError = true;
 		}
@@ -73,7 +78,10 @@
 		busy = true;
 		actionNotice = 'Submitting…';
 		try {
-			await api.applyToJob(job.id, {}, selectedResume || undefined);
+			if (Object.keys(answerInputs).length > 0) {
+				await api.saveAnswers(job.id, answerInputs);
+			}
+			await api.applyToJob(job.id, answerInputs, selectedResume || undefined);
 			toastState.show('Application submitted');
 			onClose();
 			await appState.refreshJobs();
@@ -309,12 +317,28 @@
 					{/if}
 				{:else if job.status === 'READY_FOR_REVIEW'}
 					{#if detail.questions.length > 0}
-						<div class="mb-6 space-y-2">
+						<div class="mb-6 space-y-4">
 							{#each detail.questions as q (q.label)}
-								<div class="border border-border-subtle px-3 py-2">
-									<div class="mb-1 text-xs text-text-muted">{q.label}</div>
-									<div class="text-sm text-text-primary">{q.answer ?? '—'}</div>
-								</div>
+								<label class="block">
+									<span class="mb-1 block text-xs font-bold text-text-secondary">{q.label}</span>
+									{#if q.options.length > 0}
+										<select
+											class="h-9 w-full border border-border-default bg-surface-overlay px-3 text-sm text-text-primary focus:border-border-strong focus:outline-0"
+											bind:value={answerInputs[q.label]}
+										>
+											<option value="">Select…</option>
+											{#each q.options as opt (opt)}
+												<option value={opt}>{opt}</option>
+											{/each}
+										</select>
+									{:else}
+										<input
+											type={q.fieldType ?? 'text'}
+											class="h-9 w-full border border-border-default bg-surface-overlay px-3 text-sm text-text-primary focus:border-border-strong focus:outline-0"
+											bind:value={answerInputs[q.label]}
+										/>
+									{/if}
+								</label>
 							{/each}
 						</div>
 					{/if}
