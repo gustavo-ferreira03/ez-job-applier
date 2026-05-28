@@ -11,6 +11,7 @@
     "dependencies": {
         "@hono/node-server": "^1.19.14",
         "@hono/standard-validator": "^0.2.2",
+        "@hono/zod-openapi": "^1.4.0",
         "@hono/zod-validator": "^0.8.0",
         "@libsql/client": "^0.17.3",
         "@scalar/hono-api-reference": "^0.10.19",

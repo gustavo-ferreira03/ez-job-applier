@@ -1,7 +1,6 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { streamSSE } from "hono/streaming";
 import { HTTPException } from "hono/http-exception";
-import { describeRoute } from "hono-openapi";
 import { listJobs, getJob } from "../repositories/jobs/services/storage";
 import {
     getApplication,
@@ -12,43 +11,149 @@ import {
 import { discoverJobs } from "./usecases/discoverJobs";
 import { getQuestions as getQuestionsUseCase } from "./usecases/getQuestions";
 import { applyToJob } from "./usecases/applyToJob";
-import type { DiscoverConfig } from "./types";
 
-const router = new Hono();
+const JobIdParam = z.object({
+    jobId: z.string().openapi({
+        param: { name: "jobId", in: "path" },
+        example: "4150055859",
+    }),
+});
 
-router.get(
-    "/jobs",
-    describeRoute({ tags: ["Jobs"], description: "List all discovered jobs" }),
+const DiscoverBody = z
+    .object({
+        provider: z.string().openapi({ example: "linkedin" }),
+        keywords: z
+            .string()
+            .optional()
+            .openapi({ example: "backend engineer" }),
+        location: z.string().optional().openapi({ example: "Brazil" }),
+        workType: z.string().optional().openapi({
+            example: "remote",
+            description: "remote | hybrid | onsite",
+        }),
+        experienceLevel: z
+            .array(z.string())
+            .optional()
+            .openapi({
+                example: ["mid_senior"],
+                description:
+                    "entry | associate | mid_senior | director | executive",
+            }),
+        jobType: z
+            .array(z.string())
+            .optional()
+            .openapi({
+                example: ["full_time"],
+                description:
+                    "full_time | part_time | contract | temporary | internship",
+            }),
+        datePosted: z.string().optional().openapi({
+            example: "week",
+            description: "hour | hours6 | hours12 | day | week | month",
+        }),
+        maxJobs: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .openapi({ example: 10 }),
+        options: z
+            .record(z.string(), z.unknown())
+            .optional()
+            .openapi({
+                example: { easyApply: true },
+                description: "Provider-specific options",
+            }),
+    })
+    .openapi("DiscoverConfig");
+
+const ApplyBody = z
+    .object({
+        answers: z
+            .record(z.string(), z.string())
+            .optional()
+            .openapi({ example: { "Years of experience": "3" } }),
+        resumeFilename: z
+            .string()
+            .optional()
+            .openapi({ example: "meu-cv.pdf" }),
+    })
+    .openapi("ApplyBody");
+
+const AnswersBody = z
+    .object({
+        answers: z.record(z.string(), z.string()).openapi({
+            example: {
+                "Years of experience": "3",
+                "Work authorization": "Yes",
+            },
+        }),
+    })
+    .openapi("AnswersBody");
+
+// ─── Routes ─────────────────────────────────────────────────────────────────
+
+const router = new OpenAPIHono();
+
+router.openapi(
+    createRoute({
+        method: "get",
+        path: "/jobs",
+        tags: ["Jobs"],
+        summary: "List all discovered jobs",
+        responses: { 200: { description: "List of jobs" } },
+    }),
     async (c) => c.json({ jobs: await listJobs() }),
 );
 
-router.get(
-    "/jobs/:jobId",
-    describeRoute({ tags: ["Jobs"], description: "Get a job with its application and questions" }),
+router.openapi(
+    createRoute({
+        method: "get",
+        path: "/jobs/{jobId}",
+        tags: ["Jobs"],
+        summary: "Get a job with its application and questions",
+        request: { params: JobIdParam },
+        responses: {
+            200: { description: "Job with application and questions" },
+            404: { description: "Job not found" },
+        },
+    }),
     async (c) => {
-        const job = await getJob(c.req.param("jobId"));
-        if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
+        const { jobId } = c.req.valid("param");
+        const job = await getJob(jobId);
+        if (!job)
+            throw new HTTPException(404, { message: "Vaga não encontrada" });
         const application = await getApplication(job.provider, job.jobId);
         const questions = application ? await getQuestions(application.id) : [];
         return c.json({ job, application, questions });
     },
 );
 
-router.post(
-    "/discover",
-    describeRoute({
+router.openapi(
+    createRoute({
+        method: "post",
+        path: "/discover",
         tags: ["Jobs"],
-        description: "Discover jobs via a provider and stream results as SSE. Body: DiscoverConfig",
+        summary: "Discover jobs and stream results as SSE",
+        request: {
+            body: {
+                content: { "application/json": { schema: DiscoverBody } },
+                required: true,
+            },
+        },
+        responses: {
+            200: { description: "SSE stream — events: job | done | error" },
+        },
     }),
     async (c) => {
-        const body = await c.req.json<DiscoverConfig>();
-        if (!body.provider)
-            throw new HTTPException(400, { message: "Campo 'provider' é obrigatório" });
-
+        const body = c.req.valid("json");
         return streamSSE(c, async (s) => {
             try {
                 for await (const job of discoverJobs(body)) {
-                    await s.writeSSE({ event: "job", data: JSON.stringify(job) });
+                    await s.writeSSE({
+                        event: "job",
+                        data: JSON.stringify(job),
+                    });
                 }
                 await s.writeSSE({ event: "done", data: "" });
             } catch (err) {
@@ -61,29 +166,41 @@ router.post(
     },
 );
 
-router.get(
-    "/jobs/:jobId/questions",
-    describeRoute({
+router.openapi(
+    createRoute({
+        method: "get",
+        path: "/jobs/{jobId}/questions",
         tags: ["Applications"],
-        description: "Open the application form and return questions without submitting",
+        summary:
+            "Open the application form and return questions without submitting",
+        request: { params: JobIdParam },
+        responses: {
+            200: { description: "ApplyResult with list of questions" },
+        },
     }),
     async (c) => {
-        const result = await getQuestionsUseCase(c.req.param("jobId"));
+        const result = await getQuestionsUseCase(c.req.valid("param").jobId);
         return c.json(result);
     },
 );
 
-router.post(
-    "/jobs/:jobId/apply",
-    describeRoute({
+router.openapi(
+    createRoute({
+        method: "post",
+        path: "/jobs/{jobId}/apply",
         tags: ["Applications"],
-        description: "Fill the application form with answers and submit. Body: { answers?, resumeFilename? }",
+        summary: "Fill the application form with answers and submit",
+        request: {
+            params: JobIdParam,
+            body: { content: { "application/json": { schema: ApplyBody } } },
+        },
+        responses: { 200: { description: "ApplyResult" } },
     }),
     async (c) => {
-        type Body = { answers?: Record<string, string>; resumeFilename?: string };
-        const body: Body = await c.req.json<Body>().catch(() => ({}));
+        const { jobId } = c.req.valid("param");
+        const body = c.req.valid("json");
         const result = await applyToJob(
-            c.req.param("jobId"),
+            jobId,
             body.answers ?? {},
             body.resumeFilename,
         );
@@ -91,53 +208,91 @@ router.post(
     },
 );
 
-router.post(
-    "/jobs/:jobId/answers",
-    describeRoute({
+router.openapi(
+    createRoute({
+        method: "post",
+        path: "/jobs/{jobId}/answers",
         tags: ["Applications"],
-        description: "Save answers for pending questions without re-opening the form. Body: { answers }",
+        summary:
+            "Save answers for pending questions without re-opening the form",
+        request: {
+            params: JobIdParam,
+            body: {
+                content: { "application/json": { schema: AnswersBody } },
+                required: true,
+            },
+        },
+        responses: {
+            200: { description: "Updated application and questions" },
+            404: { description: "Job or application not found" },
+        },
     }),
     async (c) => {
-        const job = await getJob(c.req.param("jobId"));
-        if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
-
-        const body = await c.req.json<{ answers: Record<string, string> }>();
-        if (!body.answers || typeof body.answers !== "object")
-            throw new HTTPException(400, { message: "Campo 'answers' é obrigatório" });
-
+        const { jobId } = c.req.valid("param");
+        const { answers } = c.req.valid("json");
+        const job = await getJob(jobId);
+        if (!job)
+            throw new HTTPException(404, { message: "Vaga não encontrada" });
         const application = await getApplication(job.provider, job.jobId);
         if (!application)
             throw new HTTPException(404, {
-                message: "Candidatura não encontrada. Chame GET /jobs/:id/questions primeiro.",
+                message:
+                    "Candidatura não encontrada. Chame GET /jobs/:id/questions primeiro.",
             });
-
-        await answerQuestions(application.id, body.answers);
+        await answerQuestions(application.id, answers);
         const questions = await getQuestions(application.id);
         return c.json({ application, questions });
     },
 );
 
-router.post(
-    "/jobs/:jobId/skip",
-    describeRoute({ tags: ["Applications"], description: "Mark a job application as skipped" }),
+router.openapi(
+    createRoute({
+        method: "post",
+        path: "/jobs/{jobId}/skip",
+        tags: ["Applications"],
+        summary: "Mark a job application as skipped",
+        request: { params: JobIdParam },
+        responses: {
+            200: { description: "Updated application" },
+            404: { description: "Job not found" },
+        },
+    }),
     async (c) => {
-        const job = await getJob(c.req.param("jobId"));
-        if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
-        const application = await upsertApplication(job.provider, job.jobId, "SKIPPED");
+        const { jobId } = c.req.valid("param");
+        const job = await getJob(jobId);
+        if (!job)
+            throw new HTTPException(404, { message: "Vaga não encontrada" });
+        const application = await upsertApplication(
+            job.provider,
+            job.jobId,
+            "SKIPPED",
+        );
         return c.json({ application });
     },
 );
 
-router.post(
-    "/jobs/:jobId/mark-applied",
-    describeRoute({
+router.openapi(
+    createRoute({
+        method: "post",
+        path: "/jobs/{jobId}/mark-applied",
         tags: ["Applications"],
-        description: "Manually mark a job as applied without going through the automated flow",
+        summary: "Manually mark a job as applied without the automated flow",
+        request: { params: JobIdParam },
+        responses: {
+            200: { description: "Updated application" },
+            404: { description: "Job not found" },
+        },
     }),
     async (c) => {
-        const job = await getJob(c.req.param("jobId"));
-        if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
-        const application = await upsertApplication(job.provider, job.jobId, "SUBMITTED");
+        const { jobId } = c.req.valid("param");
+        const job = await getJob(jobId);
+        if (!job)
+            throw new HTTPException(404, { message: "Vaga não encontrada" });
+        const application = await upsertApplication(
+            job.provider,
+            job.jobId,
+            "SUBMITTED",
+        );
         return c.json({ application });
     },
 );

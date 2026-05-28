@@ -1,6 +1,5 @@
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { openAPIRouteHandler } from "hono-openapi";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import coreRouter from "./core/router";
 import linkedinRouter from "./providers/linkedin/router";
@@ -10,7 +9,7 @@ import { linkedinProvider } from "./providers/linkedin/index";
 
 registerProvider(linkedinProvider);
 
-const app = new Hono();
+const app = new OpenAPIHono();
 
 app.onError((err, c) => {
     console.error(err);
@@ -21,20 +20,13 @@ app.route("/", coreRouter);
 app.route("/linkedin", linkedinRouter);
 app.route("/resumes", resumesRouter);
 
-app.get(
-    "/openapi",
-    openAPIRouteHandler(app, {
-        documentation: {
-            info: { title: "EZ Job Applier API", version: "1.0.0" },
-            servers: [{ url: "http://localhost:3000" }],
-        },
-    }),
-);
+app.doc("/openapi", {
+    openapi: "3.0.0",
+    info: { title: "EZ Job Applier API", version: "1.0.0" },
+    servers: [{ url: "http://localhost:3000" }],
+});
 
-app.get(
-    "/docs",
-    apiReference({ url: "/openapi", theme: "saturn" }),
-);
+app.get("/docs", apiReference({ url: "/openapi", theme: "saturn" }));
 
 serve(
     {
