@@ -5,15 +5,10 @@
 	interface Props {
 		column: KanbanColumnDef;
 		jobs: JobSummary[];
-		processingIds: Set<string>;
 		onOpenJob: (job: JobSummary, defaultTab: KanbanTab) => void;
 	}
 
-	let { column, jobs, processingIds, onOpenJob }: Props = $props();
-
-	function isProcessing(job: JobSummary): boolean {
-		return processingIds.has(job.job_id) && job.status !== 'FOUND';
-	}
+	let { column, jobs, onOpenJob }: Props = $props();
 
 	const cls = $derived(
 		[
@@ -51,9 +46,7 @@
 </script>
 
 <article class={cls} aria-labelledby={`column-${column.id}`}>
-	<header
-		class="flex min-h-11 items-center gap-2 border-b border-border-subtle bg-[#091522] px-[14px]"
-	>
+	<header class="flex min-h-11 items-center gap-2 border-b border-border-subtle bg-[#091522] px-[14px]">
 		<h2 id={`column-${column.id}`} class={headingCls}>{column.title}</h2>
 		<span class={countCls} aria-label={`${jobs.length} jobs`}>{jobs.length}</span>
 	</header>
@@ -61,16 +54,10 @@
 	<div class="flex flex-1 flex-col gap-[6px] overflow-y-auto p-2">
 		{#if jobs.length}
 			{#each jobs as job (job.id)}
-				<KanbanCard
-					{job}
-					processing={isProcessing(job)}
-					onOpen={() => onOpenJob(job, column.defaultTab ?? 'info')}
-				/>
+				<KanbanCard {job} onOpen={() => onOpenJob(job, column.defaultTab ?? 'info')} />
 			{/each}
 		{:else}
-			<p
-				class="m-0 rounded-[var(--radius-card)] border border-dashed border-border-subtle px-4 py-5 text-center text-xs text-[#1e3450]"
-			>
+			<p class="m-0 rounded-[var(--radius-card)] border border-dashed border-border-subtle px-4 py-5 text-center text-xs text-[#1e3450]">
 				Empty
 			</p>
 		{/if}

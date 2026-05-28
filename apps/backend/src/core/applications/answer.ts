@@ -1,5 +1,5 @@
 import { getJobById } from "../../repositories/jobs/services/storage";
-import { getApplication, answerQuestions } from "../../repositories/applications/services/storage";
+import { getApplication, answerQuestions, getQuestions, updateApplicationStatus } from "../../repositories/applications/services/storage";
 
 export async function saveAnswers(
     jobId: number,
@@ -12,4 +12,10 @@ export async function saveAnswers(
     if (!application) throw new Error(`No application found for job ${jobId}. Call POST /jobs/${jobId}/questions first.`);
 
     await answerQuestions(application.id, answers);
+
+    const questions = await getQuestions(application.id);
+    const allAnswered = questions.length > 0 && questions.every((q) => q.answer != null);
+    if (allAnswered) {
+        await updateApplicationStatus(application.id, "READY_FOR_REVIEW");
+    }
 }

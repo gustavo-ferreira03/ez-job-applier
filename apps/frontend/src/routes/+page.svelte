@@ -13,19 +13,10 @@
 
 	onMount(() => {
 		appState.init();
-		appState.connectSSE();
 	});
-
-	function openSettings() {
-		settingsOpen = true;
-	}
 
 	function openJob(job: JobSummary, defaultTab: KanbanTab) {
 		selectedJob = { job, defaultTab };
-	}
-
-	function closeModal() {
-		selectedJob = null;
 	}
 </script>
 
@@ -34,13 +25,9 @@
 </svelte:head>
 
 <main class="min-h-screen bg-surface-base font-sans text-text-primary">
-	<AppHeader onOpenSettings={openSettings} />
+	<AppHeader onOpenSettings={() => (settingsOpen = true)} />
 
-	<KanbanBoard
-		jobs={appState.jobs}
-		processingIds={appState.processingIds}
-		onOpenJob={openJob}
-	/>
+	<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
 
 	{#if settingsOpen}
 		<SettingsModal onClose={() => (settingsOpen = false)} />
@@ -50,7 +37,7 @@
 		<JobActionsModal
 			job={selectedJob.job}
 			defaultTab={selectedJob.defaultTab}
-			onClose={closeModal}
+			onClose={() => (selectedJob = null)}
 		/>
 	{/if}
 

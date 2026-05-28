@@ -4,37 +4,18 @@
 
 	interface Props {
 		jobs: JobSummary[];
-		processingIds?: Set<string>;
 		onOpenJob?: (job: JobSummary, defaultTab: KanbanTab) => void;
 	}
 
-	let { jobs, processingIds = new Set<string>(), onOpenJob = () => undefined }: Props = $props();
+	let { jobs, onOpenJob = () => undefined }: Props = $props();
 
 	const columns: KanbanColumnDef[] = [
 		{ id: 'found', title: 'Found', statuses: ['FOUND'] },
-		{
-			id: 'needs-input',
-			title: 'Needs Input',
-			statuses: ['NEEDS_INPUT'],
-			alert: 'yellow',
-			defaultTab: 'actions'
-		},
-		{
-			id: 'review',
-			title: 'Review',
-			statuses: ['READY_FOR_REVIEW'],
-			alert: 'blue',
-			defaultTab: 'actions'
-		},
-		{
-			id: 'external',
-			title: 'External',
-			statuses: ['EXTERNAL'],
-			alert: 'purple',
-			defaultTab: 'actions'
-		},
+		{ id: 'needs-input', title: 'Needs Input', statuses: ['NEEDS_INPUT'], alert: 'yellow', defaultTab: 'actions' },
+		{ id: 'review', title: 'Review', statuses: ['READY_FOR_REVIEW'], alert: 'blue', defaultTab: 'actions' },
+		{ id: 'external', title: 'External', statuses: ['EXTERNAL'], alert: 'purple', defaultTab: 'actions' },
 		{ id: 'submitted', title: 'Submitted', statuses: ['SUBMITTED'] },
-		{ id: 'done', title: 'Rejected', statuses: ['REJECTED', 'SKIPPED', 'FAILED'], muted: true }
+		{ id: 'done', title: 'Skipped / Failed', statuses: ['SKIPPED', 'FAILED'], muted: true }
 	];
 
 	function jobsForColumn(column: KanbanColumnDef) {
@@ -47,6 +28,6 @@
 	aria-label="Application kanban board"
 >
 	{#each columns as column (column.id)}
-		<KanbanColumn {column} jobs={jobsForColumn(column)} {processingIds} {onOpenJob} />
+		<KanbanColumn {column} jobs={jobsForColumn(column)} {onOpenJob} />
 	{/each}
 </section>

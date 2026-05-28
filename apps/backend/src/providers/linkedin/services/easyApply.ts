@@ -5,6 +5,13 @@ import type { ApplyResult as EasyApplyResult } from "../../../core/types";
 
 const MAX_STEPS = 20;
 
+function cleanLabel(raw: string): string {
+    const lines = raw.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+    // Deduplicate consecutive identical lines (LinkedIn sometimes renders label twice)
+    const deduped = lines.filter((l, i) => i === 0 || l !== lines[i - 1]);
+    return deduped.join(" ").replace(/\s*\*\s*$/, "").trim();
+}
+
 async function fieldLabel(field: Locator, fallback: string): Promise<string> {
     for (const attr of ["aria-label", "placeholder", "name"]) {
         const value = await field.getAttribute(attr);
@@ -17,8 +24,9 @@ async function fieldLabel(field: Locator, fallback: string): Promise<string> {
         const page = field.page();
         const label = page.locator(`label[for="${id}"]`).first();
         if (await label.count()) {
-            const text = (await label.innerText()).trim();
-            if (text) return text.replace(/\s*\*\s*$/, "").trim();
+            const text = await label.innerText();
+            const cleaned = cleanLabel(text);
+            if (cleaned) return cleaned;
         }
     }
 

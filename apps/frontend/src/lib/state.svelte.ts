@@ -1,156 +1,72 @@
-import { getCurrentRun, getResumes, listJobs, sseUrl, type RunResponse } from './api';
-import type { JobSummary, RunConfig } from './types';
+import { getResumes, listJobs, getDiscovery } from './api';
+import type { DiscoverConfig, DiscoveryJob, JobSummary } from './types';
 
-function defaultConfig(): RunConfig {
+function defaultConfig(): DiscoverConfig {
 	return {
-		keywords: '',
-		location: null,
-		easy_apply: true,
-		work_type: null,
-		experience_level: [],
-		job_type: [],
-		date_posted: null,
-		include_top_applicant: false,
-		max_apply: null,
-		fill_skill_gaps: false
+		provider: 'linkedin',
+		options: { easyApply: true }
 	};
 }
-
-function runToState(run: RunResponse | null): {
-	running: boolean;
-	worker_running: boolean;
-	current_config: RunConfig | null;
-} {
-	if (!run || run.status !== 'running') {
-		return { running: false, worker_running: false, current_config: null };
-	}
-	const c = run.config;
-	return {
-		running: true,
-		worker_running: true,
-		current_config: {
-			keywords: c.keywords ?? '',
-			location: c.location ?? null,
-			easy_apply: (c.options?.easyApply as boolean) ?? true,
-			work_type: c.workType ?? null,
-			experience_level: c.experienceLevel ?? [],
-			job_type: c.jobType ?? [],
-			date_posted: c.datePosted ?? null,
-			include_top_applicant: false,
-			max_apply: c.maxJobs ?? null,
-			fill_skill_gaps: false
-		}
-	};
-}
-
-const SSE_EVENTS = ['job_found', 'applying', 'result', 'done', 'cancelled', 'error'] as const;
 
 class AppState {
 	jobs = $state<JobSummary[]>([]);
-	run = $state<{ running: boolean; worker_running: boolean; current_config: RunConfig | null }>({
-		running: false,
-		worker_running: false,
-		current_config: null
-	});
-	cvs = $state<string[]>([]);
-	config = $state<RunConfig>(defaultConfig());
-	defaultCV = $state<string | null>(null);
-	processingIds = $state<Set<string>>(new Set());
-	connected = $state(false);
+	discovery = $state<DiscoveryJob | null>(null);
+	resumes = $state<string[]>([]);
+	defaultResume = $state<string | null>(null);
+	discoverConfig = $state<DiscoverConfig>(defaultConfig());
 
-	private es: EventSource | null = null;
+	private pollTimer: ReturnType<typeof setInterval> | null = null;
+	private lastDiscovered = 0;
 
 	async init() {
 		try {
-			const [jobsRes, runRes, resumesRes] = await Promise.all([
-				listJobs(),
-				getCurrentRun(),
-				getResumes()
-			]);
+			const [jobsRes, resumesRes] = await Promise.all([listJobs(), getResumes()]);
 			this.jobs = jobsRes.jobs;
-			this.run = runToState(runRes.run);
-			this.cvs = resumesRes.files;
-			this.defaultCV = resumesRes.default;
+			this.resumes = resumesRes.resumes;
+			this.defaultResume = resumesRes.default;
 		} catch (e) {
 			console.error('Failed to load state:', e);
 		}
 	}
 
-	async refresh() {
+	async refreshJobs() {
 		try {
-			const [jobsRes, runRes] = await Promise.all([listJobs(), getCurrentRun()]);
-			this.jobs = jobsRes.jobs;
-			this.run = runToState(runRes.run);
+			const res = await listJobs();
+			this.jobs = res.jobs;
 		} catch (e) {
-			console.error('Failed to refresh state:', e);
+			console.error('Failed to refresh jobs:', e);
 		}
 	}
 
-	connectSSE() {
-		if (this.es) {
-			this.es.close();
-		}
+	startPolling(discoveryId: string) {
+		this.stopPolling();
+		this.lastDiscovered = this.discovery?.discovered ?? 0;
 
-		const es = new EventSource(sseUrl());
-		this.es = es;
+		this.pollTimer = setInterval(async () => {
+			try {
+				const updated = await getDiscovery(discoveryId);
+				const prev = this.lastDiscovered;
+				this.discovery = updated;
+				this.lastDiscovered = updated.discovered;
 
-		for (const eventType of SSE_EVENTS) {
-			es.addEventListener(eventType, (e: MessageEvent) => {
-				try {
-					this.handleEvent(JSON.parse(e.data) as Record<string, unknown>);
-				} catch {
-					// ignore
+				if (updated.discovered > prev) {
+					await this.refreshJobs();
 				}
-			});
-		}
 
-		es.onopen = () => {
-			this.connected = true;
-		};
-
-		es.onerror = () => {
-			this.connected = false;
-			es.close();
-			this.es = null;
-			setTimeout(() => this.connectSSE(), 3000);
-		};
+				if (updated.status !== 'running') {
+					this.stopPolling();
+					await this.refreshJobs();
+				}
+			} catch (e) {
+				console.error('Poll failed:', e);
+			}
+		}, 2000);
 	}
 
-	private handleEvent(event: Record<string, unknown>) {
-		const type = event.type as string;
-
-		switch (type) {
-			case 'job_found':
-				this.refresh();
-				break;
-
-			case 'applying': {
-				const jobId = event.jobId as string;
-				this.processingIds = new Set([...this.processingIds, jobId]);
-				break;
-			}
-
-			case 'result': {
-				const jobId = event.jobId as string;
-				const next = new Set(this.processingIds);
-				next.delete(jobId);
-				this.processingIds = next;
-				this.refresh();
-				break;
-			}
-
-			case 'done':
-			case 'cancelled':
-				this.run.running = false;
-				this.run.worker_running = false;
-				this.refresh();
-				break;
-
-			case 'error':
-				this.run.running = false;
-				this.run.worker_running = false;
-				this.refresh();
-				break;
+	stopPolling() {
+		if (this.pollTimer !== null) {
+			clearInterval(this.pollTimer);
+			this.pollTimer = null;
 		}
 	}
 }

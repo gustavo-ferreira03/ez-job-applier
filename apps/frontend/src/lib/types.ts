@@ -5,69 +5,62 @@ export type ApplicationStatus =
 	| 'EXTERNAL'
 	| 'SUBMITTED'
 	| 'SKIPPED'
-	| 'REJECTED'
 	| 'FAILED';
 
 export type KanbanTab = 'info' | 'actions';
 
-export interface RunConfig {
-	keywords: string;
-	location: string | null;
-	easy_apply: boolean;
-	work_type: string | null;
-	experience_level: string[];
-	job_type: string[];
-	date_posted: string | null;
-	include_top_applicant: boolean;
-	max_apply: number | null;
-	fill_skill_gaps: boolean;
+export interface DiscoverConfig {
+	provider: string;
+	keywords?: string;
+	location?: string;
+	workType?: string;
+	experienceLevel?: string[];
+	jobType?: string[];
+	datePosted?: string;
+	maxJobs?: number;
+	options?: Record<string, unknown>;
 }
 
 export interface ApplicationQuestion {
-	id: number | null;
-	application_id: number | null;
 	label: string;
 	answer: string | null;
-	field_type: string | null;
+	fieldType: string | null;
 	options: string[];
 }
 
 export interface JobSummary {
 	id: number;
-	job_id: string;
-	title: string | null;
-	company: string | null;
-	location: string | null;
+	externalId: string;
+	provider: string;
+	title: string;
+	company: string;
+	location: string;
 	url: string;
-	easy_apply: boolean;
 	preferences: string[];
 	skills: string[];
 	about: string | null;
-	application_url: string | null;
-	application_id: number | null;
+	applicationUrl: string | null;
 	status: ApplicationStatus;
-	submit_approved: boolean;
-	cv_filename: string | null;
-	error_message: string | null;
-	created_at: string | null;
-	updated_at: string | null;
-	application_updated_at: string | null;
-	unanswered_count: number;
+	resumeFilename: string | null;
+	errorMessage: string | null;
+	unansweredCount: number;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface JobDetail extends JobSummary {
 	questions: ApplicationQuestion[];
 }
 
-export interface StateResponse {
-	run: {
-		running: boolean;
-		worker_running: boolean;
-		current_config: RunConfig | null;
-	};
-	jobs: JobSummary[];
-	config: RunConfig & { default_cv?: string | null };
-	cvs: string[];
+export interface DiscoveryJob {
+	id: string;
+	provider: string;
+	config: DiscoverConfig;
+	status: 'running' | 'done' | 'failed' | 'cancelled';
+	discovered: number;
+	startedAt: string;
+	finishedAt: string | null;
+	errorMessage: string | null;
 }
 
 export interface KanbanColumn {

@@ -1,5 +1,5 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { ApplicationStatus, JobDetail, JobSummary, RunConfig } from './types';
+import type { DiscoverConfig, DiscoveryJob, JobDetail, JobSummary } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -25,89 +25,51 @@ async function del<T>(path: string): Promise<T> {
 	return res.json() as Promise<T>;
 }
 
-export function sseUrl() {
-	return `${BASE}/events`;
-}
-
+// Jobs
 export function listJobs(): Promise<{ jobs: JobSummary[] }> {
 	return get('/jobs');
 }
 
-export function getJob(jobId: string): Promise<JobDetail> {
-	return get(`/jobs/${encodeURIComponent(jobId)}`);
+export function getJob(id: number): Promise<JobDetail> {
+	return get(`/jobs/${id}`);
 }
 
-export type RunResponse = {
-	id: string;
-	config: {
-		provider: string;
-		keywords?: string;
-		location?: string;
-		workType?: string;
-		experienceLevel?: string[];
-		jobType?: string[];
-		datePosted?: string;
-		maxJobs?: number;
-		options?: Record<string, unknown>;
-	};
-	status: 'running' | 'done' | 'cancelled' | 'failed';
-	stats: {
-		discovered: number;
-		submitted: number;
-		needsInput: number;
-		skipped: number;
-		failed: number;
-		external: number;
-	};
-	startedAt: string;
-	finishedAt?: string;
-};
-
-export function getCurrentRun(): Promise<{ run: RunResponse | null }> {
-	return get('/runs/current');
+// Discoveries
+export function startDiscovery(config: DiscoverConfig): Promise<DiscoveryJob> {
+	return post('/discoveries', config);
 }
 
-export function getResumes(): Promise<{ files: string[]; default: string | null }> {
+export function getDiscovery(id: string): Promise<DiscoveryJob> {
+	return get(`/discoveries/${id}`);
+}
+
+export function cancelDiscovery(id: string): Promise<{ ok: boolean }> {
+	return del(`/discoveries/${id}`);
+}
+
+// Applications
+export function getQuestions(jobId: number): Promise<unknown> {
+	return post(`/jobs/${jobId}/questions`);
+}
+
+export function saveAnswers(jobId: number, answers: Record<string, string>): Promise<{ ok: boolean }> {
+	return post(`/jobs/${jobId}/answers`, { answers });
+}
+
+export function applyToJob(jobId: number, answers?: Record<string, string>, resumeFilename?: string): Promise<unknown> {
+	return post(`/jobs/${jobId}/apply`, { answers, resumeFilename });
+}
+
+export function skipJob(jobId: number): Promise<{ ok: boolean }> {
+	return post(`/jobs/${jobId}/skip`);
+}
+
+// Resumes
+export function getResumes(): Promise<{ resumes: string[]; default: string | null }> {
 	return get('/resumes');
 }
 
-export function startRun(config: RunConfig) {
-	return post<{ run: unknown }>('/runs', {
-		provider: 'linkedin',
-		keywords: config.keywords || undefined,
-		location: config.location || undefined,
-		workType: config.work_type || undefined,
-		experienceLevel: config.experience_level.length ? config.experience_level : undefined,
-		jobType: config.job_type.length ? config.job_type : undefined,
-		datePosted: config.date_posted || undefined,
-		maxJobs: config.max_apply || undefined,
-		options: { easyApply: config.easy_apply }
-	});
-}
-
-export function cancelRun() {
-	return del<{ ok: boolean }>('/runs/current');
-}
-
-export function submitAnswers(jobId: string, answers: Record<string, string>) {
-	return post<{ ok: boolean }>(`/jobs/${encodeURIComponent(jobId)}/answers`, { answers });
-}
-
-export function approveApplication(jobId: string, cvFilename: string | null = null) {
-	return post<unknown>(`/jobs/${encodeURIComponent(jobId)}/apply`, {
-		resumeFilename: cvFilename || undefined
-	});
-}
-
-export function markApplied(jobId: string) {
-	return post<{ ok: boolean }>(`/jobs/${encodeURIComponent(jobId)}/mark-applied`);
-}
-
-export function skipApplication(jobId: string) {
-	return post<{ ok: boolean }>(`/jobs/${encodeURIComponent(jobId)}/skip`);
-}
-
-export async function uploadCV(file: File): Promise<{ filename: string }> {
+export async function uploadResume(file: File): Promise<{ filename: string }> {
 	const form = new FormData();
 	form.append('file', file);
 	const res = await fetch(`${BASE}/resumes`, { method: 'POST', body: form });
@@ -115,10 +77,10 @@ export async function uploadCV(file: File): Promise<{ filename: string }> {
 	return res.json();
 }
 
-export function setDefaultCV(filename: string | null) {
-	return post<{ ok: boolean }>('/resumes/default', { filename });
+export function setDefaultResume(filename: string | null): Promise<{ default: string | null }> {
+	return post('/resumes/default', { filename });
 }
 
-export function deleteCV(filename: string) {
-	return del<{ ok: boolean }>(`/resumes/${encodeURIComponent(filename)}`);
+export function deleteResume(filename: string): Promise<{ ok: boolean }> {
+	return del(`/resumes/${encodeURIComponent(filename)}`);
 }

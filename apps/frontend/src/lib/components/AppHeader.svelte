@@ -2,7 +2,7 @@
 	import Play from '@lucide/svelte/icons/play';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Square from '@lucide/svelte/icons/square';
-	import { cancelRun } from '$lib/api';
+	import { cancelDiscovery } from '$lib/api';
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
 
@@ -12,12 +12,16 @@
 
 	let { onOpenSettings }: Props = $props();
 
+	const isRunning = $derived(appState.discovery?.status === 'running');
+
 	async function handleStop() {
+		if (!appState.discovery) return;
 		try {
-			await cancelRun();
-			appState.run.running = false;
+			await cancelDiscovery(appState.discovery.id);
+			appState.stopPolling();
+			appState.discovery = { ...appState.discovery, status: 'cancelled' };
 		} catch {
-			toastState.show('Failed to stop run');
+			toastState.show('Failed to stop discovery');
 		}
 	}
 </script>
@@ -33,16 +37,16 @@
 			<span class="text-text-primary">EZ</span><span class="text-brand-500">JobApplier</span>
 		</div>
 
-		{#if appState.run.running}
+		{#if isRunning}
 			<span class="inline-flex items-center gap-1.5 text-xs font-bold text-warn-500">
 				<span class="inline-block size-1.5 animate-pulse bg-warn-500"></span>
-				Running
+				Discovering · {appState.discovery?.discovered ?? 0} found
 			</span>
 		{/if}
 	</div>
 
 	<div class="flex items-center gap-2 max-[640px]:w-full">
-		{#if appState.run.running}
+		{#if isRunning}
 			<button
 				class="inline-flex min-h-9 cursor-pointer items-center justify-center gap-[6px] rounded-[var(--radius-card)] border border-border-default bg-surface-overlay px-4 text-[13px] font-bold tracking-[0.01em] text-text-secondary transition-[filter] duration-100 hover:border-border-strong hover:text-text-primary focus-visible:outline-0 max-[640px]:flex-1"
 				type="button"

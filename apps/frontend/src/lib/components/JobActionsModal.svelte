@@ -16,9 +16,8 @@
 
 	let { job, defaultTab, onClose }: Props = $props();
 
-	// Intentional snapshots — modal is remounted each time it opens
 	const _initialTab = untrack(() => defaultTab);
-	const _initialCV = untrack(() => job.cv_filename);
+	const _initialResume = untrack(() => job.resumeFilename);
 
 	let detail = $state<JobDetail | null>(null);
 	let loadError = $state(false);
@@ -26,12 +25,12 @@
 	let busy = $state(false);
 	let actionNotice = $state('');
 	let answerInputs = $state<Record<string, string>>({});
-	let selectedCV = $state(_initialCV ?? '');
+	let selectedResume = $state(_initialResume ?? '');
 
 	onMount(async () => {
 		try {
-			detail = await api.getJob(job.job_id);
-			selectedCV = detail.cv_filename ?? '';
+			detail = await api.getJob(job.id);
+			selectedResume = detail.resumeFilename ?? '';
 		} catch {
 			loadError = true;
 		}
@@ -41,61 +40,63 @@
 		if (e.key === 'Escape') onClose();
 	}
 
-	const unanswered = $derived(detail?.questions.filter((q) => q.answer === null) ?? []);
-	const answered = $derived(detail?.questions.filter((q) => q.answer !== null) ?? []);
+	const unanswered = $derived(detail?.questions.filter((q) => q.answer == null) ?? []);
+	const answered = $derived(detail?.questions.filter((q) => q.answer != null) ?? []);
 	const canSubmit = $derived(unanswered.every((q) => answerInputs[q.label]?.trim()));
 	const hasActionFooter = $derived(
-		['NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)
+		['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)
 	);
 
 	async function handleSubmitAnswers() {
 		if (busy) return;
 		busy = true;
-		actionNotice = 'Submitting…';
+		actionNotice = 'Saving…';
 		try {
 			const answers: Record<string, string> = {};
 			for (const q of unanswered) {
 				if (answerInputs[q.label]?.trim()) answers[q.label] = answerInputs[q.label].trim();
 			}
-			await api.submitAnswers(job.job_id, answers);
-			toastState.show('Answers submitted');
+			await api.saveAnswers(job.id, answers);
+			toastState.show('Answers saved');
 			onClose();
-			await appState.refresh();
+			await appState.refreshJobs();
 		} catch {
 			actionNotice = '';
-			toastState.show('Failed to submit answers');
+			toastState.show('Failed to save answers');
 		} finally {
 			busy = false;
 		}
 	}
 
-	async function handleApprove() {
+	async function handleApply() {
 		if (busy) return;
 		busy = true;
-		actionNotice = 'Approving…';
+		actionNotice = 'Submitting…';
 		try {
-			await api.approveApplication(job.job_id, selectedCV || null);
-			toastState.show('Application approved');
+			await api.applyToJob(job.id, {}, selectedResume || undefined);
+			toastState.show('Application submitted');
 			onClose();
-			await appState.refresh();
+			await appState.refreshJobs();
 		} catch {
 			actionNotice = '';
-			toastState.show('Failed to approve application');
+			toastState.show('Failed to submit application');
 		} finally {
 			busy = false;
 		}
 	}
 
-	async function handleMarkApplied() {
+	async function handleGetQuestions() {
 		if (busy) return;
 		busy = true;
+		actionNotice = 'Opening form…';
 		try {
-			await api.markApplied(job.job_id);
-			toastState.show('Marked as applied');
+			await api.getQuestions(job.id);
+			toastState.show('Questions extracted');
 			onClose();
-			await appState.refresh();
+			await appState.refreshJobs();
 		} catch {
-			toastState.show('Failed to mark as applied');
+			actionNotice = '';
+			toastState.show('Failed to extract questions');
 		} finally {
 			busy = false;
 		}
@@ -105,12 +106,12 @@
 		if (busy) return;
 		busy = true;
 		try {
-			await api.skipApplication(job.job_id);
-			toastState.show('Application skipped');
+			await api.skipJob(job.id);
+			toastState.show('Job skipped');
 			onClose();
-			await appState.refresh();
+			await appState.refreshJobs();
 		} catch {
-			toastState.show('Failed to skip application');
+			toastState.show('Failed to skip job');
 		} finally {
 			busy = false;
 		}
@@ -139,10 +140,10 @@
 			<div class="mb-4 flex items-start justify-between gap-4">
 				<div class="min-w-0 flex-1">
 					<h2 class="truncate text-base font-bold leading-tight text-text-primary">
-						{job.title ?? 'Untitled job'}
+						{job.title}
 					</h2>
 					<p class="mt-1 text-sm text-text-secondary">
-						{job.company ?? ''}
+						{job.company}
 						{#if job.location}<span class="text-text-muted"> · {job.location}</span>{/if}
 					</p>
 				</div>
@@ -156,31 +157,20 @@
 				</button>
 			</div>
 
-			<!-- Tabs -->
 			<div class="flex" role="tablist">
 				<button
 					role="tab"
 					aria-selected={activeTab === 'info'}
-					class="border-b-2 px-4 py-2 text-[13px] font-bold transition-colors duration-100 {activeTab ===
-					'info'
-						? 'border-brand-500 text-brand-500'
-						: 'border-transparent text-text-muted hover:text-text-secondary'}"
-					onclick={() => {
-						activeTab = 'info';
-					}}
+					class="border-b-2 px-4 py-2 text-[13px] font-bold transition-colors duration-100 {activeTab === 'info' ? 'border-brand-500 text-brand-500' : 'border-transparent text-text-muted hover:text-text-secondary'}"
+					onclick={() => { activeTab = 'info'; }}
 				>
 					Info
 				</button>
 				<button
 					role="tab"
 					aria-selected={activeTab === 'actions'}
-					class="border-b-2 px-4 py-2 text-[13px] font-bold transition-colors duration-100 {activeTab ===
-					'actions'
-						? 'border-brand-500 text-brand-500'
-						: 'border-transparent text-text-muted hover:text-text-secondary'}"
-					onclick={() => {
-						activeTab = 'actions';
-					}}
+					class="border-b-2 px-4 py-2 text-[13px] font-bold transition-colors duration-100 {activeTab === 'actions' ? 'border-brand-500 text-brand-500' : 'border-transparent text-text-muted hover:text-text-secondary'}"
+					onclick={() => { activeTab = 'actions'; }}
 				>
 					Actions
 				</button>
@@ -198,19 +188,16 @@
 					</span>
 				</div>
 			{:else if activeTab === 'info'}
-				<!-- Info tab -->
-				{#if detail.error_message && job.status !== 'FAILED'}
-					<div
-						class="mb-4 border border-danger-100 bg-danger-50 px-3 py-2 text-sm text-danger-500"
-					>
-						{detail.error_message}
+				{#if detail.errorMessage}
+					<div class="mb-4 border border-danger-100 bg-danger-50 px-3 py-2 text-sm text-danger-500">
+						{detail.errorMessage}
 					</div>
 				{/if}
 
-				{#if detail.application_url && !detail.easy_apply}
+				{#if detail.applicationUrl}
 					<div class="mb-4">
 						<a
-							href={detail.application_url}
+							href={detail.applicationUrl}
 							target="_blank"
 							rel="noreferrer noopener"
 							class="inline-flex items-center gap-1.5 text-sm text-brand-500 hover:text-brand-700"
@@ -223,12 +210,8 @@
 
 				{#if detail.about}
 					<div class="mb-6">
-						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">
-							About
-						</h3>
-						<div
-							class="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-text-secondary"
-						>
+						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">About</h3>
+						<div class="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
 							{detail.about}
 						</div>
 					</div>
@@ -236,14 +219,10 @@
 
 				{#if detail.preferences.length > 0}
 					<div class="mb-4">
-						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">
-							Preferences
-						</h3>
+						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">Preferences</h3>
 						<div class="flex flex-wrap gap-2">
 							{#each detail.preferences as pref (pref)}
-								<span class="border border-border-default px-2 py-1 text-xs text-text-secondary">
-									{pref}
-								</span>
+								<span class="border border-border-default px-2 py-1 text-xs text-text-secondary">{pref}</span>
 							{/each}
 						</div>
 					</div>
@@ -251,14 +230,10 @@
 
 				{#if detail.skills.length > 0}
 					<div class="mb-4">
-						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">
-							Skills
-						</h3>
+						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">Skills</h3>
 						<div class="flex flex-wrap gap-2">
 							{#each detail.skills as skill (skill)}
-								<span class="border border-border-default px-2 py-1 text-xs text-text-secondary">
-									{skill}
-								</span>
+								<span class="border border-border-default px-2 py-1 text-xs text-text-secondary">{skill}</span>
 							{/each}
 						</div>
 					</div>
@@ -266,9 +241,7 @@
 
 				{#if detail.questions.length > 0}
 					<div>
-						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">
-							Q&amp;A
-						</h3>
+						<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">Q&amp;A</h3>
 						<div class="space-y-2">
 							{#each detail.questions as q (q.label)}
 								<div class="border border-border-subtle px-3 py-2">
@@ -282,15 +255,14 @@
 			{:else}
 				<!-- Actions tab -->
 				{#if job.status === 'FOUND'}
-					<p class="text-sm text-text-muted">Queued for processing.</p>
-				{:else if job.status === 'SUBMITTED' || job.status === 'SKIPPED' || job.status === 'REJECTED'}
+					<p class="mb-4 text-sm text-text-secondary">Open the application form to extract the questions, then answer them and apply.</p>
+					<p class="text-xs text-text-muted">This will open a browser window and may take a few seconds.</p>
+				{:else if job.status === 'SUBMITTED' || job.status === 'SKIPPED'}
 					<p class="text-sm text-text-muted">No actions available.</p>
 				{:else if job.status === 'FAILED'}
-					{#if detail.error_message}
-						<div
-							class="mb-4 border border-danger-100 bg-danger-50 px-3 py-2 text-sm text-danger-500"
-						>
-							{detail.error_message}
+					{#if detail.errorMessage}
+						<div class="mb-4 border border-danger-100 bg-danger-50 px-3 py-2 text-sm text-danger-500">
+							{detail.errorMessage}
 						</div>
 					{/if}
 					<p class="text-sm text-text-muted">This application failed. You can skip it.</p>
@@ -312,7 +284,7 @@
 										</select>
 									{:else}
 										<input
-											type={q.field_type ?? 'text'}
+											type={q.fieldType ?? 'text'}
 											class="h-9 w-full border border-border-default bg-surface-overlay px-3 text-sm text-text-primary focus:border-border-strong focus:outline-0"
 											bind:value={answerInputs[q.label]}
 										/>
@@ -324,9 +296,7 @@
 
 					{#if answered.length > 0}
 						<div>
-							<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">
-								Already answered
-							</h3>
+							<h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">Already answered</h3>
 							<div class="space-y-2">
 								{#each answered as q (q.label)}
 									<div class="border border-border-subtle px-3 py-2">
@@ -349,33 +319,28 @@
 						</div>
 					{/if}
 
-					{#if appState.cvs.length > 0}
+					{#if appState.resumes.length > 0}
 						<div>
-							<label
-								class="mb-2 block text-xs font-bold uppercase tracking-wide text-text-secondary"
-								for="cv-override"
-							>
-								CV to use
+							<label class="mb-2 block text-xs font-bold uppercase tracking-wide text-text-secondary" for="resume-override">
+								Resume to use
 							</label>
 							<select
-								id="cv-override"
+								id="resume-override"
 								class="h-9 w-full border border-border-default bg-surface-overlay px-3 text-sm text-text-primary focus:border-border-strong focus:outline-0"
-								bind:value={selectedCV}
+								bind:value={selectedResume}
 							>
-								<option value=""
-									>Use default{appState.defaultCV ? ` (${appState.defaultCV})` : ''}</option
-								>
-								{#each appState.cvs as cv (cv)}
-									<option value={cv}>{cv}</option>
+								<option value="">Use default{appState.defaultResume ? ` (${appState.defaultResume})` : ''}</option>
+								{#each appState.resumes as r (r)}
+									<option value={r}>{r}</option>
 								{/each}
 							</select>
 						</div>
 					{/if}
 				{:else if job.status === 'EXTERNAL'}
-					{#if detail.application_url}
+					{#if detail.applicationUrl}
 						<div class="mb-6">
 							<a
-								href={detail.application_url}
+								href={detail.applicationUrl}
 								target="_blank"
 								rel="noreferrer noopener"
 								class="inline-flex items-center gap-1.5 text-sm text-brand-500 hover:text-brand-700"
@@ -393,12 +358,27 @@
 
 		<!-- Footer -->
 		{#if hasActionFooter && detail}
-			<div
-				class="flex flex-shrink-0 items-center justify-between gap-4 border-t border-border-subtle px-5 py-4"
-			>
+			<div class="flex flex-shrink-0 items-center justify-between gap-4 border-t border-border-subtle px-5 py-4">
 				<span class="text-xs text-text-muted">{actionNotice}</span>
 				<div class="flex gap-2">
-					{#if job.status === 'NEEDS_INPUT'}
+					{#if job.status === 'FOUND'}
+						<button
+							class="inline-flex min-h-9 cursor-pointer items-center justify-center border border-border-default bg-surface-overlay px-4 text-[13px] font-bold text-text-secondary hover:border-border-strong hover:text-text-primary focus-visible:outline-0 disabled:cursor-not-allowed disabled:opacity-50"
+							type="button"
+							disabled={busy}
+							onclick={handleSkip}
+						>
+							Skip
+						</button>
+						<button
+							class="inline-flex min-h-9 cursor-pointer items-center justify-center border border-transparent bg-brand-500 px-4 text-[13px] font-bold text-brand-on transition-[filter] duration-100 hover:brightness-110 focus-visible:outline-0 disabled:cursor-not-allowed disabled:opacity-50"
+							type="button"
+							disabled={busy}
+							onclick={handleGetQuestions}
+						>
+							{busy ? 'Opening form…' : 'Get Questions'}
+						</button>
+					{:else if job.status === 'NEEDS_INPUT'}
 						<button
 							class="inline-flex min-h-9 cursor-pointer items-center justify-center border border-border-default bg-surface-overlay px-4 text-[13px] font-bold text-text-secondary hover:border-border-strong hover:text-text-primary focus-visible:outline-0 disabled:cursor-not-allowed disabled:opacity-50"
 							type="button"
@@ -413,7 +393,7 @@
 							disabled={busy || !canSubmit}
 							onclick={handleSubmitAnswers}
 						>
-							Submit answers
+							Save answers
 						</button>
 					{:else if job.status === 'READY_FOR_REVIEW'}
 						<button
@@ -428,7 +408,7 @@
 							class="inline-flex min-h-9 cursor-pointer items-center justify-center border border-transparent bg-brand-500 px-4 text-[13px] font-bold text-brand-on transition-[filter] duration-100 hover:brightness-110 focus-visible:outline-0 disabled:cursor-not-allowed disabled:opacity-50"
 							type="button"
 							disabled={busy}
-							onclick={handleApprove}
+							onclick={handleApply}
 						>
 							Submit application
 						</button>
@@ -440,14 +420,6 @@
 							onclick={handleSkip}
 						>
 							Skip
-						</button>
-						<button
-							class="inline-flex min-h-9 cursor-pointer items-center justify-center border border-transparent bg-brand-500 px-4 text-[13px] font-bold text-brand-on transition-[filter] duration-100 hover:brightness-110 focus-visible:outline-0 disabled:cursor-not-allowed disabled:opacity-50"
-							type="button"
-							disabled={busy}
-							onclick={handleMarkApplied}
-						>
-							Mark as Applied
 						</button>
 					{:else if job.status === 'FAILED'}
 						<button
