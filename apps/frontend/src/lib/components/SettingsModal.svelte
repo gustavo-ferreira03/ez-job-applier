@@ -2,6 +2,7 @@
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import FileText from '@lucide/svelte/icons/file-text';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Upload from '@lucide/svelte/icons/upload';
 	import X from '@lucide/svelte/icons/x';
 	import * as api from '$lib/api';
@@ -66,6 +67,24 @@
 			toastState.show(`Deleted ${filename}`);
 		} catch {
 			toastState.show('Failed to delete resume');
+		}
+	}
+
+	let clearConfirming = $state(false);
+
+	async function handleClearDatabase() {
+		if (!clearConfirming) {
+			clearConfirming = true;
+			return;
+		}
+		try {
+			await api.clearDatabase();
+			appState.jobs = [];
+			clearConfirming = false;
+			toastState.show('Database cleared');
+		} catch {
+			clearConfirming = false;
+			toastState.show('Failed to clear database');
 		}
 	}
 </script>
@@ -153,6 +172,28 @@
 							{opt.label}
 						</button>
 					{/each}
+				</div>
+			</div>
+
+			<!-- Danger zone -->
+			<div>
+				<p class="mb-3 text-xs font-bold uppercase tracking-wide text-text-secondary">Danger zone</p>
+				<div class="flex items-center justify-between gap-4 border border-border-subtle bg-surface-overlay px-4 py-3">
+					<div>
+						<p class="text-sm font-medium text-text-primary">Clear all data</p>
+						<p class="text-xs text-text-muted">Removes all jobs, applications and discoveries. Resumes are kept.</p>
+					</div>
+					<button
+						class="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 border px-4 text-[13px] font-bold focus-visible:outline-0
+							{clearConfirming
+								? 'border-danger-500 bg-danger-500/10 text-danger-500 hover:bg-danger-500/20'
+								: 'border-border-default bg-surface-overlay text-danger-500 hover:border-danger-500'}"
+						type="button"
+						onclick={handleClearDatabase}
+					>
+						<Trash2 size={14} aria-hidden="true" />
+						{clearConfirming ? 'Confirm?' : 'Clear'}
+					</button>
 				</div>
 			</div>
 

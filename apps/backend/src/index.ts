@@ -8,6 +8,7 @@ import applicationsRouter from "./routes/applications";
 import resumesRouter from "./routes/resumes";
 import autoApplyRouter from "./routes/auto-apply";
 import settingsRouter from "./routes/settings";
+import databaseRouter from "./routes/database";
 import { registerProvider } from "./core/registry";
 import { linkedinProvider } from "./providers/linkedin/index";
 
@@ -28,6 +29,7 @@ app.route("/", applicationsRouter);
 app.route("/", resumesRouter);
 app.route("/", autoApplyRouter);
 app.route("/", settingsRouter);
+app.route("/", databaseRouter);
 
 app.doc("/openapi", {
     openapi: "3.0.0",

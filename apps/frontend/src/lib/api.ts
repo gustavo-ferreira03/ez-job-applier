@@ -114,3 +114,8 @@ export function setDefaultResume(filename: string | null): Promise<{ default: st
 export function deleteResume(filename: string): Promise<{ ok: boolean }> {
 	return del(`/resumes/${encodeURIComponent(filename)}`);
 }
+
+// Database
+export function clearDatabase(): Promise<{ ok: boolean }> {
+	return del('/database');
+}
