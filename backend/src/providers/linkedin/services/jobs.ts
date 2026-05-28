@@ -313,6 +313,7 @@ async function* extractJobs(
 
         const job: Job = {
             jobId,
+            provider: "linkedin",
             title: title.split("\n")[0].trim(),
             company: (
                 await card

@@ -1,16 +1,12 @@
-export interface Job {
-    jobId: string;
-    title: string;
-    company: string;
-    location: string;
-    url: string;
-    easyApply: boolean;
-    preferences: string[];
-    skills: string[];
-    about: string | null;
-    applicationUrl: string | null;
-}
+// Generic types live in core — re-exported here for convenience
+export type {
+    Job,
+    ApplicationStatus,
+    ApplicationQuestion,
+    ApplyResult,
+} from "../../../core/types";
 
+// LinkedIn-specific search config
 export interface SearchConfig {
     keywords?: string;
     location?: string;
@@ -25,33 +21,9 @@ export interface SearchConfig {
     skipJobIds?: Set<string>;
 }
 
-export type ApplicationStatus =
-    | "FOUND"
-    | "NEEDS_INPUT"
-    | "READY_FOR_REVIEW"
-    | "SUBMITTED"
-    | "SKIPPED"
-    | "FAILED"
-    | "EXTERNAL";
-
-export interface ApplicationQuestion {
-    label: string;
-    answer?: string;
-    fieldType?: string;
-    options?: string[];
-}
-
-export interface EasyApplyResult {
-    status: ApplicationStatus;
-    questions: ApplicationQuestion[];
-    errorMessage?: string;
-}
-
+// LinkedIn Easy Apply config
 export interface EasyApplyConfig {
-    /** Pre-filled answers keyed by field label */
     answers?: Record<string, string>;
-    /** Absolute path to the resume PDF to upload */
     resumePath?: string;
-    /** If false (default), stop at READY_FOR_REVIEW without clicking submit */
     shouldSubmit?: boolean;
 }

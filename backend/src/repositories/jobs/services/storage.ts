@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db, initDb } from "../../../db/client";
 import { linkedinJobs, type LinkedinJobRow } from "../../../db/schema";
-import type { Job } from "../../../providers/linkedin/services/types";
+import type { Job } from "../../../core/types";
 
 function now(): string {
     return new Date().toISOString();
@@ -26,6 +26,7 @@ function parseList(value: string | null): string[] {
 export function jobFromRow(row: LinkedinJobRow): Job {
     return {
         jobId: row.linkedinJobId,
+        provider: "linkedin",
         title: row.title,
         company: row.company,
         location: row.location,

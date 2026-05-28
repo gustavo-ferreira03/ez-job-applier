@@ -1,9 +1,7 @@
 import type { Locator, Page } from "playwright-core";
-import type {
-    ApplicationQuestion,
-    EasyApplyConfig,
-    EasyApplyResult,
-} from "./types";
+import type { ApplicationQuestion } from "./types";
+import type { EasyApplyConfig } from "./types";
+import type { ApplyResult as EasyApplyResult } from "../../../core/types";
 
 const MAX_STEPS = 20;
 

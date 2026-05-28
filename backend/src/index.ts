@@ -1,8 +1,12 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import jobsRouter from "./repositories/jobs/router";
+import coreRouter from "./core/router";
 import linkedinRouter from "./providers/linkedin/router";
 import resumesRouter from "./repositories/resumes/router";
+import { registerProvider } from "./core/registry";
+import { linkedinProvider } from "./providers/linkedin/index";
+
+registerProvider(linkedinProvider);
 
 const app = new Hono();
 
@@ -11,13 +15,9 @@ app.onError((err, c) => {
     return c.json({ error: err.message }, 500);
 });
 
+app.route("/", coreRouter);
 app.route("/linkedin", linkedinRouter);
-app.route("/jobs", jobsRouter);
 app.route("/resumes", resumesRouter);
-
-app.get("/", (c) => {
-    return c.text("Hello Hono!");
-});
 
 serve(
     {
