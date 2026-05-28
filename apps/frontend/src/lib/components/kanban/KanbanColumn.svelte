@@ -5,16 +5,14 @@
 	interface Props {
 		column: KanbanColumnDef;
 		jobs: JobSummary[];
-		processingIds: Set<number>;
+		processingIds: Set<string>;
 		onOpenJob: (job: JobSummary, defaultTab: KanbanTab) => void;
 	}
 
 	let { column, jobs, processingIds, onOpenJob }: Props = $props();
 
 	function isProcessing(job: JobSummary): boolean {
-		return (
-			job.application_id !== null && processingIds.has(job.application_id) && job.status !== 'FOUND'
-		);
+		return processingIds.has(job.job_id) && job.status !== 'FOUND';
 	}
 
 	const cls = $derived(
@@ -62,7 +60,7 @@
 
 	<div class="flex flex-1 flex-col gap-[6px] overflow-y-auto p-2">
 		{#if jobs.length}
-			{#each jobs as job (job.job_id)}
+			{#each jobs as job (job.id)}
 				<KanbanCard
 					{job}
 					processing={isProcessing(job)}

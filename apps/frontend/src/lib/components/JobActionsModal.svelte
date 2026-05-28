@@ -49,7 +49,7 @@
 	);
 
 	async function handleSubmitAnswers() {
-		if (!job.application_id || busy) return;
+		if (busy) return;
 		busy = true;
 		actionNotice = 'Submitting…';
 		try {
@@ -57,7 +57,7 @@
 			for (const q of unanswered) {
 				if (answerInputs[q.label]?.trim()) answers[q.label] = answerInputs[q.label].trim();
 			}
-			await api.submitAnswers(job.application_id, answers);
+			await api.submitAnswers(job.job_id, answers);
 			toastState.show('Answers submitted');
 			onClose();
 			await appState.refresh();
@@ -70,11 +70,11 @@
 	}
 
 	async function handleApprove() {
-		if (!job.application_id || busy) return;
+		if (busy) return;
 		busy = true;
 		actionNotice = 'Approving…';
 		try {
-			await api.approveApplication(job.application_id, selectedCV || null);
+			await api.approveApplication(job.job_id, selectedCV || null);
 			toastState.show('Application approved');
 			onClose();
 			await appState.refresh();
@@ -87,10 +87,10 @@
 	}
 
 	async function handleMarkApplied() {
-		if (!job.application_id || busy) return;
+		if (busy) return;
 		busy = true;
 		try {
-			await api.markApplied(job.application_id);
+			await api.markApplied(job.job_id);
 			toastState.show('Marked as applied');
 			onClose();
 			await appState.refresh();
@@ -102,10 +102,10 @@
 	}
 
 	async function handleSkip() {
-		if (!job.application_id || busy) return;
+		if (busy) return;
 		busy = true;
 		try {
-			await api.skipApplication(job.application_id);
+			await api.skipApplication(job.job_id);
 			toastState.show('Application skipped');
 			onClose();
 			await appState.refresh();
@@ -392,7 +392,7 @@
 		</div>
 
 		<!-- Footer -->
-		{#if hasActionFooter && detail && job.application_id}
+		{#if hasActionFooter && detail}
 			<div
 				class="flex flex-shrink-0 items-center justify-between gap-4 border-t border-border-subtle px-5 py-4"
 			>

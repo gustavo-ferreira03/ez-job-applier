@@ -1,8 +1,8 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { streamSSE } from "hono/streaming";
 import { HTTPException } from "hono/http-exception";
-import { runManager } from "./manager";
-import { DiscoverBody } from "../router";
+import { runManager } from "../core/runs/manager";
+import { DiscoverBody } from "./jobs";
 
 const router = new OpenAPIHono();
 
@@ -77,7 +77,6 @@ router.openapi(
         const lastId = lastIdHeader ? parseInt(lastIdHeader, 10) : 0;
 
         return streamSSE(c, async (s) => {
-            // Replay buffered events since last seen ID
             for (const event of runManager.getEventsSince(lastId)) {
                 await s.writeSSE({
                     id: String(event.id),
@@ -86,7 +85,6 @@ router.openapi(
                 });
             }
 
-            // Stream live events
             await new Promise<void>((resolve) => {
                 const unsubscribe = runManager.onEvent(async (event) => {
                     try {

@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import path from "node:path";
-import { getDefaultResume, setDefaultResume } from "./services/settings";
+import { getDefaultResume, setDefaultResume } from "../repositories/resumes/services/settings";
 import {
     deleteResume,
     listResumes,
     resumeExists,
     saveResume,
-} from "./services/storage";
+} from "../repositories/resumes/services/storage";
 
 const router = new Hono();
 

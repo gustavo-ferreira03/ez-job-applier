@@ -4,11 +4,11 @@
 
 	interface Props {
 		jobs: JobSummary[];
-		processingIds?: Set<number>;
+		processingIds?: Set<string>;
 		onOpenJob?: (job: JobSummary, defaultTab: KanbanTab) => void;
 	}
 
-	let { jobs, processingIds = new Set<number>(), onOpenJob = () => undefined }: Props = $props();
+	let { jobs, processingIds = new Set<string>(), onOpenJob = () => undefined }: Props = $props();
 
 	const columns: KanbanColumnDef[] = [
 		{ id: 'found', title: 'Found', statuses: ['FOUND'] },

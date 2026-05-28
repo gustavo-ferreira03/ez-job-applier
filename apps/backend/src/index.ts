@@ -1,10 +1,10 @@
 import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
-import coreRouter from "./core/router";
-import runsRouter from "./core/runs/router";
-import linkedinRouter from "./providers/linkedin/router";
-import resumesRouter from "./repositories/resumes/router";
+import { cors } from "hono/cors";
+import jobsRouter from "./routes/jobs";
+import runsRouter from "./routes/runs";
+import resumesRouter from "./routes/resumes";
 import { registerProvider } from "./core/registry";
 import { linkedinProvider } from "./providers/linkedin/index";
 
@@ -12,14 +12,15 @@ registerProvider(linkedinProvider);
 
 const app = new OpenAPIHono();
 
+app.use("*", cors());
+
 app.onError((err, c) => {
     console.error(err);
     return c.json({ error: err.message }, 500);
 });
 
-app.route("/", coreRouter);
+app.route("/", jobsRouter);
 app.route("/", runsRouter);
-app.route("/linkedin", linkedinRouter);
 app.route("/resumes", resumesRouter);
 
 app.doc("/openapi", {

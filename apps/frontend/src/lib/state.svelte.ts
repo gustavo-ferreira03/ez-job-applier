@@ -1,5 +1,5 @@
-import { getState, sseUrl } from './api';
-import type { JobSummary, RunConfig, StateResponse } from './types';
+import { getCurrentRun, getResumes, listJobs, sseUrl, type RunResponse } from './api';
+import type { JobSummary, RunConfig } from './types';
 
 function defaultConfig(): RunConfig {
 	return {
@@ -16,6 +16,35 @@ function defaultConfig(): RunConfig {
 	};
 }
 
+function runToState(run: RunResponse | null): {
+	running: boolean;
+	worker_running: boolean;
+	current_config: RunConfig | null;
+} {
+	if (!run || run.status !== 'running') {
+		return { running: false, worker_running: false, current_config: null };
+	}
+	const c = run.config;
+	return {
+		running: true,
+		worker_running: true,
+		current_config: {
+			keywords: c.keywords ?? '',
+			location: c.location ?? null,
+			easy_apply: (c.options?.easyApply as boolean) ?? true,
+			work_type: c.workType ?? null,
+			experience_level: c.experienceLevel ?? [],
+			job_type: c.jobType ?? [],
+			date_posted: c.datePosted ?? null,
+			include_top_applicant: false,
+			max_apply: c.maxJobs ?? null,
+			fill_skill_gaps: false
+		}
+	};
+}
+
+const SSE_EVENTS = ['job_found', 'applying', 'result', 'done', 'cancelled', 'error'] as const;
+
 class AppState {
 	jobs = $state<JobSummary[]>([]);
 	run = $state<{ running: boolean; worker_running: boolean; current_config: RunConfig | null }>({
@@ -26,20 +55,22 @@ class AppState {
 	cvs = $state<string[]>([]);
 	config = $state<RunConfig>(defaultConfig());
 	defaultCV = $state<string | null>(null);
-	processingIds = $state<Set<number>>(new Set());
+	processingIds = $state<Set<string>>(new Set());
 	connected = $state(false);
 
 	private es: EventSource | null = null;
 
 	async init() {
 		try {
-			const state: StateResponse = await getState();
-			this.jobs = state.jobs;
-			this.run = state.run;
-			this.cvs = state.cvs;
-			const { default_cv, ...runConfig } = state.config;
-			this.config = { ...defaultConfig(), ...runConfig };
-			this.defaultCV = default_cv ?? null;
+			const [jobsRes, runRes, resumesRes] = await Promise.all([
+				listJobs(),
+				getCurrentRun(),
+				getResumes()
+			]);
+			this.jobs = jobsRes.jobs;
+			this.run = runToState(runRes.run);
+			this.cvs = resumesRes.files;
+			this.defaultCV = resumesRes.default;
 		} catch (e) {
 			console.error('Failed to load state:', e);
 		}
@@ -47,10 +78,9 @@ class AppState {
 
 	async refresh() {
 		try {
-			const state: StateResponse = await getState();
-			this.jobs = state.jobs;
-			this.run = state.run;
-			this.cvs = state.cvs;
+			const [jobsRes, runRes] = await Promise.all([listJobs(), getCurrentRun()]);
+			this.jobs = jobsRes.jobs;
+			this.run = runToState(runRes.run);
 		} catch (e) {
 			console.error('Failed to refresh state:', e);
 		}
@@ -64,12 +94,18 @@ class AppState {
 		const es = new EventSource(sseUrl());
 		this.es = es;
 
-		es.onmessage = (e) => {
-			try {
-				this.handleEvent(JSON.parse(e.data) as Record<string, unknown>);
-			} catch {
-				// ignore
-			}
+		for (const eventType of SSE_EVENTS) {
+			es.addEventListener(eventType, (e: MessageEvent) => {
+				try {
+					this.handleEvent(JSON.parse(e.data) as Record<string, unknown>);
+				} catch {
+					// ignore
+				}
+			});
+		}
+
+		es.onopen = () => {
+			this.connected = true;
 		};
 
 		es.onerror = () => {
@@ -84,45 +120,37 @@ class AppState {
 		const type = event.type as string;
 
 		switch (type) {
-			case 'connected':
-				this.connected = true;
-				break;
-
-			case 'run_started':
-				this.run.running = true;
-				break;
-
-			case 'run_finished':
-			case 'run_failed':
-			case 'run_cancelled':
-				this.run.running = false;
+			case 'job_found':
 				this.refresh();
 				break;
 
-			case 'job_discovered':
-			case 'application_created':
-				this.refresh();
-				break;
-
-			case 'application_processing': {
-				const appId = event.application_id as number;
-				this.processingIds = new Set([...this.processingIds, appId]);
+			case 'applying': {
+				const jobId = event.jobId as string;
+				this.processingIds = new Set([...this.processingIds, jobId]);
 				break;
 			}
 
-			case 'application_needs_input':
-			case 'application_ready_for_review':
-			case 'application_answers_saved':
-			case 'application_submit_approved':
-			case 'application_submitted':
-			case 'application_rejected': {
-				const appId = event.application_id as number;
+			case 'result': {
+				const jobId = event.jobId as string;
 				const next = new Set(this.processingIds);
-				next.delete(appId);
+				next.delete(jobId);
 				this.processingIds = next;
 				this.refresh();
 				break;
 			}
+
+			case 'done':
+			case 'cancelled':
+				this.run.running = false;
+				this.run.worker_running = false;
+				this.refresh();
+				break;
+
+			case 'error':
+				this.run.running = false;
+				this.run.worker_running = false;
+				this.refresh();
+				break;
 		}
 	}
 }

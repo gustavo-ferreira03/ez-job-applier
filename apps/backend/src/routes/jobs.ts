@@ -1,16 +1,29 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { streamSSE } from "hono/streaming";
 import { HTTPException } from "hono/http-exception";
-import { listJobs, getJob } from "../repositories/jobs/services/storage";
+import { desc, eq, inArray } from "drizzle-orm";
+import { db, initDb } from "../db/client";
+import { jobs, applications, applicationQuestions } from "../db/schema";
+import { getJob } from "../repositories/jobs/services/storage";
 import {
     getApplication,
-    getQuestions,
     upsertApplication,
     answerQuestions,
 } from "../repositories/applications/services/storage";
-import { discoverJobs } from "./usecases/discoverJobs";
-import { getQuestions as getQuestionsUseCase } from "./usecases/getQuestions";
-import { applyToJob } from "./usecases/applyToJob";
+import { discoverJobs } from "../core/usecases/discoverJobs";
+import { applyToJob } from "../core/usecases/applyToJob";
+
+function parseList(value: string | null): string[] {
+    if (!value) return [];
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return Array.isArray(parsed)
+            ? parsed.filter((item): item is string => typeof item === "string")
+            : [];
+    } catch {
+        return [];
+    }
+}
 
 const JobIdParam = z.object({
     jobId: z.string().openapi({
@@ -100,10 +113,69 @@ router.openapi(
         method: "get",
         path: "/jobs",
         tags: ["Jobs"],
-        summary: "List all discovered jobs",
-        responses: { 200: { description: "List of jobs" } },
+        summary: "List all jobs with their application status",
+        responses: { 200: { description: "List of job summaries" } },
     }),
-    async (c) => c.json({ jobs: await listJobs() }),
+    async (c) => {
+        await initDb();
+
+        const rows = await db
+            .select({ job: jobs, application: applications })
+            .from(jobs)
+            .leftJoin(applications, eq(applications.jobId, jobs.id))
+            .orderBy(desc(jobs.updatedAt));
+
+        const appIds = rows
+            .filter((r) => r.application !== null)
+            .map((r) => r.application!.id);
+
+        const unansweredMap = new Map<number, number>();
+        if (appIds.length > 0) {
+            const qRows = await db
+                .select({
+                    applicationId: applicationQuestions.applicationId,
+                    answer: applicationQuestions.answer,
+                })
+                .from(applicationQuestions)
+                .where(inArray(applicationQuestions.applicationId, appIds));
+
+            for (const qr of qRows) {
+                if (qr.answer === null) {
+                    unansweredMap.set(
+                        qr.applicationId,
+                        (unansweredMap.get(qr.applicationId) ?? 0) + 1,
+                    );
+                }
+            }
+        }
+
+        const jobSummaries = rows.map(({ job, application }) => ({
+            id: job.id,
+            job_id: job.externalId,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            url: job.url,
+            easy_apply: false,
+            preferences: parseList(job.preferences),
+            skills: parseList(job.skills),
+            about: job.about,
+            application_url: job.applicationUrl,
+            application_id: application?.id ?? null,
+            status: application?.status ?? "FOUND",
+            submit_approved: false,
+            cv_filename: application?.resumeFilename ?? null,
+            error_message: application?.errorMessage ?? null,
+            created_at: job.createdAt,
+            updated_at: job.updatedAt,
+            application_updated_at: application?.updatedAt ?? null,
+            unanswered_count: application
+                ? (unansweredMap.get(application.id) ?? 0)
+                : 0,
+        }));
+
+        return c.json({ jobs: jobSummaries });
+    },
 );
 
 router.openapi(
@@ -111,21 +183,67 @@ router.openapi(
         method: "get",
         path: "/jobs/{jobId}",
         tags: ["Jobs"],
-        summary: "Get a job with its application and questions",
+        summary: "Get a job with its application status and questions",
         request: { params: JobIdParam },
         responses: {
-            200: { description: "Job with application and questions" },
+            200: { description: "Job detail" },
             404: { description: "Job not found" },
         },
     }),
     async (c) => {
+        await initDb();
         const { jobId } = c.req.valid("param");
-        const job = await getJob(jobId);
-        if (!job)
-            throw new HTTPException(404, { message: "Vaga não encontrada" });
-        const application = await getApplication(job.provider, job.jobId);
-        const questions = application ? await getQuestions(application.id) : [];
-        return c.json({ job, application, questions });
+
+        const [jobRow] = await db
+            .select({ job: jobs, application: applications })
+            .from(jobs)
+            .leftJoin(applications, eq(applications.jobId, jobs.id))
+            .where(eq(jobs.externalId, jobId))
+            .limit(1);
+
+        if (!jobRow) throw new HTTPException(404, { message: "Vaga não encontrada" });
+
+        const { job, application } = jobRow;
+
+        const questionRows = application
+            ? await db
+                  .select()
+                  .from(applicationQuestions)
+                  .where(eq(applicationQuestions.applicationId, application.id))
+            : [];
+
+        const unansweredCount = questionRows.filter((q) => q.answer === null).length;
+
+        return c.json({
+            id: job.id,
+            job_id: job.externalId,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            url: job.url,
+            easy_apply: false,
+            preferences: parseList(job.preferences),
+            skills: parseList(job.skills),
+            about: job.about,
+            application_url: job.applicationUrl,
+            application_id: application?.id ?? null,
+            status: application?.status ?? "FOUND",
+            submit_approved: false,
+            cv_filename: application?.resumeFilename ?? null,
+            error_message: application?.errorMessage ?? null,
+            created_at: job.createdAt,
+            updated_at: job.updatedAt,
+            application_updated_at: application?.updatedAt ?? null,
+            unanswered_count: unansweredCount,
+            questions: questionRows.map((q) => ({
+                id: q.id,
+                application_id: q.applicationId,
+                label: q.label,
+                answer: q.answer ?? null,
+                field_type: q.fieldType ?? null,
+                options: parseList(q.options),
+            })),
+        });
     },
 );
 
@@ -163,24 +281,6 @@ router.openapi(
                 });
             }
         });
-    },
-);
-
-router.openapi(
-    createRoute({
-        method: "get",
-        path: "/jobs/{jobId}/questions",
-        tags: ["Applications"],
-        summary:
-            "Open the application form and return questions without submitting",
-        request: { params: JobIdParam },
-        responses: {
-            200: { description: "ApplyResult with list of questions" },
-        },
-    }),
-    async (c) => {
-        const result = await getQuestionsUseCase(c.req.valid("param").jobId);
-        return c.json(result);
     },
 );
 
@@ -240,8 +340,7 @@ router.openapi(
                     "Candidatura não encontrada. Chame GET /jobs/:id/questions primeiro.",
             });
         await answerQuestions(application.id, answers);
-        const questions = await getQuestions(application.id);
-        return c.json({ application, questions });
+        return c.json({ ok: true });
     },
 );
 
@@ -262,12 +361,8 @@ router.openapi(
         const job = await getJob(jobId);
         if (!job)
             throw new HTTPException(404, { message: "Vaga não encontrada" });
-        const application = await upsertApplication(
-            job.provider,
-            job.jobId,
-            "SKIPPED",
-        );
-        return c.json({ application });
+        await upsertApplication(job.provider, job.jobId, "SKIPPED");
+        return c.json({ ok: true });
     },
 );
 
@@ -288,12 +383,8 @@ router.openapi(
         const job = await getJob(jobId);
         if (!job)
             throw new HTTPException(404, { message: "Vaga não encontrada" });
-        const application = await upsertApplication(
-            job.provider,
-            job.jobId,
-            "SUBMITTED",
-        );
-        return c.json({ application });
+        await upsertApplication(job.provider, job.jobId, "SUBMITTED");
+        return c.json({ ok: true });
     },
 );
 

@@ -33,6 +33,7 @@ export interface ApplicationQuestion {
 }
 
 export interface JobSummary {
+	id: number;
 	job_id: string;
 	title: string | null;
 	company: string | null;
