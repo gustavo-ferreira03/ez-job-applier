@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import DiscoverModal from '$lib/components/DiscoverModal.svelte';
 	import JobActionsModal from '$lib/components/JobActionsModal.svelte';
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -8,6 +9,7 @@
 	import { appState } from '$lib/state.svelte';
 	import type { JobSummary, KanbanTab } from '$lib/types';
 
+	let discoverOpen = $state(false);
 	let settingsOpen = $state(false);
 	let selectedJob = $state<{ job: JobSummary; defaultTab: KanbanTab } | null>(null);
 
@@ -25,9 +27,16 @@
 </svelte:head>
 
 <main class="min-h-screen bg-surface-base font-sans text-text-primary">
-	<AppHeader onOpenSettings={() => (settingsOpen = true)} />
+	<AppHeader
+		onOpenDiscover={() => (discoverOpen = true)}
+		onOpenSettings={() => (settingsOpen = true)}
+	/>
 
 	<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
+
+	{#if discoverOpen}
+		<DiscoverModal onClose={() => (discoverOpen = false)} />
+	{/if}
 
 	{#if settingsOpen}
 		<SettingsModal onClose={() => (settingsOpen = false)} />

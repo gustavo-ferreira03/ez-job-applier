@@ -9,6 +9,7 @@ import { login } from "./services/auth";
 import { discoverJobs as discoverJobsService } from "./services/jobs";
 import { runEasyApply } from "./services/easyApply";
 import type { SearchConfig } from "./services/types";
+import { getSettings } from "../../repositories/settings";
 
 export const linkedinProvider: IJobProvider = {
     name: "linkedin",
@@ -18,7 +19,8 @@ export const linkedinProvider: IJobProvider = {
     },
 
     async createSession(): Promise<IJobProviderSession> {
-        const context = await openLinkedinContext({ visible: false });
+        const { browserVisible } = await getSettings();
+        const context = await openLinkedinContext({ visible: browserVisible });
 
         // Two pages: one stays on the search/listing, the other opens job forms
         const discoveryPage = context.pages()[0] ?? (await context.newPage());

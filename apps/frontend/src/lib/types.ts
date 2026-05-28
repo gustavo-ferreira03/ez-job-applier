@@ -63,6 +63,16 @@ export interface DiscoveryJob {
 	errorMessage: string | null;
 }
 
+export interface AppSettings {
+	browserVisible: boolean;
+}
+
+export interface AutoApplyStatus {
+	running: boolean;
+	applied: number;
+	failed: number;
+}
+
 export interface KanbanColumn {
 	id: string;
 	title: string;

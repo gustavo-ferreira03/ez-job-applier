@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, initDb } from "../../../db/client";
 import {
     applications,
@@ -131,6 +131,15 @@ export async function getQuestions(applicationId: number): Promise<ApplicationQu
         .from(applicationQuestions)
         .where(eq(applicationQuestions.applicationId, applicationId));
     return rows.map(questionFromRow);
+}
+
+export async function listJobIdsByStatus(status: string): Promise<number[]> {
+    await initDb();
+    const rows = await db
+        .select({ jobId: applications.jobId })
+        .from(applications)
+        .where(eq(applications.status, status));
+    return rows.map((r) => r.jobId);
 }
 
 export async function answerQuestions(

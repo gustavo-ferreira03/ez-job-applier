@@ -1,5 +1,5 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { DiscoverConfig, DiscoveryJob, JobDetail, JobSummary } from './types';
+import type { AppSettings, AutoApplyStatus, DiscoverConfig, DiscoveryJob, JobDetail, JobSummary } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -62,6 +62,36 @@ export function applyToJob(jobId: number, answers?: Record<string, string>, resu
 
 export function skipJob(jobId: number): Promise<{ ok: boolean }> {
 	return post(`/jobs/${jobId}/skip`);
+}
+
+// Settings
+export function getAppSettings(): Promise<AppSettings> {
+	return get('/settings');
+}
+
+export function updateAppSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+	const res = fetch(`${BASE}/settings`, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(patch)
+	});
+	return res.then((r) => {
+		if (!r.ok) throw new Error(`${r.status} PATCH /settings`);
+		return r.json() as Promise<AppSettings>;
+	});
+}
+
+// Auto-apply
+export function getAutoApplyStatus(): Promise<AutoApplyStatus> {
+	return get('/auto-apply');
+}
+
+export function startAutoApply(): Promise<{ ok: boolean }> {
+	return post('/auto-apply/start');
+}
+
+export function stopAutoApply(): Promise<{ ok: boolean }> {
+	return post('/auto-apply/stop');
 }
 
 // Resumes

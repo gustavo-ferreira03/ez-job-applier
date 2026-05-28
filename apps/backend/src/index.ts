@@ -6,6 +6,8 @@ import discoveriesRouter from "./routes/discoveries";
 import jobsRouter from "./routes/jobs";
 import applicationsRouter from "./routes/applications";
 import resumesRouter from "./routes/resumes";
+import autoApplyRouter from "./routes/auto-apply";
+import settingsRouter from "./routes/settings";
 import { registerProvider } from "./core/registry";
 import { linkedinProvider } from "./providers/linkedin/index";
 
@@ -24,6 +26,8 @@ app.route("/", discoveriesRouter);
 app.route("/", jobsRouter);
 app.route("/", applicationsRouter);
 app.route("/", resumesRouter);
+app.route("/", autoApplyRouter);
+app.route("/", settingsRouter);
 
 app.doc("/openapi", {
     openapi: "3.0.0",
