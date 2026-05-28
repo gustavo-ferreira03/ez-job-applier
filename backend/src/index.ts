@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import coreRouter from "./core/router";
+import runsRouter from "./core/runs/router";
 import linkedinRouter from "./providers/linkedin/router";
 import resumesRouter from "./repositories/resumes/router";
 import { registerProvider } from "./core/registry";
@@ -17,6 +18,7 @@ app.onError((err, c) => {
 });
 
 app.route("/", coreRouter);
+app.route("/", runsRouter);
 app.route("/linkedin", linkedinRouter);
 app.route("/resumes", resumesRouter);
 

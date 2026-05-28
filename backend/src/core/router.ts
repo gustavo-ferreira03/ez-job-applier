@@ -19,7 +19,7 @@ const JobIdParam = z.object({
     }),
 });
 
-const DiscoverBody = z
+export const DiscoverBody = z
     .object({
         provider: z.string().openapi({ example: "linkedin" }),
         keywords: z
