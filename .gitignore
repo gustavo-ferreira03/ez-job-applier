@@ -5,8 +5,6 @@ __pycache__/
 .env
 .env.*
 
-storage/
-
 .vscode/
 .agents/
 .claude/

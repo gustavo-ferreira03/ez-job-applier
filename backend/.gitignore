@@ -27,9 +27,6 @@ lerna-debug.log*
 # misc
 .DS_Store
 
-# uploads
-storage/
-
 # sqlite runtime files
 *.db
 *.db-shm

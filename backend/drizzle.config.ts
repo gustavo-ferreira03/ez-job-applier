@@ -6,6 +6,6 @@ export default defineConfig({
     out: "./drizzle",
     dialect: "sqlite",
     dbCredentials: {
-        url: process.env.DB_FILE_NAME || "file:storage/applier.db",
+        url: "file:storage/applier.db",
     },
 });
