@@ -4,7 +4,7 @@ import type { DiscoverConfig, Job } from "../types";
 
 export async function* discoverJobs(config: DiscoverConfig): AsyncGenerator<Job> {
     const provider = getProvider(config.provider);
-    const skipIds = await listJobIds();
+    const skipIds = await listJobIds(config.provider);
 
     for await (const job of provider.discoverJobs(config, skipIds)) {
         await saveJob(job);

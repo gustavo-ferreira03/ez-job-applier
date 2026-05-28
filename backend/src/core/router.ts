@@ -5,7 +5,7 @@ import { listJobs, getJob } from "../repositories/jobs/services/storage";
 import {
     getApplication,
     getQuestions,
-} from "../repositories/linkedin-applications/services/storage";
+} from "../repositories/applications/services/storage";
 import { discoverJobs } from "./usecases/discoverJobs";
 import { getQuestions as getQuestionsUseCase } from "./usecases/getQuestions";
 import { applyToJob } from "./usecases/applyToJob";
@@ -21,7 +21,7 @@ router.get("/jobs/:jobId", async (c) => {
     const job = await getJob(c.req.param("jobId"));
     if (!job) throw new HTTPException(404, { message: "Vaga não encontrada" });
 
-    const application = await getApplication(job.jobId);
+    const application = await getApplication(job.provider, job.jobId);
     const questions = application ? await getQuestions(application.id) : [];
 
     return c.json({ job, application, questions });

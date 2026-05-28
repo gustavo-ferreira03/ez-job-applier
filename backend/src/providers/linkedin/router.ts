@@ -10,7 +10,7 @@ import { login } from "./services/auth";
 import { discoverJobs } from "./services/jobs";
 import { runEasyApply } from "./services/easyApply";
 import { withPage, withVisiblePage, requireAuth } from "./middleware";
-import { upsertApplication, replaceQuestions } from "../../repositories/linkedin-applications/services/storage";
+import { upsertApplication, replaceQuestions } from "../../repositories/applications/services/storage";
 import type { SearchConfig } from "./services/types";
 
 const router = new Hono();
@@ -78,6 +78,7 @@ router.get("/easy-apply/:jobId/questions", withPage, requireAuth, async (c) => {
             shouldSubmit: false,
         });
         const application = await upsertApplication(
+            job.provider,
             job.jobId,
             result.status,
             resumeFilename,
@@ -116,6 +117,7 @@ router.post("/easy-apply/:jobId/submit", withPage, requireAuth, async (c) => {
             shouldSubmit: true,
         });
         const application = await upsertApplication(
+            job.provider,
             job.jobId,
             result.status,
             resumeFilename,

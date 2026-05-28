@@ -31,15 +31,16 @@ async function initialize(): Promise<void> {
     }
 
     await client.execute("PRAGMA journal_mode = WAL");
+
     await client.execute(`
-        CREATE TABLE IF NOT EXISTS linkedin_jobs (
+        CREATE TABLE IF NOT EXISTS jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            linkedin_job_id TEXT NOT NULL UNIQUE,
+            provider TEXT NOT NULL,
+            external_id TEXT NOT NULL,
             title TEXT NOT NULL,
             company TEXT NOT NULL,
             location TEXT NOT NULL,
             url TEXT NOT NULL,
-            easy_apply INTEGER NOT NULL DEFAULT 0,
             preferences TEXT NOT NULL DEFAULT '[]',
             skills TEXT NOT NULL DEFAULT '[]',
             about TEXT,
@@ -50,9 +51,14 @@ async function initialize(): Promise<void> {
     `);
 
     await client.execute(`
-        CREATE TABLE IF NOT EXISTS linkedin_applications (
+        CREATE UNIQUE INDEX IF NOT EXISTS jobs_provider_external_id_unique
+        ON jobs (provider, external_id)
+    `);
+
+    await client.execute(`
+        CREATE TABLE IF NOT EXISTS applications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            linkedin_job_id TEXT NOT NULL UNIQUE,
+            job_id INTEGER NOT NULL UNIQUE,
             status TEXT NOT NULL DEFAULT 'FOUND',
             resume_filename TEXT,
             error_message TEXT,
@@ -62,7 +68,7 @@ async function initialize(): Promise<void> {
     `);
 
     await client.execute(`
-        CREATE TABLE IF NOT EXISTS linkedin_application_questions (
+        CREATE TABLE IF NOT EXISTS application_questions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             application_id INTEGER NOT NULL,
             label TEXT NOT NULL,
@@ -72,19 +78,52 @@ async function initialize(): Promise<void> {
         )
     `);
 
-    const existingJobsTable = await client.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'jobs'",
+    // Migrate data from legacy linkedin_jobs table
+    const oldJobs = await client.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'linkedin_jobs'",
     );
-    if (existingJobsTable.rows.length > 0) {
+    if (oldJobs.rows.length > 0) {
         await client.execute(`
-            INSERT OR IGNORE INTO linkedin_jobs (
-                linkedin_job_id, title, company, location, url, easy_apply,
-                preferences, skills, about, application_url, created_at, updated_at
-            )
+            INSERT OR IGNORE INTO jobs
+                (provider, external_id, title, company, location, url,
+                 preferences, skills, about, application_url, created_at, updated_at)
             SELECT
-                job_id, title, company, location, url, easy_apply,
+                'linkedin', linkedin_job_id, title, company, location, url,
                 preferences, skills, about, application_url, created_at, updated_at
-            FROM jobs
+            FROM linkedin_jobs
+        `);
+    }
+
+    // Migrate data from legacy linkedin_applications table
+    const oldApps = await client.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'linkedin_applications'",
+    );
+    if (oldApps.rows.length > 0) {
+        await client.execute(`
+            INSERT OR IGNORE INTO applications
+                (job_id, status, resume_filename, error_message, created_at, updated_at)
+            SELECT
+                j.id, la.status, la.resume_filename, la.error_message,
+                la.created_at, la.updated_at
+            FROM linkedin_applications la
+            JOIN jobs j ON j.provider = 'linkedin' AND j.external_id = la.linkedin_job_id
+        `);
+    }
+
+    // Migrate data from legacy linkedin_application_questions table
+    const oldQuestions = await client.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'linkedin_application_questions'",
+    );
+    if (oldQuestions.rows.length > 0) {
+        await client.execute(`
+            INSERT OR IGNORE INTO application_questions
+                (application_id, label, answer, field_type, options)
+            SELECT
+                a.id, laq.label, laq.answer, laq.field_type, laq.options
+            FROM linkedin_application_questions laq
+            JOIN linkedin_applications la ON la.id = laq.application_id
+            JOIN jobs j ON j.provider = 'linkedin' AND j.external_id = la.linkedin_job_id
+            JOIN applications a ON a.job_id = j.id
         `);
     }
 }

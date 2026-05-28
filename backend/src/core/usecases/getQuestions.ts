@@ -3,10 +3,8 @@ import { getJob } from "../../repositories/jobs/services/storage";
 import {
     upsertApplication,
     replaceQuestions,
-} from "../../repositories/linkedin-applications/services/storage";
-import {
-    getDefaultResume,
-} from "../../repositories/resumes/services/settings";
+} from "../../repositories/applications/services/storage";
+import { getDefaultResume } from "../../repositories/resumes/services/settings";
 import { RESUMES_DIR } from "../../repositories/resumes/services/storage";
 import path from "node:path";
 import type { ApplyResult } from "../types";
@@ -25,6 +23,7 @@ export async function getQuestions(jobId: string): Promise<ApplyResult> {
     const result = await provider.getQuestions(job, resumePath);
 
     const application = await upsertApplication(
+        job.provider,
         job.jobId,
         result.status,
         defaultResume ?? undefined,

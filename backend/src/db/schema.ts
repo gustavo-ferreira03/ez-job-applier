@@ -1,28 +1,29 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-export const linkedinJobs = sqliteTable("linkedin_jobs", {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    linkedinJobId: text("linkedin_job_id").notNull().unique(),
-    title: text("title").notNull(),
-    company: text("company").notNull(),
-    location: text("location").notNull(),
-    url: text("url").notNull(),
-    easyApply: integer("easy_apply", { mode: "boolean" })
-        .notNull()
-        .default(false),
-    preferences: text("preferences").notNull().default("[]"),
-    skills: text("skills").notNull().default("[]"),
-    about: text("about"),
-    applicationUrl: text("application_url"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+export const jobs = sqliteTable(
+    "jobs",
+    {
+        id: integer("id").primaryKey({ autoIncrement: true }),
+        provider: text("provider").notNull(),
+        externalId: text("external_id").notNull(),
+        title: text("title").notNull(),
+        company: text("company").notNull(),
+        location: text("location").notNull(),
+        url: text("url").notNull(),
+        preferences: text("preferences").notNull().default("[]"),
+        skills: text("skills").notNull().default("[]"),
+        about: text("about"),
+        applicationUrl: text("application_url"),
+        createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+        updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    },
+    (t) => [uniqueIndex("jobs_provider_external_id_unique").on(t.provider, t.externalId)],
+);
 
-// Possible values: FOUND | NEEDS_INPUT | READY_FOR_REVIEW | SUBMITTED | SKIPPED | FAILED | EXTERNAL
-export const linkedinApplications = sqliteTable("linkedin_applications", {
+export const applications = sqliteTable("applications", {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    linkedinJobId: text("linkedin_job_id").notNull().unique(),
+    jobId: integer("job_id").notNull().unique(),
     status: text("status").notNull().default("FOUND"),
     resumeFilename: text("resume_filename"),
     errorMessage: text("error_message"),
@@ -30,7 +31,7 @@ export const linkedinApplications = sqliteTable("linkedin_applications", {
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const linkedinApplicationQuestions = sqliteTable("linkedin_application_questions", {
+export const applicationQuestions = sqliteTable("application_questions", {
     id: integer("id").primaryKey({ autoIncrement: true }),
     applicationId: integer("application_id").notNull(),
     label: text("label").notNull(),
@@ -39,11 +40,11 @@ export const linkedinApplicationQuestions = sqliteTable("linkedin_application_qu
     options: text("options").notNull().default("[]"),
 });
 
-export type LinkedinJobRow = typeof linkedinJobs.$inferSelect;
-export type NewLinkedinJobRow = typeof linkedinJobs.$inferInsert;
+export type JobRow = typeof jobs.$inferSelect;
+export type NewJobRow = typeof jobs.$inferInsert;
 
-export type LinkedinApplicationRow = typeof linkedinApplications.$inferSelect;
-export type NewLinkedinApplicationRow = typeof linkedinApplications.$inferInsert;
+export type ApplicationRow = typeof applications.$inferSelect;
+export type NewApplicationRow = typeof applications.$inferInsert;
 
-export type LinkedinApplicationQuestionRow = typeof linkedinApplicationQuestions.$inferSelect;
-export type NewLinkedinApplicationQuestionRow = typeof linkedinApplicationQuestions.$inferInsert;
+export type ApplicationQuestionRow = typeof applicationQuestions.$inferSelect;
+export type NewApplicationQuestionRow = typeof applicationQuestions.$inferInsert;

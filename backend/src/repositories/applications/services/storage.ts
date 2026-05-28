@@ -1,12 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { db, initDb } from "../../../db/client";
 import {
-    linkedinApplications,
-    linkedinApplicationQuestions,
-    type LinkedinApplicationRow,
-    type LinkedinApplicationQuestionRow,
+    applications,
+    applicationQuestions,
+    type ApplicationRow,
+    type ApplicationQuestionRow,
 } from "../../../db/schema";
-import type { ApplicationQuestion, ApplicationStatus } from "../../../providers/linkedin/services/types";
+import { getJobRow } from "../../jobs/services/storage";
+import type { ApplicationQuestion, ApplicationStatus } from "../../../core/types";
 
 function now(): string {
     return new Date().toISOString();
@@ -20,13 +21,15 @@ function parseOptions(value: string | null): string[] {
     if (!value) return [];
     try {
         const parsed: unknown = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed.filter((o): o is string => typeof o === "string") : [];
+        return Array.isArray(parsed)
+            ? parsed.filter((o): o is string => typeof o === "string")
+            : [];
     } catch {
         return [];
     }
 }
 
-export function questionFromRow(row: LinkedinApplicationQuestionRow): ApplicationQuestion {
+export function questionFromRow(row: ApplicationQuestionRow): ApplicationQuestion {
     return {
         label: row.label,
         answer: row.answer ?? undefined,
@@ -35,29 +38,39 @@ export function questionFromRow(row: LinkedinApplicationQuestionRow): Applicatio
     };
 }
 
-export async function getApplication(linkedinJobId: string): Promise<LinkedinApplicationRow | null> {
+export async function getApplication(
+    provider: string,
+    externalId: string,
+): Promise<ApplicationRow | null> {
     await initDb();
+    const jobRow = await getJobRow(provider, externalId);
+    if (!jobRow) return null;
+
     const [row] = await db
         .select()
-        .from(linkedinApplications)
-        .where(eq(linkedinApplications.linkedinJobId, linkedinJobId))
+        .from(applications)
+        .where(eq(applications.jobId, jobRow.id))
         .limit(1);
     return row ?? null;
 }
 
 export async function upsertApplication(
-    linkedinJobId: string,
+    provider: string,
+    externalId: string,
     status: ApplicationStatus,
     resumeFilename?: string,
     errorMessage?: string,
-): Promise<LinkedinApplicationRow> {
+): Promise<ApplicationRow> {
     await initDb();
+    const jobRow = await getJobRow(provider, externalId);
+    if (!jobRow) throw new Error(`Job not found: ${provider}/${externalId}`);
+
     const timestamp = now();
 
     await db
-        .insert(linkedinApplications)
+        .insert(applications)
         .values({
-            linkedinJobId,
+            jobId: jobRow.id,
             status,
             resumeFilename: resumeFilename ?? null,
             errorMessage: errorMessage ?? null,
@@ -65,7 +78,7 @@ export async function upsertApplication(
             updatedAt: timestamp,
         })
         .onConflictDoUpdate({
-            target: linkedinApplications.linkedinJobId,
+            target: applications.jobId,
             set: {
                 status,
                 resumeFilename: resumeFilename ?? null,
@@ -74,19 +87,19 @@ export async function upsertApplication(
             },
         });
 
-    return (await getApplication(linkedinJobId))!;
+    return (await getApplication(provider, externalId))!;
 }
 
 export async function updateApplicationStatus(
-    linkedinJobId: string,
+    applicationId: number,
     status: ApplicationStatus,
     errorMessage?: string,
 ): Promise<void> {
     await initDb();
     await db
-        .update(linkedinApplications)
+        .update(applications)
         .set({ status, errorMessage: errorMessage ?? null, updatedAt: now() })
-        .where(eq(linkedinApplications.linkedinJobId, linkedinJobId));
+        .where(eq(applications.id, applicationId));
 }
 
 export async function replaceQuestions(
@@ -95,12 +108,12 @@ export async function replaceQuestions(
 ): Promise<void> {
     await initDb();
     await db
-        .delete(linkedinApplicationQuestions)
-        .where(eq(linkedinApplicationQuestions.applicationId, applicationId));
+        .delete(applicationQuestions)
+        .where(eq(applicationQuestions.applicationId, applicationId));
 
     if (questions.length === 0) return;
 
-    await db.insert(linkedinApplicationQuestions).values(
+    await db.insert(applicationQuestions).values(
         questions.map((q) => ({
             applicationId,
             label: q.label,
@@ -115,8 +128,8 @@ export async function getQuestions(applicationId: number): Promise<ApplicationQu
     await initDb();
     const rows = await db
         .select()
-        .from(linkedinApplicationQuestions)
-        .where(eq(linkedinApplicationQuestions.applicationId, applicationId));
+        .from(applicationQuestions)
+        .where(eq(applicationQuestions.applicationId, applicationId));
     return rows.map(questionFromRow);
 }
 
@@ -127,12 +140,12 @@ export async function answerQuestions(
     await initDb();
     for (const [label, answer] of Object.entries(answers)) {
         await db
-            .update(linkedinApplicationQuestions)
+            .update(applicationQuestions)
             .set({ answer })
             .where(
                 and(
-                    eq(linkedinApplicationQuestions.applicationId, applicationId),
-                    eq(linkedinApplicationQuestions.label, label),
+                    eq(applicationQuestions.applicationId, applicationId),
+                    eq(applicationQuestions.label, label),
                 ),
             );
     }

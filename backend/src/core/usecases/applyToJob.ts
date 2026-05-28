@@ -5,10 +5,8 @@ import {
     replaceQuestions,
     getApplication,
     getQuestions,
-} from "../../repositories/linkedin-applications/services/storage";
-import {
-    getDefaultResume,
-} from "../../repositories/resumes/services/settings";
+} from "../../repositories/applications/services/storage";
+import { getDefaultResume } from "../../repositories/resumes/services/settings";
 import { RESUMES_DIR } from "../../repositories/resumes/services/storage";
 import path from "node:path";
 import type { ApplyResult } from "../types";
@@ -24,7 +22,7 @@ export async function applyToJob(
     const provider = getProviderForJob(job);
 
     // Merge persisted answers with answers from the request
-    const existing = await getApplication(jobId);
+    const existing = await getApplication(job.provider, job.jobId);
     if (existing) {
         const persisted = await getQuestions(existing.id);
         for (const q of persisted) {
@@ -40,6 +38,7 @@ export async function applyToJob(
     const result = await provider.apply(job, answers, resumePath);
 
     const application = await upsertApplication(
+        job.provider,
         job.jobId,
         result.status,
         filename,

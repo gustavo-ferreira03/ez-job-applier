@@ -1,9 +1,7 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, initDb } from "../../../db/client";
-import { linkedinJobs, type LinkedinJobRow } from "../../../db/schema";
+import { jobs, type JobRow } from "../../../db/schema";
 import type { Job } from "../../../core/types";
-
-type SaveableJob = Job & { easyApply?: boolean };
 
 function now(): string {
     return new Date().toISOString();
@@ -25,10 +23,10 @@ function parseList(value: string | null): string[] {
     }
 }
 
-export function jobFromRow(row: LinkedinJobRow): Job {
+export function jobFromRow(row: JobRow): Job {
     return {
-        jobId: row.linkedinJobId,
-        provider: "linkedin",
+        jobId: row.externalId,
+        provider: row.provider,
         title: row.title,
         company: row.company,
         location: row.location,
@@ -40,19 +38,19 @@ export function jobFromRow(row: LinkedinJobRow): Job {
     };
 }
 
-export async function saveJob(job: SaveableJob): Promise<void> {
+export async function saveJob(job: Job): Promise<void> {
     await initDb();
     const timestamp = now();
 
     await db
-        .insert(linkedinJobs)
+        .insert(jobs)
         .values({
-            linkedinJobId: job.jobId,
+            provider: job.provider,
+            externalId: job.jobId,
             title: job.title,
             company: job.company,
             location: job.location,
             url: job.url,
-            easyApply: job.easyApply ?? false,
             preferences: serializeList(job.preferences),
             skills: serializeList(job.skills),
             about: job.about,
@@ -61,13 +59,12 @@ export async function saveJob(job: SaveableJob): Promise<void> {
             updatedAt: timestamp,
         })
         .onConflictDoUpdate({
-            target: linkedinJobs.linkedinJobId,
+            target: [jobs.provider, jobs.externalId],
             set: {
                 title: job.title,
                 company: job.company,
                 location: job.location,
                 url: job.url,
-                easyApply: job.easyApply ?? false,
                 preferences: serializeList(job.preferences),
                 skills: serializeList(job.skills),
                 about: job.about,
@@ -77,33 +74,38 @@ export async function saveJob(job: SaveableJob): Promise<void> {
         });
 }
 
-export async function saveJobs(items: Job[]): Promise<void> {
-    for (const job of items) await saveJob(job);
-}
-
 export async function listJobs(): Promise<Job[]> {
     await initDb();
-    const rows = await db
-        .select()
-        .from(linkedinJobs)
-        .orderBy(desc(linkedinJobs.updatedAt));
+    const rows = await db.select().from(jobs).orderBy(desc(jobs.updatedAt));
     return rows.map(jobFromRow);
 }
 
-export async function getJob(jobId: string): Promise<Job | null> {
+export async function getJob(provider: string, externalId: string): Promise<Job | null>;
+export async function getJob(externalId: string): Promise<Job | null>;
+export async function getJob(providerOrExternalId: string, externalId?: string): Promise<Job | null> {
     await initDb();
-    const [row] = await db
-        .select()
-        .from(linkedinJobs)
-        .where(eq(linkedinJobs.linkedinJobId, jobId))
-        .limit(1);
+    const [row] = externalId
+        ? await db.select().from(jobs)
+            .where(and(eq(jobs.provider, providerOrExternalId), eq(jobs.externalId, externalId)))
+            .limit(1)
+        : await db.select().from(jobs)
+            .where(eq(jobs.externalId, providerOrExternalId))
+            .limit(1);
     return row ? jobFromRow(row) : null;
 }
 
-export async function listJobIds(): Promise<Set<string>> {
+export async function getJobRow(provider: string, externalId: string): Promise<JobRow | null> {
     await initDb();
-    const rows = await db
-        .select({ linkedinJobId: linkedinJobs.linkedinJobId })
-        .from(linkedinJobs);
-    return new Set(rows.map((row) => row.linkedinJobId));
+    const [row] = await db.select().from(jobs)
+        .where(and(eq(jobs.provider, provider), eq(jobs.externalId, externalId)))
+        .limit(1);
+    return row ?? null;
+}
+
+export async function listJobIds(provider?: string): Promise<Set<string>> {
+    await initDb();
+    const rows = provider
+        ? await db.select({ externalId: jobs.externalId }).from(jobs).where(eq(jobs.provider, provider))
+        : await db.select({ externalId: jobs.externalId }).from(jobs);
+    return new Set(rows.map((r) => r.externalId));
 }
