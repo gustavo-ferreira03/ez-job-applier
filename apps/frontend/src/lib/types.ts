@@ -82,3 +82,5 @@ export interface KanbanColumn {
 	muted?: boolean;
 	alert?: 'yellow' | 'blue' | 'purple';
 }
+
+export type Page = 'pipeline' | 'tabela' | 'discoveries' | 'configuracoes';

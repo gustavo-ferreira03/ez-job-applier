@@ -47,6 +47,10 @@ export function cancelDiscovery(id: string): Promise<{ ok: boolean }> {
 	return del(`/discoveries/${id}`);
 }
 
+export function listDiscoveries(): Promise<{ discoveries: DiscoveryJob[] }> {
+	return get('/discoveries');
+}
+
 // Applications
 export function getQuestions(jobId: number): Promise<unknown> {
 	return post(`/jobs/${jobId}/questions`);
