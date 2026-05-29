@@ -1,0 +1,120 @@
+<h2>Estrutura de navegação</h2>
+<p class="subtitle">Como você quer organizar as seções da aplicação?</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f1923;border-radius:6px;overflow:hidden;font-size:11px;font-family:monospace">
+        <div style="background:#1a2a38;padding:8px 12px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #2a3f52">
+          <span style="color:#4a9eca;font-weight:bold">EZJobApplier</span>
+          <span style="flex:1"></span>
+          <span style="background:#1e4060;color:#7aaac8;padding:3px 8px;border-radius:3px">Auto-apply</span>
+          <span style="background:#1a6b3a;color:#5eca8a;padding:3px 8px;border-radius:3px">Discover</span>
+          <span style="color:#4a6a88">⚙</span>
+        </div>
+        <div style="display:flex;gap:6px;padding:8px;height:140px">
+          <div style="flex:1;background:#0d1e2c;border-radius:4px;border:1px solid #1e3448;padding:6px">
+            <div style="color:#7aaac8;font-size:10px;margin-bottom:4px">Found (12)</div>
+            <div style="background:#162636;border-radius:2px;padding:4px;margin-bottom:3px;color:#c8d8e8;font-size:9px">Sr. Frontend Engineer</div>
+            <div style="background:#162636;border-radius:2px;padding:4px;margin-bottom:3px;color:#c8d8e8;font-size:9px">Backend Dev</div>
+            <div style="background:#162636;border-radius:2px;padding:4px;color:#c8d8e8;font-size:9px">...</div>
+          </div>
+          <div style="flex:1;background:#0d1e2c;border-radius:4px;border:1px solid #2a3010;padding:6px">
+            <div style="color:#caa84a;font-size:10px;margin-bottom:4px">⚠ Needs Input (3)</div>
+            <div style="background:#162636;border-radius:2px;padding:4px;margin-bottom:3px;color:#c8d8e8;font-size:9px">Full Stack Dev</div>
+          </div>
+          <div style="flex:1;background:#0d1e2c;border-radius:4px;border:1px solid #102030;padding:6px">
+            <div style="color:#4a9eca;font-size:10px;margin-bottom:4px">Review (2)</div>
+            <div style="background:#162636;border-radius:2px;padding:4px;color:#c8d8e8;font-size:9px">DevOps Lead</div>
+          </div>
+          <div style="flex:1;background:#0d1e2c;border-radius:4px;border:1px solid #102030;padding:6px">
+            <div style="color:#5eca8a;font-size:10px;margin-bottom:4px">✓ Submitted (8)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Kanban (atual)</h3>
+      <p>Tela única com colunas horizontais. Simples, focado no pipeline. Ações via modal.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f1923;border-radius:6px;overflow:hidden;font-size:11px;font-family:monospace;display:flex;height:188px">
+        <div style="width:130px;background:#0a1520;border-right:1px solid #1e3448;padding:8px;flex-shrink:0">
+          <div style="color:#4a9eca;font-weight:bold;margin-bottom:12px;font-size:10px">EZJobApplier</div>
+          <div style="color:#7aaac8;padding:4px 6px;background:#1a2a38;border-radius:3px;margin-bottom:2px;font-size:10px">📋 Pipeline</div>
+          <div style="color:#4a6a88;padding:4px 6px;border-radius:3px;margin-bottom:2px;font-size:10px">📊 Tabela</div>
+          <div style="color:#4a6a88;padding:4px 6px;border-radius:3px;margin-bottom:2px;font-size:10px">🔍 Discoveries</div>
+          <div style="color:#4a6a88;padding:4px 6px;border-radius:3px;margin-bottom:2px;font-size:10px">⚙ Settings</div>
+          <div style="margin-top:auto;padding-top:8px;border-top:1px solid #1e3448;margin-top:60px">
+            <div style="background:#1a6b3a;color:#5eca8a;padding:4px 8px;border-radius:3px;font-size:10px;margin-bottom:4px">▶ Auto-apply</div>
+            <div style="background:#1e4060;color:#7aaac8;padding:4px 8px;border-radius:3px;font-size:10px">🔍 Discover</div>
+          </div>
+        </div>
+        <div style="flex:1;padding:8px">
+          <div style="color:#c8d8e8;font-size:10px;font-weight:bold;margin-bottom:6px">Pipeline</div>
+          <div style="display:flex;gap:4px;height:140px">
+            <div style="flex:1;background:#0d1e2c;border-radius:3px;border:1px solid #1e3448;padding:5px">
+              <div style="color:#7aaac8;font-size:9px;margin-bottom:3px">Found (12)</div>
+              <div style="background:#162636;border-radius:2px;padding:3px;margin-bottom:2px;color:#c8d8e8;font-size:8px">Sr. Frontend Eng</div>
+              <div style="background:#162636;border-radius:2px;padding:3px;color:#c8d8e8;font-size:8px">Backend Dev</div>
+            </div>
+            <div style="flex:1;background:#0d1e2c;border-radius:3px;border:1px solid #2a3010;padding:5px">
+              <div style="color:#caa84a;font-size:9px;margin-bottom:3px">⚠ Needs Input (3)</div>
+              <div style="background:#162636;border-radius:2px;padding:3px;color:#c8d8e8;font-size:8px">Full Stack</div>
+            </div>
+            <div style="flex:1;background:#0d1e2c;border-radius:3px;border:1px solid #102030;padding:5px">
+              <div style="color:#4a9eca;font-size:9px;margin-bottom:3px">Review (2)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Sidebar + Seções</h3>
+      <p>Sidebar fixa com navegação. Pipeline, Tabela, Discoveries e Settings como páginas separadas.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f1923;border-radius:6px;overflow:hidden;font-size:11px;font-family:monospace">
+        <div style="background:#1a2a38;padding:6px 12px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #2a3f52">
+          <span style="color:#4a9eca;font-weight:bold">EZJobApplier</span>
+          <span style="color:#7aaac8;padding:2px 8px;border-bottom:2px solid #4a9eca;font-size:10px">Pipeline</span>
+          <span style="color:#4a6a88;padding:2px 8px;font-size:10px">Tabela</span>
+          <span style="color:#4a6a88;padding:2px 8px;font-size:10px">Discoveries</span>
+          <span style="flex:1"></span>
+          <span style="background:#1e4060;color:#7aaac8;padding:2px 6px;border-radius:3px;font-size:10px">Discover</span>
+          <span style="background:#1a6b3a;color:#5eca8a;padding:2px 6px;border-radius:3px;font-size:10px">Auto-apply</span>
+        </div>
+        <div style="display:flex;gap:5px;padding:7px;height:148px">
+          <div style="flex:1;background:#0d1e2c;border-radius:3px;border:1px solid #1e3448;padding:5px">
+            <div style="color:#7aaac8;font-size:9px;margin-bottom:3px">Found (12)</div>
+            <div style="background:#162636;border-radius:2px;padding:3px;margin-bottom:2px;color:#c8d8e8;font-size:8px">Sr. Frontend Eng</div>
+            <div style="background:#162636;border-radius:2px;padding:3px;margin-bottom:2px;color:#c8d8e8;font-size:8px">Backend Dev</div>
+            <div style="background:#162636;border-radius:2px;padding:3px;color:#4a6a88;font-size:8px">+10 mais</div>
+          </div>
+          <div style="flex:1;background:#0d1e2c;border-radius:3px;border:1px solid #2a3010;padding:5px">
+            <div style="color:#caa84a;font-size:9px;margin-bottom:3px">⚠ Needs Input (3)</div>
+            <div style="background:#162636;border-radius:2px;padding:3px;margin-bottom:2px;color:#c8d8e8;font-size:8px">Full Stack Dev</div>
+          </div>
+          <div style="flex:1;background:#0d1e2c;border-radius:3px;border:1px solid #1a3010;padding:5px">
+            <div style="color:#4a9eca;font-size:9px;margin-bottom:3px">Review (2)</div>
+          </div>
+          <div style="flex:1;background:#0d1e2c;border-radius:3px;border:1px solid #102030;padding:5px">
+            <div style="color:#5eca8a;font-size:9px;margin-bottom:3px">✓ Submitted (8)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Top nav com abas</h3>
+      <p>Header com abas: Pipeline / Tabela / Discoveries. Ações ficam no header. Mais horizontal, sem sidebar.</p>
+    </div>
+  </div>
+
+</div>

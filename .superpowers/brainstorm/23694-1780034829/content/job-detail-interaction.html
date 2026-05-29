@@ -1,0 +1,150 @@
+<h2>Como abrir os detalhes de uma vaga?</h2>
+<p class="subtitle">Essa decisão afeta todo o fluxo — responder perguntas, escolher currículo, submeter.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d0f;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;font-size:11px;display:flex;height:190px;position:relative">
+        <!-- Sidebar -->
+        <div style="width:110px;background:#0a0a0c;border-right:1px solid #1c1c20;padding:8px;flex-shrink:0">
+          <div style="font-weight:800;color:#fff;font-size:10px;margin-bottom:12px">EZJobApplier</div>
+          <div style="color:#fff;background:#1c1c20;padding:4px 6px;border-radius:3px;margin-bottom:2px;font-size:9px">Pipeline</div>
+          <div style="color:#52525b;padding:4px 6px;font-size:9px">Tabela</div>
+        </div>
+        <!-- Kanban dimmed -->
+        <div style="flex:1;padding:8px;filter:brightness(0.4)">
+          <div style="display:flex;gap:4px;height:100%">
+            <div style="flex:1;background:#111113;border:1px solid #1c1c20;border-radius:4px;padding:5px">
+              <div style="color:#52525b;font-size:7px;margin-bottom:3px">FOUND · 12</div>
+              <div style="background:#18181b;border-radius:2px;padding:3px;margin-bottom:2px;outline:1px solid #3b82f6"><div style="color:#e4e4e7;font-size:7px">Sr. Frontend Eng</div></div>
+            </div>
+          </div>
+        </div>
+        <!-- Modal overlay -->
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7)">
+          <div style="background:#111113;border:1px solid #27272a;border-radius:6px;width:200px;padding:10px;box-shadow:0 20px 60px rgba(0,0,0,0.8)">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+              <div>
+                <div style="color:#fff;font-weight:600;font-size:9px">Sr. Frontend Engineer</div>
+                <div style="color:#52525b;font-size:8px">Stripe · Remote</div>
+              </div>
+              <div style="color:#52525b;font-size:10px">✕</div>
+            </div>
+            <div style="display:flex;gap:0;border-bottom:1px solid #1c1c20;margin-bottom:8px">
+              <div style="color:#fff;font-size:8px;padding:3px 6px;border-bottom:1px solid #fff">Info</div>
+              <div style="color:#52525b;font-size:8px;padding:3px 6px">Ações</div>
+            </div>
+            <div style="color:#71717a;font-size:7px;line-height:1.4;margin-bottom:8px">We are looking for a senior engineer to join our infrastructure team...</div>
+            <div style="display:flex;justify-content:flex-end;gap:4px">
+              <div style="background:#1c1c20;color:#a1a1aa;padding:3px 8px;border-radius:3px;font-size:8px">Skip</div>
+              <div style="background:#2563eb;color:#fff;padding:3px 8px;border-radius:3px;font-size:8px">Get Questions</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Modal centralizado</h3>
+      <p>Como hoje. Overlay escurece o fundo, modal aparece no centro. Foco total na vaga. Fecha com Esc ou clique fora.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d0f;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;font-size:11px;display:flex;height:190px">
+        <!-- Sidebar -->
+        <div style="width:90px;background:#0a0a0c;border-right:1px solid #1c1c20;padding:8px;flex-shrink:0">
+          <div style="font-weight:800;color:#fff;font-size:10px;margin-bottom:12px">EZJobApplier</div>
+          <div style="color:#fff;background:#1c1c20;padding:4px 6px;border-radius:3px;margin-bottom:2px;font-size:9px">Pipeline</div>
+          <div style="color:#52525b;padding:4px 6px;font-size:9px">Tabela</div>
+        </div>
+        <!-- Kanban (compressed) -->
+        <div style="width:120px;padding:8px;border-right:1px solid #1c1c20">
+          <div style="color:#fff;font-size:9px;font-weight:600;margin-bottom:6px">Pipeline</div>
+          <div style="background:#111113;border:1px solid #1c1c20;border-radius:4px;padding:5px;margin-bottom:3px">
+            <div style="color:#52525b;font-size:7px;margin-bottom:2px">FOUND · 12</div>
+            <div style="background:#18181b;border-radius:2px;padding:3px;margin-bottom:2px;outline:1px solid #3b82f6"><div style="color:#e4e4e7;font-size:7px">Sr. Frontend Eng</div><div style="color:#52525b;font-size:6px">Stripe</div></div>
+            <div style="background:#18181b;border-radius:2px;padding:3px"><div style="color:#71717a;font-size:7px">Backend Dev</div></div>
+          </div>
+        </div>
+        <!-- Detail panel -->
+        <div style="flex:1;background:#111113;border-left:1px solid #27272a;padding:8px;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+            <div>
+              <div style="color:#fff;font-weight:600;font-size:9px">Sr. Frontend Engineer</div>
+              <div style="color:#52525b;font-size:8px">Stripe · Remote</div>
+            </div>
+            <div style="color:#52525b;font-size:9px">✕</div>
+          </div>
+          <div style="display:flex;gap:0;border-bottom:1px solid #1c1c20;margin-bottom:6px">
+            <div style="color:#fff;font-size:8px;padding:3px 6px;border-bottom:1px solid #fff">Info</div>
+            <div style="color:#52525b;font-size:8px;padding:3px 6px">Ações</div>
+          </div>
+          <div style="color:#71717a;font-size:7px;line-height:1.4;margin-bottom:6px">We are looking for a senior engineer to join our infrastructure team...</div>
+          <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:6px">
+            <span style="background:#1c1c20;color:#71717a;padding:1px 5px;border-radius:2px;font-size:7px">React</span>
+            <span style="background:#1c1c20;color:#71717a;padding:1px 5px;border-radius:2px;font-size:7px">TypeScript</span>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:4px;margin-top:auto">
+            <div style="background:#1c1c20;color:#a1a1aa;padding:3px 8px;border-radius:3px;font-size:7px">Skip</div>
+            <div style="background:#2563eb;color:#fff;padding:3px 8px;border-radius:3px;font-size:7px">Get Questions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Painel lateral inline</h3>
+      <p>Clicou na vaga: painel de detalhes abre à direita, kanban encolhe. Contexto permanece visível. Sem overlay.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d0f;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;font-size:11px;display:flex;height:190px;position:relative">
+        <!-- Sidebar -->
+        <div style="width:90px;background:#0a0a0c;border-right:1px solid #1c1c20;padding:8px;flex-shrink:0">
+          <div style="font-weight:800;color:#fff;font-size:10px;margin-bottom:12px">EZJobApplier</div>
+          <div style="color:#fff;background:#1c1c20;padding:4px 6px;border-radius:3px;font-size:9px">Pipeline</div>
+        </div>
+        <!-- Kanban normal -->
+        <div style="flex:1;padding:8px">
+          <div style="display:flex;gap:4px;height:100%">
+            <div style="flex:1;background:#111113;border:1px solid #1c1c20;border-radius:4px;padding:5px">
+              <div style="color:#52525b;font-size:7px;margin-bottom:3px">FOUND · 12</div>
+              <div style="background:#18181b;border-radius:2px;padding:3px;margin-bottom:2px"><div style="color:#e4e4e7;font-size:7px">Sr. Frontend Eng</div></div>
+              <div style="background:#18181b;border-radius:2px;padding:3px"><div style="color:#71717a;font-size:7px">Backend Dev</div></div>
+            </div>
+            <div style="flex:1;background:#111113;border:1px solid #2d2508;border-radius:4px;padding:5px">
+              <div style="color:#ca8a04;font-size:7px;margin-bottom:3px">NEEDS · 3</div>
+            </div>
+          </div>
+        </div>
+        <!-- Drawer from right -->
+        <div style="position:absolute;right:0;top:0;bottom:0;width:170px;background:#111113;border-left:1px solid #27272a;padding:10px;box-shadow:-8px 0 24px rgba(0,0,0,0.6)">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+            <div>
+              <div style="color:#fff;font-weight:600;font-size:9px">Sr. Frontend Eng</div>
+              <div style="color:#52525b;font-size:8px">Stripe · Remote</div>
+            </div>
+            <div style="color:#52525b;font-size:9px">✕</div>
+          </div>
+          <div style="display:flex;gap:0;border-bottom:1px solid #1c1c20;margin-bottom:6px">
+            <div style="color:#fff;font-size:8px;padding:3px 6px;border-bottom:1px solid #fff">Info</div>
+            <div style="color:#52525b;font-size:8px;padding:3px 6px">Ações</div>
+          </div>
+          <div style="color:#71717a;font-size:7px;line-height:1.4;margin-bottom:6px">We are looking for a senior engineer...</div>
+          <div style="display:flex;justify-content:flex-end;gap:3px">
+            <div style="background:#1c1c20;color:#a1a1aa;padding:2px 6px;border-radius:3px;font-size:7px">Skip</div>
+            <div style="background:#2563eb;color:#fff;padding:2px 6px;border-radius:3px;font-size:7px">Get Questions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Drawer (slide from right)</h3>
+      <p>Painel desliza da direita por cima do kanban, sem encolhê-lo. O board fica visível atrás. Fecha deslizando de volta.</p>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,166 @@
+<h2>View Tabela — como organizar?</h2>
+<p class="subtitle">A tabela mostra todas as vagas em linhas. O que você quer ver e como filtrar?</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d0f;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;font-size:9px">
+        <!-- Filter bar -->
+        <div style="padding:8px 10px;border-bottom:1px solid #1c1c20;display:flex;gap:6px;align-items:center">
+          <div style="background:#111113;border:1px solid #27272a;border-radius:3px;padding:3px 8px;color:#52525b;font-size:8px">Status: Todos ▾</div>
+          <div style="background:#111113;border:1px solid #27272a;border-radius:3px;padding:3px 8px;color:#52525b;font-size:8px">Empresa ▾</div>
+          <div style="flex:1"></div>
+          <div style="background:#111113;border:1px solid #27272a;border-radius:3px;padding:3px 8px;color:#52525b;font-size:8px">🔍 Buscar...</div>
+        </div>
+        <!-- Table -->
+        <div style="padding:0">
+          <!-- Header -->
+          <div style="display:grid;grid-template-columns:1fr 80px 60px 55px 50px;padding:5px 10px;border-bottom:1px solid #1c1c20;color:#52525b;font-size:7px;letter-spacing:0.04em">
+            <span>VAGA</span><span>EMPRESA</span><span>STATUS</span><span>SKILLS</span><span>DATA</span>
+          </div>
+          <!-- Rows -->
+          <div style="display:grid;grid-template-columns:1fr 80px 60px 55px 50px;padding:6px 10px;border-bottom:1px solid #18181b;align-items:center">
+            <span style="color:#e4e4e7;font-weight:500">Sr. Frontend Engineer</span>
+            <span style="color:#71717a">Stripe</span>
+            <span><span style="background:#2d2508;color:#ca8a04;padding:1px 5px;border-radius:2px;font-size:7px">Needs Input</span></span>
+            <span style="color:#52525b">React, TS</span>
+            <span style="color:#52525b">2d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 80px 60px 55px 50px;padding:6px 10px;border-bottom:1px solid #18181b;align-items:center;background:#0f0f11">
+            <span style="color:#e4e4e7;font-weight:500">Backend Developer</span>
+            <span style="color:#71717a">Vercel</span>
+            <span><span style="background:#1e3a5f;color:#3b82f6;padding:1px 5px;border-radius:2px;font-size:7px">Review</span></span>
+            <span style="color:#52525b">Go, SQL</span>
+            <span style="color:#52525b">1d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 80px 60px 55px 50px;padding:6px 10px;border-bottom:1px solid #18181b;align-items:center">
+            <span style="color:#e4e4e7;font-weight:500">Full Stack Dev</span>
+            <span style="color:#71717a">Linear</span>
+            <span><span style="background:#052e16;color:#22c55e;padding:1px 5px;border-radius:2px;font-size:7px">Submitted</span></span>
+            <span style="color:#52525b">Next, TS</span>
+            <span style="color:#52525b">3d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 80px 60px 55px 50px;padding:6px 10px;border-bottom:1px solid #18181b;align-items:center;background:#0f0f11">
+            <span style="color:#e4e4e7;font-weight:500">DevOps Engineer</span>
+            <span style="color:#71717a">Cloudflare</span>
+            <span><span style="background:#1c1c20;color:#52525b;padding:1px 5px;border-radius:2px;font-size:7px">Found</span></span>
+            <span style="color:#52525b">K8s, AWS</span>
+            <span style="color:#52525b">hoje</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 80px 60px 55px 50px;padding:6px 10px;align-items:center">
+            <span style="color:#e4e4e7;font-weight:500">Staff Engineer</span>
+            <span style="color:#71717a">Figma</span>
+            <span><span style="background:#1c1c20;color:#52525b;padding:1px 5px;border-radius:2px;font-size:7px">Found</span></span>
+            <span style="color:#52525b">Rust, C++</span>
+            <span style="color:#52525b">hoje</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Tabela compacta com filtros</h3>
+      <p>Linhas densas, dropdowns de filtro acima. Clica na linha → abre o drawer. Ordenável por coluna.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d0f;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;font-size:9px">
+        <!-- Status tabs -->
+        <div style="padding:0 10px;border-bottom:1px solid #1c1c20;display:flex;gap:0">
+          <div style="color:#52525b;padding:6px 8px;font-size:8px;border-bottom:1px solid transparent">Todos <span style="color:#3f3f46">25</span></div>
+          <div style="color:#fff;padding:6px 8px;font-size:8px;border-bottom:1px solid #fff">Precisa Ação <span style="background:#ca8a04;color:#fff;padding:0 4px;border-radius:8px;font-size:7px">5</span></div>
+          <div style="color:#52525b;padding:6px 8px;font-size:8px;border-bottom:1px solid transparent">Found <span style="color:#3f3f46">12</span></div>
+          <div style="color:#52525b;padding:6px 8px;font-size:8px;border-bottom:1px solid transparent">Submitted <span style="color:#3f3f46">8</span></div>
+        </div>
+        <!-- Table -->
+        <div style="padding:0">
+          <div style="display:grid;grid-template-columns:1fr 70px 65px 45px;padding:5px 10px;border-bottom:1px solid #1c1c20;color:#52525b;font-size:7px;letter-spacing:0.04em">
+            <span>VAGA</span><span>EMPRESA</span><span>STATUS</span><span>DATA</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 70px 65px 45px;padding:7px 10px;border-bottom:1px solid #18181b;align-items:start">
+            <div>
+              <div style="color:#e4e4e7;font-weight:500;margin-bottom:2px">Sr. Frontend Engineer</div>
+              <div style="display:flex;gap:2px"><span style="background:#1c1c20;color:#52525b;padding:1px 4px;border-radius:2px;font-size:7px">React</span><span style="background:#1c1c20;color:#52525b;padding:1px 4px;border-radius:2px;font-size:7px">TS</span></div>
+            </div>
+            <span style="color:#71717a;padding-top:1px">Stripe · Remote</span>
+            <span style="padding-top:1px"><span style="background:#2d2508;color:#ca8a04;padding:1px 5px;border-radius:2px;font-size:7px">Needs Input</span></span>
+            <span style="color:#52525b;padding-top:1px">2d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 70px 65px 45px;padding:7px 10px;border-bottom:1px solid #18181b;align-items:start;background:#0f0f11">
+            <div>
+              <div style="color:#e4e4e7;font-weight:500;margin-bottom:2px">Backend Developer</div>
+              <div style="display:flex;gap:2px"><span style="background:#1c1c20;color:#52525b;padding:1px 4px;border-radius:2px;font-size:7px">Go</span><span style="background:#1c1c20;color:#52525b;padding:1px 4px;border-radius:2px;font-size:7px">SQL</span></div>
+            </div>
+            <span style="color:#71717a;padding-top:1px">Vercel · SP</span>
+            <span style="padding-top:1px"><span style="background:#1e3a5f;color:#3b82f6;padding:1px 5px;border-radius:2px;font-size:7px">Review</span></span>
+            <span style="color:#52525b;padding-top:1px">1d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 70px 65px 45px;padding:7px 10px;align-items:start">
+            <div>
+              <div style="color:#e4e4e7;font-weight:500;margin-bottom:2px">Staff Engineer</div>
+              <div style="display:flex;gap:2px"><span style="background:#1c1c20;color:#52525b;padding:1px 4px;border-radius:2px;font-size:7px">Rust</span></div>
+            </div>
+            <span style="color:#71717a;padding-top:1px">Figma · Remote</span>
+            <span style="padding-top:1px"><span style="background:#1c1c20;color:#52525b;padding:1px 5px;border-radius:2px;font-size:7px">Found</span></span>
+            <span style="color:#52525b;padding-top:1px">hoje</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Abas de status + linhas com skills</h3>
+      <p>Abas no topo filtram por grupo (Precisa Ação, Found, Submitted). Skills aparecem na linha. Mais scannable.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d0d0f;border-radius:6px;overflow:hidden;font-family:-apple-system,sans-serif;font-size:9px">
+        <!-- Toolbar -->
+        <div style="padding:7px 10px;border-bottom:1px solid #1c1c20;display:flex;gap:5px;align-items:center">
+          <div style="background:#111113;border:1px solid #27272a;border-radius:3px;padding:2px 7px;color:#52525b;font-size:8px">Todos os status ▾</div>
+          <div style="flex:1;background:#111113;border:1px solid #1c1c20;border-radius:3px;padding:2px 8px;color:#3f3f46;font-size:8px">Buscar vagas...</div>
+          <div style="background:#1c1c20;color:#71717a;padding:2px 7px;border-radius:3px;font-size:8px">Colunas ▾</div>
+        </div>
+        <!-- Table with checkbox -->
+        <div style="padding:0">
+          <div style="display:grid;grid-template-columns:16px 1fr 65px 60px 55px 50px;padding:4px 8px;border-bottom:1px solid #1c1c20;color:#52525b;font-size:7px;letter-spacing:0.04em;align-items:center;gap:6px">
+            <span style="width:8px;height:8px;border:1px solid #27272a;border-radius:2px;display:block"></span>
+            <span>VAGA</span><span>EMPRESA</span><span>LOCAL</span><span>STATUS</span><span>DATA</span>
+          </div>
+          <div style="display:grid;grid-template-columns:16px 1fr 65px 60px 55px 50px;padding:5px 8px;border-bottom:1px solid #18181b;align-items:center;gap:6px">
+            <span style="width:8px;height:8px;border:1px solid #27272a;border-radius:2px;background:#2563eb;display:block"></span>
+            <div><div style="color:#e4e4e7;font-weight:500">Sr. Frontend Eng</div><div style="color:#52525b;font-size:7px;margin-top:1px">React · TypeScript · Node</div></div>
+            <span style="color:#71717a">Stripe</span>
+            <span style="color:#71717a">Remote</span>
+            <span><span style="background:#2d2508;color:#ca8a04;padding:1px 4px;border-radius:2px;font-size:7px">Needs Input</span></span>
+            <span style="color:#52525b">2d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:16px 1fr 65px 60px 55px 50px;padding:5px 8px;border-bottom:1px solid #18181b;align-items:center;gap:6px;background:#0f0f11">
+            <span style="width:8px;height:8px;border:1px solid #27272a;border-radius:2px;display:block"></span>
+            <div><div style="color:#e4e4e7;font-weight:500">Backend Developer</div><div style="color:#52525b;font-size:7px;margin-top:1px">Go · PostgreSQL</div></div>
+            <span style="color:#71717a">Vercel</span>
+            <span style="color:#71717a">São Paulo</span>
+            <span><span style="background:#1e3a5f;color:#3b82f6;padding:1px 4px;border-radius:2px;font-size:7px">Review</span></span>
+            <span style="color:#52525b">1d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:16px 1fr 65px 60px 55px 50px;padding:5px 8px;align-items:center;gap:6px">
+            <span style="width:8px;height:8px;border:1px solid #27272a;border-radius:2px;display:block"></span>
+            <div><div style="color:#e4e4e7;font-weight:500">Staff Engineer</div><div style="color:#52525b;font-size:7px;margin-top:1px">Rust · C++</div></div>
+            <span style="color:#71717a">Figma</span>
+            <span style="color:#71717a">Remote</span>
+            <span><span style="background:#1c1c20;color:#52525b;padding:1px 4px;border-radius:2px;font-size:7px">Found</span></span>
+            <span style="color:#52525b">hoje</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Tabela power com checkboxes</h3>
+      <p>Colunas configuráveis, checkboxes para ações em lote, skills como subtexto na linha. Estilo Notion/Airtable.</p>
+    </div>
+  </div>
+
+</div>
