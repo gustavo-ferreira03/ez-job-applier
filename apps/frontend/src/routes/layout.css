@@ -1,117 +1,68 @@
 @import 'tailwindcss';
 
 @theme {
-	/* ─── Typography ─────────────────────────────────────────── */
-	--font-sans:
-		'Instrument Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-		Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-	/* ─── Surfaces (dark navy, layered) ─────────────────────── */
-	--color-surface-base: #070d1a; /* page background            */
-	--color-surface-raised: #0b1829; /* header, columns, modals    */
-	--color-surface-overlay: #0f1e34; /* cards, popovers            */
-	--color-surface-hover: #152440; /* interactive hover          */
-	--color-surface-active: #1c2e50; /* pressed / selected         */
+  /* ─── Fundos ──────────────────────────────────────────────── */
+  --color-surface-base:    #0d0d0f;
+  --color-surface-raised:  #111113;
+  --color-surface-overlay: #18181b;
+  --color-surface-sidebar: #0a0a0c;
+  --color-surface-hover:   #1c1c20;
 
-	/* ─── Borders ────────────────────────────────────────────── */
-	--color-border-subtle: #172c46; /* column lines, dividers     */
-	--color-border-default: #1a2e48; /* card borders               */
-	--color-border-strong: #26405f; /* hover / focus borders      */
+  /* ─── Bordas ──────────────────────────────────────────────── */
+  --color-border-subtle:  #1c1c20;
+  --color-border-default: #27272a;
+  --color-border-strong:  #3f3f46;
 
-	/* ─── Text ───────────────────────────────────────────────── */
-	--color-text-primary: #dce8f5; /* headings, card titles      */
-	--color-text-secondary: #7a9ab8; /* company names, labels      */
-	--color-text-muted: #3d5878; /* locations, meta            */
-	--color-text-faint: #2f4d68; /* timestamps, de-emphasized  */
-	--color-text-placeholder: #1e3a58;
+  /* ─── Texto ───────────────────────────────────────────────── */
+  --color-text-primary:     #e4e4e7;
+  --color-text-secondary:   #a1a1aa;
+  --color-text-muted:       #71717a;
+  --color-text-faint:       #52525b;
+  --color-text-placeholder: #3f3f46;
 
-	/* ─── Brand (sky blue) ───────────────────────────────────── */
-	--color-brand-on: #03111e; /* text rendered on brand bg  */
-	--color-brand-50: #070d1a;
-	--color-brand-100: #0b1829;
-	--color-brand-200: #0c2d4a;
-	--color-brand-300: #0e4c7a;
-	--color-brand-400: #1580c0;
-	--color-brand-500: #38bdf8; /* primary brand              */
-	--color-brand-600: #0ea5e9;
-	--color-brand-700: #7dd3fc;
-	--color-brand-800: #bae6fd;
-	--color-brand-900: #e0f2fe;
+  /* ─── Acento (azul) ───────────────────────────────────────── */
+  --color-accent-500:  #2563eb;
+  --color-accent-600:  #1d4ed8;
+  --color-accent-text: #ffffff;
 
-	/* ─── Warn (amber) ───────────────────────────────────────── */
-	--color-warn-50: #1a1000;
-	--color-warn-100: #2a1c00;
-	--color-warn-500: #f59e0b; /* primary warn               */
-	--color-warn-600: #fbbf24;
-	--color-warn-700: #fde68a;
+  /* ─── Status ──────────────────────────────────────────────── */
+  --color-status-found-bg:      #1c1c20;
+  --color-status-found-text:    #71717a;
+  --color-status-input-bg:      #2d2508;
+  --color-status-input-text:    #ca8a04;
+  --color-status-input-border:  #2a2208;
+  --color-status-review-bg:     #1e3a5f;
+  --color-status-review-text:   #3b82f6;
+  --color-status-review-border: #1a2f4a;
+  --color-status-external-bg:   #2e1065;
+  --color-status-external-text: #a855f7;
+  --color-status-external-border: #2a1040;
+  --color-status-submitted-bg:   #052e16;
+  --color-status-submitted-text: #22c55e;
+  --color-status-submitted-border: #0a3d1c;
+  --color-status-failed-bg:    #1c0a0a;
+  --color-status-failed-text:  #ef4444;
 
-	/* ─── Success (green) ────────────────────────────────────── */
-	--color-success-50: #052e16;
-	--color-success-100: #0a4c24;
-	--color-success-500: #4ade80;
-	--color-success-600: #86efac;
-	--color-success-700: #bbf7d0;
+  /* ─── Auto-apply ──────────────────────────────────────────── */
+  --color-autoapply-bg:   #14532d;
+  --color-autoapply-text: #86efac;
 
-	/* ─── Danger (red) ───────────────────────────────────────── */
-	--color-danger-50: #1a0505;
-	--color-danger-100: #2c0a0a;
-	--color-danger-500: #f87171; /* primary danger             */
-	--color-danger-600: #fca5a5;
-	--color-danger-700: #fecaca;
+  /* ─── Danger ──────────────────────────────────────────────── */
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-bg:  #1c0a0a;
 
-	/* ─── Purple (external / special) ───────────────────────── */
-	--color-purple-50: #0f0a1a;
-	--color-purple-100: #1e1030;
-	--color-purple-500: #a78bfa; /* primary purple             */
-	--color-purple-600: #c4b5fd;
-	--color-purple-700: #ddd6fe;
+  /* ─── Success ─────────────────────────────────────────────── */
+  --color-success-500: #22c55e;
 
-	/* ─── Gray scale (light → dark) ─────────────────────────── */
-	--color-gray-50: #f8fafc;
-	--color-gray-100: #e2e8f0;
-	--color-gray-200: #94a3b8;
-	--color-gray-300: #64748b;
-	--color-gray-400: #3d5878;
-	--color-gray-500: #26405f;
-	--color-gray-600: #1a2e48;
-	--color-gray-700: #172c46;
-	--color-gray-800: #0f1e34;
-	--color-gray-900: #070d1a;
+  /* ─── Z-index ─────────────────────────────────────────────── */
+  --z-drawer: 50;
+  --z-modal:  100;
+  --z-toast:  200;
 
-	/* ─── Spacing (8px base scale) ───────────────────────────── */
-	--spacing-0: 0px;
-	--spacing-1: 4px;
-	--spacing-2: 8px;
-	--spacing-3: 12px;
-	--spacing-4: 16px;
-	--spacing-5: 20px;
-	--spacing-6: 24px;
-	--spacing-8: 32px;
-	--spacing-10: 40px;
-	--spacing-12: 48px;
-	--spacing-16: 64px;
-	--spacing-20: 80px;
-
-	/* ─── Border radius ──────────────────────────────────────── */
-	--radius-none: 0px;
-	--radius-card: 8px;
-
-	/* ─── Shadows ────────────────────────────────────────────── */
-	--shadow-sm: 0 1px 3px rgb(0 0 0 / 0.35);
-	--shadow-md: 0 2px 8px rgb(0 0 0 / 0.45);
-	--shadow-lg: 0 24px 56px rgb(0 0 0 / 0.55);
-
-	/* ─── Z-index scale ──────────────────────────────────────── */
-	--z-base: 0;
-	--z-dropdown: 10;
-	--z-sticky: 50;
-	--z-modal: 100;
-	--z-toast: 200;
-
-	/* ─── Containers ─────────────────────────────────────────── */
-	--container-sm: 640px;
-	--container-md: 768px;
-	--container-lg: 1024px;
-	--container-xl: 1280px;
-	--container-2xl: 1536px;
+  /* ─── Shadows ─────────────────────────────────────────────── */
+  --shadow-drawer: -12px 0 32px rgb(0 0 0 / 0.6);
+  --shadow-modal:  0 24px 56px rgb(0 0 0 / 0.7);
 }
