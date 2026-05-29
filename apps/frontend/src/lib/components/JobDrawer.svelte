@@ -84,7 +84,6 @@
 		if (busy) return;
 		busy = true; notice = 'Enviando candidatura…';
 		try {
-			if (Object.keys(answerInputs).length > 0) await api.saveAnswers(job.id, answerInputs);
 			await api.applyToJob(job.id, answerInputs, selectedResume || undefined);
 			toastState.show('Candidatura enviada');
 			onClose();
@@ -379,7 +378,7 @@
 		<div class="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border-subtle px-4 py-3">
 			<span class="text-[11px] text-text-faint">{notice}</span>
 			<div class="flex gap-2">
-				{#if ['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'FAILED'].includes(job.status)}
+				{#if ['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)}
 					<button
 						type="button"
 						class="h-8 rounded-md border border-border-default bg-surface-overlay px-3 text-[12px] font-medium text-text-muted hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:opacity-40"

@@ -63,7 +63,7 @@
 	const pageTitles: Record<Page, string> = {
 		pipeline: 'Pipeline',
 		tabela: 'Tabela',
-		discoveries: 'Discoveries',
+		discoveries: 'Buscas',
 		configuracoes: 'Configurações'
 	};
 

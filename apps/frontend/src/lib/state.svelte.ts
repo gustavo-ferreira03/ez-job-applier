@@ -111,7 +111,10 @@ class AppState {
 
 	startBackgroundPolling() {
 		if (this.backgroundTimer !== null) return;
-		this.backgroundTimer = setInterval(() => this.refreshJobs(), 5000);
+		this.backgroundTimer = setInterval(async () => {
+			await this.refreshJobs();
+			await this.refreshDiscoveries();
+		}, 5000);
 	}
 }
 

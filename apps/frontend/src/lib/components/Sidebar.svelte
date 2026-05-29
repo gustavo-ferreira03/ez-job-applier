@@ -31,7 +31,7 @@
 	const navItems: { page: Page; label: string; icon: typeof LayoutDashboard }[] = [
 		{ page: 'pipeline',       label: 'Pipeline',       icon: LayoutDashboard },
 		{ page: 'tabela',         label: 'Tabela',         icon: List },
-		{ page: 'discoveries',    label: 'Discoveries',    icon: Search },
+		{ page: 'discoveries',    label: 'Buscas',         icon: Search },
 		{ page: 'configuracoes',  label: 'Configurações',  icon: Settings }
 	];
 </script>

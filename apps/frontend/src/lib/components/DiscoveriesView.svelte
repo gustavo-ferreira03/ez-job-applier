@@ -73,7 +73,7 @@
 	<!-- Header -->
 	<div class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3">
 		<div>
-			<h2 class="text-[13px] font-semibold text-text-primary">Discoveries</h2>
+			<h2 class="text-[13px] font-semibold text-text-primary">Buscas</h2>
 			<p class="text-[11px] text-text-faint">{appState.discoveries.length} buscas realizadas</p>
 		</div>
 		<button
