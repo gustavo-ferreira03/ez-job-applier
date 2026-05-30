@@ -18,6 +18,8 @@ const client = createClient({ url: databaseUrl });
 
 export const db = drizzle(client, { schema });
 
+export type Db = typeof db;
+
 let initPromise: Promise<void> | null = null;
 
 export function initDb(): Promise<void> {
