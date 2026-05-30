@@ -1,8 +1,7 @@
-import { getJobById } from "../../repositories/jobs/services/storage";
-import { upsertApplication } from "../../repositories/applications/services/storage";
+import type { AppContext } from "../context";
 
-export async function skipJob(jobId: number): Promise<void> {
-    const job = await getJobById(jobId);
+export async function skipJob(jobId: number, ctx: AppContext): Promise<void> {
+    const job = await ctx.jobRepo.getById(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
-    await upsertApplication(job.provider, job.jobId, "SKIPPED");
+    await ctx.appRepo.upsert(job.provider, job.jobId, "SKIPPED");
 }
