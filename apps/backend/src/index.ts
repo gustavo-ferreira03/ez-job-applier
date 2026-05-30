@@ -2,17 +2,34 @@ import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
-import discoveriesRouter from "./routes/discoveries";
-import jobsRouter from "./routes/jobs";
-import applicationsRouter from "./routes/applications";
+import { db, initDb } from "./db/client";
+import { linkedinProvider } from "./providers/linkedin/index";
+import { JobRepository } from "./infra/JobRepository";
+import { ApplicationRepository } from "./infra/ApplicationRepository";
+import { DiscoveryRepository } from "./infra/DiscoveryRepository";
+import { ResumeRepository } from "./infra/ResumeRepository";
+import { ProviderRegistry } from "./infra/ProviderRegistry";
+import { createDiscoveriesRouter } from "./routes/discoveries";
+import { createJobsRouter } from "./routes/jobs";
+import { createApplicationsRouter } from "./routes/applications";
+import { createAutoApplyRouter } from "./routes/auto-apply";
 import resumesRouter from "./routes/resumes";
-import autoApplyRouter from "./routes/auto-apply";
 import settingsRouter from "./routes/settings";
 import databaseRouter from "./routes/database";
-import { registerProvider } from "./core/registry";
-import { linkedinProvider } from "./providers/linkedin/index";
+import type { AppContext } from "./core/context";
 
-registerProvider(linkedinProvider);
+await initDb();
+
+const providerRegistry = new ProviderRegistry();
+providerRegistry.register(linkedinProvider);
+
+const ctx: AppContext = {
+    jobRepo: new JobRepository(db),
+    appRepo: new ApplicationRepository(db),
+    discoveryRepo: new DiscoveryRepository(db),
+    resumeRepo: new ResumeRepository(),
+    providerRegistry,
+};
 
 const app = new OpenAPIHono();
 
@@ -23,11 +40,11 @@ app.onError((err, c) => {
     return c.json({ error: err.message }, 500);
 });
 
-app.route("/", discoveriesRouter);
-app.route("/", jobsRouter);
-app.route("/", applicationsRouter);
+app.route("/", createDiscoveriesRouter(ctx));
+app.route("/", createJobsRouter(ctx));
+app.route("/", createApplicationsRouter(ctx));
+app.route("/", createAutoApplyRouter(ctx));
 app.route("/", resumesRouter);
-app.route("/", autoApplyRouter);
 app.route("/", settingsRouter);
 app.route("/", databaseRouter);
 
