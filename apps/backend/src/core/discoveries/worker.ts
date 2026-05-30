@@ -1,17 +1,12 @@
-import { db } from "../../db/client";
-import { discoveries } from "../../db/schema";
-import { jobs as jobsTable } from "../../db/schema";
-import { getProvider } from "../registry";
-import { listJobIds, saveJob } from "../../repositories/jobs/services/storage";
-import { eq, sql } from "drizzle-orm";
+import type { AppContext } from "../context";
 import type { DiscoverConfig } from "../types";
 
 const activeAborts = new Map<string, AbortController>();
 
-export function startWorker(id: string, config: DiscoverConfig): void {
+export function startWorker(id: string, config: DiscoverConfig, ctx: AppContext): void {
     const abort = new AbortController();
     activeAborts.set(id, abort);
-    run(id, config, abort.signal).finally(() => activeAborts.delete(id));
+    run(id, config, ctx, abort.signal).finally(() => activeAborts.delete(id));
 }
 
 export function cancelWorker(id: string): boolean {
@@ -21,38 +16,34 @@ export function cancelWorker(id: string): boolean {
     return true;
 }
 
-async function run(id: string, config: DiscoverConfig, signal: AbortSignal): Promise<void> {
+async function run(
+    id: string,
+    config: DiscoverConfig,
+    ctx: AppContext,
+    signal: AbortSignal,
+): Promise<void> {
     try {
-        const provider = getProvider(config.provider);
-        const skipIds = await listJobIds(config.provider);
+        const provider = ctx.providerRegistry.get(config.provider);
+        const skipIds = await ctx.jobRepo.listIds(config.provider);
         const session = await provider.createSession();
 
         try {
             for await (const job of session.discoverJobs(config, skipIds)) {
                 if (signal.aborted) break;
-                await saveJob(job);
-                await db
-                    .update(discoveries)
-                    .set({ discovered: sql`${discoveries.discovered} + 1` })
-                    .where(eq(discoveries.id, id));
+                await ctx.jobRepo.save(job);
+                await ctx.discoveryRepo.incrementDiscovered(id);
             }
         } finally {
             await session.close();
         }
 
         const status = signal.aborted ? "cancelled" : "done";
-        await db
-            .update(discoveries)
-            .set({ status, finishedAt: new Date().toISOString() })
-            .where(eq(discoveries.id, id));
+        await ctx.discoveryRepo.finish(id, status);
     } catch (err) {
-        await db
-            .update(discoveries)
-            .set({
-                status: "failed",
-                finishedAt: new Date().toISOString(),
-                errorMessage: err instanceof Error ? err.message : String(err),
-            })
-            .where(eq(discoveries.id, id));
+        await ctx.discoveryRepo.finish(
+            id,
+            "failed",
+            err instanceof Error ? err.message : String(err),
+        );
     }
 }

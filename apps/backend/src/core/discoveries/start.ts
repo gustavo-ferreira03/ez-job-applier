@@ -1,36 +1,19 @@
-import { db } from "../../db/client";
-import { discoveries } from "../../db/schema";
-import { eq } from "drizzle-orm";
 import { startWorker } from "./worker";
+import type { AppContext } from "../context";
 import type { DiscoverConfig } from "../types";
 import type { DiscoveryJob } from "./types";
 
 export async function startDiscovery(
     config: DiscoverConfig,
+    ctx: AppContext,
 ): Promise<DiscoveryJob> {
-    const running = await db
-        .select()
-        .from(discoveries)
-        .where(eq(discoveries.status, "running"))
-        .limit(1);
-
-    if (running.length > 0) {
-        throw new Error("A discovery is already running");
-    }
+    const running = await ctx.discoveryRepo.isRunning();
+    if (running) throw new Error("A discovery is already running");
 
     const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+    await ctx.discoveryRepo.create(id, config);
 
-    await db.insert(discoveries).values({
-        id,
-        provider: config.provider,
-        config: JSON.stringify(config),
-        status: "running",
-        discovered: 0,
-        startedAt: now,
-    });
-
-    startWorker(id, config);
+    startWorker(id, config, ctx);
 
     return {
         id,
@@ -38,7 +21,7 @@ export async function startDiscovery(
         config,
         status: "running",
         discovered: 0,
-        startedAt: now,
+        startedAt: new Date().toISOString(),
         finishedAt: null,
         errorMessage: null,
     };
