@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { AppContext } from "../context";
 import type { ApplyResult } from "../types";
 
@@ -10,13 +11,15 @@ export async function getQuestions(jobId: number, ctx: AppContext): Promise<Appl
 
     try {
         const resumePath = await ctx.resumeRepo.getDefaultResumePath();
+        const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
+
         const result = await session.getQuestions(job, resumePath);
 
         const application = await ctx.appRepo.upsert(
             job.provider,
             job.jobId,
             result.status,
-            undefined,
+            resumeFilename,
             result.errorMessage,
         );
         await ctx.appRepo.replaceQuestions(application.id, result.questions);

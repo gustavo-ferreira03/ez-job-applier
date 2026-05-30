@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { AppContext } from "../context";
 import type { ApplyResult } from "../types";
 
@@ -5,7 +6,6 @@ export async function applyToJob(
     jobId: number,
     answers: Record<string, string> = {},
     ctx: AppContext,
-    resumeFilename?: string,
 ): Promise<ApplyResult> {
     const job = await ctx.jobRepo.getById(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
@@ -20,9 +20,8 @@ export async function applyToJob(
         }
     }
 
-    const resumePath = resumeFilename
-        ? undefined
-        : await ctx.resumeRepo.getDefaultResumePath();
+    const resumePath = await ctx.resumeRepo.getDefaultResumePath();
+    const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
 
     const provider = ctx.providerRegistry.getForJob(job);
     const session = await provider.createSession();
@@ -34,7 +33,7 @@ export async function applyToJob(
             job.provider,
             job.jobId,
             result.status,
-            undefined,
+            resumeFilename,
             result.errorMessage,
         );
         await ctx.appRepo.replaceQuestions(application.id, result.questions);
