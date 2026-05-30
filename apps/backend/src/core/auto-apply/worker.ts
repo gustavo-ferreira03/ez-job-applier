@@ -1,7 +1,6 @@
-import { listFoundJobIds, listJobIdsByStatus } from "../../repositories/applications/services/storage";
 import { getQuestions } from "../applications/get-questions";
 import { applyToJob } from "../applications/apply";
-import { isStopRequested, setRunning, incrementApplied, incrementFailed } from "./manager";
+import { isStopRequested, setRunning, incrementApplied, incrementFailed, getCtx } from "./manager";
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -10,12 +9,14 @@ function sleep(ms: number): Promise<void> {
 export async function runLoop(): Promise<void> {
     try {
         while (!isStopRequested()) {
+            const ctx = getCtx();
+
             // Phase 1: collect questions for FOUND jobs (no application yet)
-            const foundIds = await listFoundJobIds();
+            const foundIds = await ctx.appRepo.listFoundJobIds();
             for (const jobId of foundIds) {
                 if (isStopRequested()) break;
                 try {
-                    await getQuestions(jobId);
+                    await getQuestions(jobId, ctx);
                 } catch (e) {
                     console.error(`Auto-apply: getQuestions failed for job ${jobId}:`, e);
                 }
@@ -25,11 +26,11 @@ export async function runLoop(): Promise<void> {
             if (isStopRequested()) break;
 
             // Phase 2: submit READY_FOR_REVIEW jobs
-            const readyIds = await listJobIdsByStatus("READY_FOR_REVIEW");
+            const readyIds = await ctx.appRepo.listIdsByStatus("READY_FOR_REVIEW");
             for (const jobId of readyIds) {
                 if (isStopRequested()) break;
                 try {
-                    await applyToJob(jobId);
+                    await applyToJob(jobId, {}, ctx);
                     incrementApplied();
                 } catch (e) {
                     console.error(`Auto-apply: apply failed for job ${jobId}:`, e);
