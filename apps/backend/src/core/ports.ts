@@ -1,12 +1,13 @@
 import type { Job, DiscoverConfig, ApplicationQuestion, ApplicationStatus } from "./types";
 import type { IJobProvider } from "./interfaces";
-import type { DiscoveryJob } from "./discoveries/types";
+import type { Execution, ExecutionStatusValue } from "./discoveries/types";
 import type { JobSummary, JobDetail } from "./jobs/types";
 
 export interface IJobRepo {
     getById(id: number): Promise<Job | null>;
     getByProvider(provider: string, externalId: string): Promise<Job | null>;
     listIds(provider?: string): Promise<Set<string>>;
+    listSkipIds(provider: string): Promise<Set<string>>;
     save(job: Job): Promise<void>;
     getDetail(id: number): Promise<JobDetail | null>;
     listSummaries(): Promise<JobSummary[]>;
@@ -32,21 +33,20 @@ export interface IAppRepo {
     replaceQuestions(appId: number, questions: ApplicationQuestion[]): Promise<void>;
     getQuestions(appId: number): Promise<ApplicationQuestion[]>;
     answerQuestions(appId: number, answers: Record<string, string>): Promise<void>;
-    listIdsByStatus(status: ApplicationStatus | string): Promise<number[]>;
+    listIdsByStatus(status: ApplicationStatus): Promise<number[]>;
     listFoundJobIds(): Promise<number[]>;
 }
 
-export interface IDiscoveryRepo {
-    isRunning(): Promise<boolean>;
-    create(id: string, config: DiscoverConfig): Promise<void>;
+export interface IExecutionRepo {
+    create(id: string, config: DiscoverConfig, cycleMaxMs: number, intervalMs: number): Promise<void>;
     incrementDiscovered(id: string): Promise<void>;
-    finish(id: string, status: DiscoveryJob["status"], errorMessage?: string): Promise<void>;
-    get(id: string): Promise<DiscoveryJob | null>;
-    list(): Promise<DiscoveryJob[]>;
+    setStatus(id: string, status: ExecutionStatusValue, nextRunAt?: string | null, errorMessage?: string): Promise<void>;
+    getActive(): Promise<Execution | null>;
+    get(id: string): Promise<Execution | null>;
+    list(): Promise<Execution[]>;
 }
 
 export interface IResumeRepo {
-    /** Retorna o path absoluto do resume padrão, ou undefined se nenhum configurado */
     getDefaultResumePath(): Promise<string | undefined>;
 }
 

@@ -1,11 +1,14 @@
-export type ApplicationStatus =
-    | "FOUND"
-    | "NEEDS_INPUT"
-    | "READY_FOR_REVIEW"
-    | "SUBMITTED"
-    | "SKIPPED"
-    | "FAILED"
-    | "EXTERNAL";
+export const APPLICATION_STATUSES = [
+    "FOUND",
+    "NEEDS_INPUT",
+    "READY_FOR_REVIEW",
+    "SUBMITTED",
+    "SKIPPED",
+    "FAILED",
+    "EXTERNAL",
+] as const;
+
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
 export interface Job {
     jobId: string;

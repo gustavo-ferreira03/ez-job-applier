@@ -81,24 +81,43 @@ async function initialize(): Promise<void> {
     `);
 
     await client.execute(`
-        CREATE TABLE IF NOT EXISTS discoveries (
+        CREATE TABLE IF NOT EXISTS executions (
             id TEXT PRIMARY KEY,
-            provider TEXT NOT NULL,
             config TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'running',
             discovered INTEGER NOT NULL DEFAULT 0,
+            cycle_max_ms INTEGER NOT NULL DEFAULT 3600000,
+            interval_ms INTEGER NOT NULL DEFAULT 14400000,
+            next_run_at TEXT,
             started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             finished_at TEXT,
             error_message TEXT
         )
     `);
 
+    const hasDiscoveries = await client.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='discoveries'"
+    );
+    if (hasDiscoveries.rows.length > 0) {
+        await client.execute(`INSERT OR IGNORE INTO executions (id, config, status, discovered, started_at, finished_at, error_message)
+            SELECT id, config, status, discovered, started_at, finished_at, error_message FROM discoveries`);
+        await client.execute(`DROP TABLE discoveries`);
+    }
+
+    // Idempotent migrations for executions columns
+    for (const col of [
+        "cycle_max_ms INTEGER NOT NULL DEFAULT 3600000",
+        "interval_ms INTEGER NOT NULL DEFAULT 14400000",
+        "next_run_at TEXT",
+    ]) {
+        try { await client.execute(`ALTER TABLE executions ADD COLUMN ${col}`); } catch { /* exists */ }
+    }
+
+    // On restart: mark running executions as failed (they'll be re-started by auto-resume)
     await client.execute(`
-        UPDATE discoveries
-        SET status = 'failed',
-            error_message = 'Server restarted',
-            finished_at = CURRENT_TIMESTAMP
-        WHERE status = 'running'
+        UPDATE executions
+        SET status = 'failed', error_message = 'Server restarted', finished_at = CURRENT_TIMESTAMP
+        WHERE status IN ('running', 'waiting')
     `);
 
     // Migrate data from legacy linkedin_jobs table

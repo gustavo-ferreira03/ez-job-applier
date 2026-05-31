@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { APPLICATION_STATUSES } from "../core/types";
 
 export const jobs = sqliteTable(
     "jobs",
@@ -24,7 +25,7 @@ export const jobs = sqliteTable(
 export const applications = sqliteTable("applications", {
     id: integer("id").primaryKey({ autoIncrement: true }),
     jobId: integer("job_id").notNull().unique(),
-    status: text("status").notNull().default("FOUND"),
+    status: text("status", { enum: APPLICATION_STATUSES }).notNull().default("FOUND"),
     resumeFilename: text("resume_filename"),
     errorMessage: text("error_message"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -49,16 +50,20 @@ export type NewApplicationRow = typeof applications.$inferInsert;
 export type ApplicationQuestionRow = typeof applicationQuestions.$inferSelect;
 export type NewApplicationQuestionRow = typeof applicationQuestions.$inferInsert;
 
-export const discoveries = sqliteTable("discoveries", {
+export const EXECUTION_STATUSES = ["running", "waiting", "paused", "done", "failed", "cancelled"] as const;
+export type ExecutionStatusValue = (typeof EXECUTION_STATUSES)[number];
+
+export const executions = sqliteTable("executions", {
     id: text("id").primaryKey(),
-    provider: text("provider").notNull(),
     config: text("config").notNull(),
-    status: text("status").notNull().default("running"),
+    status: text("status", { enum: EXECUTION_STATUSES }).notNull().default("running"),
     discovered: integer("discovered").notNull().default(0),
+    cycleMaxMs: integer("cycle_max_ms").notNull().default(3_600_000),
+    intervalMs: integer("interval_ms").notNull().default(14_400_000),
+    nextRunAt: text("next_run_at"),
     startedAt: text("started_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     finishedAt: text("finished_at"),
     errorMessage: text("error_message"),
 });
 
-export type DiscoveryRow = typeof discoveries.$inferSelect;
-export type NewDiscoveryRow = typeof discoveries.$inferInsert;
+export type ExecutionRow = typeof executions.$inferSelect;

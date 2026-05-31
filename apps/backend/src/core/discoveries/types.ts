@@ -1,13 +1,16 @@
 import type { DiscoverConfig } from "../types";
+import type { ExecutionStatusValue } from "../../db/schema";
 
-export type DiscoveryStatus = "running" | "done" | "failed" | "cancelled";
+export type { ExecutionStatusValue };
 
-export interface DiscoveryJob {
+export interface Execution {
     id: string;
-    provider: string;
     config: DiscoverConfig;
-    status: DiscoveryStatus;
+    status: ExecutionStatusValue;
     discovered: number;
+    cycleMaxMs: number;
+    intervalMs: number;
+    nextRunAt: string | null;
     startedAt: string;
     finishedAt: string | null;
     errorMessage: string | null;
