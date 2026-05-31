@@ -77,7 +77,7 @@ function buildSearchUrl(config: SearchConfig, start: number): string {
     if (start) params.set("start", String(start));
 
     const query = params.toString();
-    return "https://www.linkedin.com/jobs/search/" + (query ? `?${query}` : "");
+    return "https://www.linkedin.com/jobs/search-results/" + (query ? `?${query}` : "");
 }
 
 async function openJobs(
@@ -104,35 +104,50 @@ async function openTopApplicant(page: Page, start: number): Promise<void> {
     await page.waitForTimeout(5000);
 }
 
-async function loadJobIds(page: Page): Promise<string[]> {
+// Cards are div[role="button"][componentkey] inside the first lazy-column.
+// Each card appears multiple times in the virtual list; dedup by componentkey.
+const CARD_SELECTOR = "[data-testid='lazy-column'] div[role='button'][componentkey]";
+
+async function loadCardKeys(page: Page): Promise<string[]> {
     try {
-        await page.waitForSelector("li[data-occludable-job-id]", {
-            timeout: 30000,
-        });
+        await page.waitForSelector(CARD_SELECTOR, { timeout: 30000 });
     } catch {
         console.log("No job cards found");
         return [];
     }
 
-    const jobIds: string[] = [];
+    const keys: string[] = [];
     for (let i = 0; i < 30; i++) {
-        const before = jobIds.length;
-        const cards = page.locator("li[data-occludable-job-id]");
-        const count = await cards.count();
+        const before = keys.length;
+        const cardBtns = page
+            .locator("[data-testid='lazy-column']")
+            .first()
+            .locator("div[role='button'][componentkey]");
+        const count = await cardBtns.count();
         for (let j = 0; j < count; j++) {
-            const id = await cards
-                .nth(j)
-                .getAttribute("data-occludable-job-id");
-            if (id && !jobIds.includes(id)) jobIds.push(id);
+            const key = await cardBtns.nth(j).getAttribute("componentkey");
+            if (key && !keys.includes(key)) keys.push(key);
         }
-        await cards.last().scrollIntoViewIfNeeded();
-        await page.mouse.wheel(0, 2000);
-        await page.waitForTimeout(1200);
-        if (jobIds.length === before) break;
+        if (count > 0) {
+            await cardBtns.last().scrollIntoViewIfNeeded();
+            await page.mouse.wheel(0, 2000);
+            await page.waitForTimeout(1200);
+        }
+        if (keys.length === before) break;
     }
 
-    console.log(`Loaded ${jobIds.length} jobs`);
-    return jobIds;
+    console.log(`Loaded ${keys.length} job cards`);
+    return keys;
+}
+
+function parseCardText(text: string): { title: string; company: string; location: string } {
+    const parts = text.split("\n\n");
+    // Title block: may have "Job Title (Verified job)\nJob Title" — take last non-empty line
+    const titleLines = parts[0].split("\n").map((l) => l.trim()).filter(Boolean);
+    const title = titleLines[titleLines.length - 1] ?? "";
+    const company = (parts[1] ?? "").trim();
+    const location = (parts[2] ?? "").trim();
+    return { title, company, location };
 }
 
 async function getApplicationUrl(
@@ -154,6 +169,15 @@ async function getApplicationUrl(
     }
     if (!(await applyControl.count())) return null;
 
+    // Extract URL directly from LinkedIn safety redirect href when available
+    const href = await applyControl.getAttribute("href").catch(() => null);
+    if (href) {
+        const match = href.match(/[?&]url=([^&]+)/);
+        if (match) return decodeURIComponent(match[1]);
+        if (!href.includes("linkedin.com")) return href;
+    }
+
+    // Fallback: click and capture popup or navigation
     const currentUrl = page.url();
     try {
         const [popup] = await Promise.all([
@@ -215,21 +239,15 @@ async function getJobDetails(
     fillSkillGaps: boolean,
 ): Promise<Partial<LinkedinJob>> {
     const detailPane = page
-        .locator(
-            ".jobs-search__job-details--container, .job-view-layout, .jobs-details, .scaffold-layout__detail",
-        )
+        .locator("[data-sdui-screen='com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails']")
         .first();
 
-    const title = (await detailPane.locator("h1").first().innerText())
-        .split("\n")[0]
-        .trim();
-
-    const aboutSection = detailPane
-        .locator("article")
-        .filter({ hasText: /about the job/i })
-        .first();
-    await aboutSection.locator("p, li").first().waitFor();
-    const about = await aboutSection.innerText();
+    // About section: the H2 is wrapped in a single-child div; actual content is 2 levels up
+    const aboutH2 = detailPane.locator("h2").filter({ hasText: /about the job/i }).first();
+    const aboutContainer = aboutH2.locator("xpath=../.."); // grandparent holds H2 wrapper + content siblings
+    await aboutContainer.locator("p, li").first().waitFor({ timeout: 10000 });
+    const rawAbout = await aboutContainer.innerText();
+    const about = rawAbout.replace(/^About the job\s*/i, "").trim();
 
     let preferences: string[] = [];
     let skills: string[] = [];
@@ -255,10 +273,9 @@ async function getJobDetails(
     const applicationUrl = await getApplicationUrl(page, detailPane, easyApply);
 
     return {
-        title,
         preferences,
         skills,
-        about: cleanText(about).replace(/^About the job\s*/i, ""),
+        about: cleanText(about),
         applicationUrl,
     };
 }
@@ -268,63 +285,57 @@ async function* extractJobs(
     maxJobs?: number,
     fillSkillGaps = false,
     skipJobIds = new Set<string>(),
-    onCandidate?: (jobId: string) => void,
+    onCandidate?: (key: string) => void,
 ): AsyncGenerator<LinkedinJob> {
     let count = 0;
-    const jobIds = await loadJobIds(page);
+    const cardKeys = await loadCardKeys(page);
 
-    for (const jobId of jobIds) {
+    for (const key of cardKeys) {
         if (maxJobs != null && count >= maxJobs) break;
-        onCandidate?.(jobId);
+        onCandidate?.(key);
+
+        const lazyCol = page.locator("[data-testid='lazy-column']").first();
+        const cardBtn = lazyCol
+            .locator(`div[role='button'][componentkey='${key}']`)
+            .first();
+        await cardBtn.scrollIntoViewIfNeeded();
+
+        const cardText = await cardBtn.innerText();
+        const { title, company, location } = parseCardText(cardText);
+
+        if (!company) {
+            continue;
+        }
+
+        if (/\bapplied\b/i.test(cardText)) {
+            console.log(`Skipping already-applied job: ${title}`);
+            continue;
+        }
+
+        await cardBtn.click();
+        await page.waitForTimeout(1500);
+
+        const jobId = new URL(page.url()).searchParams.get("currentJobId");
+        if (!jobId) {
+            console.log(`Could not get job ID for: ${title}`);
+            continue;
+        }
 
         if (skipJobIds.has(jobId)) {
             console.log(`Skipping already-saved job: ${jobId}`);
             continue;
         }
 
-        const card = page
-            .locator(`li[data-occludable-job-id="${jobId}"]`)
-            .first();
-        await card.scrollIntoViewIfNeeded();
-
-        const link = card.locator('a[href*="/jobs/view/"]').first();
-        const title = await link.innerText();
-        const href = (await link.getAttribute("href")) ?? "";
-
-        const labels = (
-            await card
-                .locator(".job-card-container__footer-item")
-                .allInnerTexts()
-        ).map((t) => t.trim());
-
-        if (labels.some((l) => /^applied$/i.test(l.trim()))) {
-            console.log(`Skipping already-applied job: ${jobId}`);
-            continue;
-        }
-
-        await card.click();
-        await page.waitForTimeout(1000);
-
-        const easyApply = labels.some((l) => /easy apply/i.test(l));
+        const easyApply = /easy apply/i.test(cardText);
         const details = await getJobDetails(page, easyApply, fillSkillGaps);
 
         const job: LinkedinJob = {
             jobId,
             provider: "linkedin",
-            title: title.split("\n")[0].trim(),
-            company: (
-                await card
-                    .locator(".artdeco-entity-lockup__subtitle")
-                    .first()
-                    .innerText()
-            ).trim(),
-            location: (
-                await card
-                    .locator(".artdeco-entity-lockup__caption")
-                    .first()
-                    .innerText()
-            ).trim(),
-            url: new URL(href, "https://www.linkedin.com").href,
+            title,
+            company,
+            location,
+            url: `https://www.linkedin.com/jobs/view/${jobId}/`,
             easyApply,
             preferences: details.preferences ?? [],
             skills: details.skills ?? [],
