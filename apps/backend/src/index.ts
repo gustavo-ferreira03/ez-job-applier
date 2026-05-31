@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
-import { db, initDb } from "./db/client";
+import { db } from "./db/client";
 import { linkedinProvider } from "./providers/linkedin/index";
 import { JobRepository } from "./infra/JobRepository";
 import { ApplicationRepository } from "./infra/ApplicationRepository";
@@ -18,8 +18,6 @@ import settingsRouter from "./routes/settings";
 import databaseRouter from "./routes/database";
 import { startExecution } from "./core/execution/manager";
 import type { AppContext } from "./core/context";
-
-await initDb();
 
 const providerRegistry = new ProviderRegistry();
 providerRegistry.register(linkedinProvider);
