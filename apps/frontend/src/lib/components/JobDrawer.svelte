@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import X from '@lucide/svelte/icons/x';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
@@ -20,11 +20,11 @@
 
 	let detail = $state<JobDetail | null>(null);
 	let loadError = $state(false);
-	let activeTab = $state<KanbanTab>(initialTab);
+	let activeTab = $state<KanbanTab>(untrack(() => initialTab));
 	let busy = $state(false);
 	let notice = $state('');
 	let answerInputs = $state<Record<string, string>>({});
-	let selectedResume = $state(job.resumeFilename ?? '');
+	let selectedResume = $state(untrack(() => job.resumeFilename ?? ''));
 
 	onMount(async () => {
 		try {
@@ -107,28 +107,32 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<!-- Backdrop -->
-<div
-	class="fixed inset-0 z-drawer bg-transparent"
-	role="presentation"
-	onclick={onClose}
-></div>
+<!-- Overlay -->
+<div class="fixed inset-0 z-modal flex items-start justify-center bg-black/70 p-4">
+	<button
+		class="absolute inset-0 cursor-default"
+		type="button"
+		aria-label="Fechar"
+		onclick={onClose}
+	></button>
 
-<!-- Painel -->
-<div
-	class="fixed right-0 top-0 z-drawer flex h-full w-[340px] flex-col border-l border-border-default bg-surface-raised shadow-[var(--shadow-drawer)]"
-	role="dialog"
-	aria-modal="true"
-	aria-label="Detalhes da vaga"
-	transition:fly={{ x: 340, duration: 220, opacity: 1 }}
-	onclick={(e) => e.stopPropagation()}
->
+	<!-- Modal -->
+	<div
+		class="relative z-10 mt-12 flex max-h-[calc(100vh-96px)] w-[min(680px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Detalhes da vaga"
+		tabindex="-1"
+		transition:fly={{ y: -12, duration: 180 }}
+		onclick={(e) => e.stopPropagation()}
+		onkeydown={(e) => e.stopPropagation()}
+	>
 	<!-- Cabeçalho -->
 	<div class="flex-shrink-0 border-b border-border-subtle px-4 pb-0 pt-4">
 		<div class="mb-3 flex items-start justify-between gap-3">
 			<div class="min-w-0 flex-1">
-				<h2 class="truncate text-[13px] font-semibold text-text-primary">{job.title}</h2>
-				<p class="mt-0.5 text-[11px] text-text-muted">
+				<h2 class="truncate text-base font-semibold text-text-primary">{job.title}</h2>
+				<p class="mt-0.5 text-[13px] text-text-muted">
 					{job.company}
 					{#if job.location} · {job.location}{/if}
 				</p>
@@ -139,7 +143,7 @@
 							href={job.url}
 							target="_blank"
 							rel="noreferrer noopener"
-							class="flex items-center gap-1 text-[10px] text-text-faint hover:text-text-muted"
+							class="flex cursor-pointer items-center gap-1 text-xs text-text-faint hover:text-text-muted"
 						>
 							<ExternalLink size={10} aria-hidden="true" />
 							LinkedIn
@@ -149,7 +153,7 @@
 			</div>
 			<button
 				type="button"
-				class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-text-faint hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
+				class="flex h-7 w-7 cursor-pointer flex-shrink-0 items-center justify-center rounded-md text-text-faint hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
 				onclick={onClose}
 				aria-label="Fechar"
 			>
@@ -163,7 +167,7 @@
 				<button
 					role="tab"
 					aria-selected={activeTab === tab}
-					class="border-b-2 px-3 py-2 text-[12px] font-medium transition-colors duration-100
+					class="cursor-pointer border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-100
 						{activeTab === tab
 							? 'border-text-primary text-text-primary'
 							: 'border-transparent text-text-faint hover:text-text-muted'}"
@@ -178,7 +182,7 @@
 	<!-- Conteúdo -->
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if loadError}
-			<p class="text-[12px] text-[#ef4444]">Falha ao carregar detalhes da vaga.</p>
+			<p class="text-sm text-[#ef4444]">Falha ao carregar detalhes da vaga.</p>
 		{:else if !detail}
 			<div class="flex items-center justify-center py-16 text-text-faint">
 				<LoaderCircle size={20} class="animate-spin" aria-label="Carregando" />
@@ -186,7 +190,7 @@
 		{:else if activeTab === 'info'}
 			<!-- Aba Informações -->
 			{#if detail.errorMessage}
-				<div class="mb-4 rounded-md bg-[#1c0a0a] px-3 py-2 text-[11px] text-[#ef4444]">
+				<div class="mb-4 rounded-md bg-[#1c0a0a] px-3 py-2 text-[13px] text-[#ef4444]">
 					{detail.errorMessage}
 				</div>
 			{/if}
@@ -197,7 +201,7 @@
 						href={detail.applicationUrl}
 						target="_blank"
 						rel="noreferrer noopener"
-						class="flex items-center gap-1.5 text-[12px] text-[#3b82f6] hover:underline"
+						class="flex cursor-pointer items-center gap-1.5 text-sm text-[#3b82f6] hover:underline"
 					>
 						<ExternalLink size={12} aria-hidden="true" />
 						Candidatura externa
@@ -207,8 +211,8 @@
 
 			{#if detail.about}
 				<div class="mb-5">
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Sobre</h3>
-					<div class="max-h-40 overflow-y-auto text-[11px] leading-relaxed text-text-muted">
+					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Sobre</h3>
+					<div class="max-h-72 overflow-y-auto text-[13px] leading-relaxed text-text-muted">
 						{detail.about}
 					</div>
 				</div>
@@ -216,10 +220,10 @@
 
 			{#if detail.skills.length > 0}
 				<div class="mb-4">
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Skills</h3>
+					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Skills</h3>
 					<div class="flex flex-wrap gap-1.5">
 						{#each detail.skills as skill (skill)}
-							<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-[10px] text-text-muted">{skill}</span>
+							<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-xs text-text-muted">{skill}</span>
 						{/each}
 					</div>
 				</div>
@@ -227,10 +231,10 @@
 
 			{#if detail.preferences.length > 0}
 				<div class="mb-4">
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Preferências</h3>
+					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Preferências</h3>
 					<div class="flex flex-wrap gap-1.5">
 						{#each detail.preferences as pref (pref)}
-							<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-[10px] text-text-muted">{pref}</span>
+							<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-xs text-text-muted">{pref}</span>
 						{/each}
 					</div>
 				</div>
@@ -238,12 +242,12 @@
 
 			{#if detail.questions.length > 0}
 				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Q&A</h3>
+					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Q&A</h3>
 					<div class="space-y-2">
 						{#each detail.questions as q (q.label)}
 							<div class="rounded-md bg-surface-overlay px-3 py-2">
-								<p class="text-[10px] text-text-faint">{q.label}</p>
-								<p class="mt-0.5 text-[11px] text-text-secondary">{q.answer ?? '—'}</p>
+								<p class="text-xs text-text-faint">{q.label}</p>
+								<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer ?? '—'}</p>
 							</div>
 						{/each}
 					</div>
@@ -253,18 +257,18 @@
 		{:else}
 			<!-- Aba Ações -->
 			{#if job.status === 'FOUND'}
-				<p class="mb-3 text-[12px] text-text-muted">Abra o formulário de candidatura para extrair as perguntas.</p>
-				<p class="text-[11px] text-text-faint">Isso abrirá um browser e pode levar alguns segundos.</p>
+				<p class="mb-3 text-sm text-text-muted">Abra o formulário de candidatura para extrair as perguntas.</p>
+				<p class="text-[13px] text-text-faint">Isso abrirá um browser e pode levar alguns segundos.</p>
 
 			{:else if job.status === 'NEEDS_INPUT'}
 				{#if unanswered.length > 0}
 					<div class="mb-5 space-y-3">
 						{#each unanswered as q (q.label)}
 							<label class="block">
-								<span class="mb-1 block text-[11px] font-medium text-text-secondary">{q.label}</span>
+								<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
 								{#if q.options.length > 0}
 									<select
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
 										bind:value={answerInputs[q.label]}
 									>
 										<option value="">Selecione…</option>
@@ -275,7 +279,7 @@
 								{:else}
 									<input
 										type={q.fieldType ?? 'text'}
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
+										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
 										bind:value={answerInputs[q.label]}
 									/>
 								{/if}
@@ -286,12 +290,12 @@
 
 				{#if answered.length > 0}
 					<div>
-						<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Já respondidas</h3>
+						<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-faint">Já respondidas</h3>
 						<div class="space-y-1.5">
 							{#each answered as q (q.label)}
 								<div class="rounded-md bg-surface-overlay px-3 py-2">
-									<p class="text-[10px] text-text-faint">{q.label}</p>
-									<p class="mt-0.5 text-[11px] text-text-secondary">{q.answer}</p>
+									<p class="text-xs text-text-faint">{q.label}</p>
+									<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer}</p>
 								</div>
 							{/each}
 						</div>
@@ -303,10 +307,10 @@
 					<div class="mb-5 space-y-3">
 						{#each detail.questions as q (q.label)}
 							<label class="block">
-								<span class="mb-1 block text-[11px] font-medium text-text-secondary">{q.label}</span>
+								<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
 								{#if q.options.length > 0}
 									<select
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
 										bind:value={answerInputs[q.label]}
 									>
 										<option value="">Selecione…</option>
@@ -317,7 +321,7 @@
 								{:else}
 									<input
 										type={q.fieldType ?? 'text'}
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
+										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
 										bind:value={answerInputs[q.label]}
 									/>
 								{/if}
@@ -328,12 +332,12 @@
 
 				{#if appState.resumes.length > 0}
 					<div>
-						<label class="mb-1 block text-[11px] font-medium text-text-secondary" for="resume-select">
+						<label class="mb-1 block text-[13px] font-medium text-text-secondary" for="resume-select">
 							Currículo
 						</label>
 						<select
 							id="resume-select"
-							class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+							class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
 							bind:value={selectedResume}
 						>
 							<option value="">Padrão{appState.defaultResume ? ` (${appState.defaultResume})` : ''}</option>
@@ -350,25 +354,25 @@
 						href={detail.applicationUrl}
 						target="_blank"
 						rel="noreferrer noopener"
-						class="flex items-center gap-1.5 text-[12px] text-[#a855f7] hover:underline"
+						class="flex cursor-pointer items-center gap-1.5 text-sm text-[#a855f7] hover:underline"
 					>
 						<ExternalLink size={12} aria-hidden="true" />
 						Candidatar externamente
 					</a>
 				{:else}
-					<p class="text-[12px] text-text-faint">Nenhum link externo disponível.</p>
+					<p class="text-sm text-text-faint">Nenhum link externo disponível.</p>
 				{/if}
 
 			{:else if job.status === 'FAILED'}
 				{#if detail.errorMessage}
-					<div class="mb-3 rounded-md bg-[#1c0a0a] px-3 py-2 text-[11px] text-[#ef4444]">
+					<div class="mb-3 rounded-md bg-[#1c0a0a] px-3 py-2 text-[13px] text-[#ef4444]">
 						{detail.errorMessage}
 					</div>
 				{/if}
-				<p class="text-[12px] text-text-muted">Esta candidatura falhou. Você pode ignorá-la.</p>
+				<p class="text-sm text-text-muted">Esta candidatura falhou. Você pode ignorá-la.</p>
 
 			{:else}
-				<p class="text-[12px] text-text-faint">Nenhuma ação disponível.</p>
+				<p class="text-sm text-text-faint">Nenhuma ação disponível.</p>
 			{/if}
 		{/if}
 	</div>
@@ -376,12 +380,12 @@
 	<!-- Rodapé -->
 	{#if hasActions && detail}
 		<div class="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border-subtle px-4 py-3">
-			<span class="text-[11px] text-text-faint">{notice}</span>
+			<span class="text-[13px] text-text-faint">{notice}</span>
 			<div class="flex gap-2">
 				{#if ['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)}
 					<button
 						type="button"
-						class="h-8 rounded-md border border-border-default bg-surface-overlay px-3 text-[12px] font-medium text-text-muted hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy}
 						onclick={handleSkip}
 					>
@@ -392,7 +396,7 @@
 				{#if job.status === 'FOUND'}
 					<button
 						type="button"
-						class="h-8 rounded-md bg-accent-500 px-3 text-[12px] font-medium text-white hover:bg-accent-600 focus-visible:outline-none disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-white hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy}
 						onclick={handleGetQuestions}
 					>
@@ -401,7 +405,7 @@
 				{:else if job.status === 'NEEDS_INPUT'}
 					<button
 						type="button"
-						class="h-8 rounded-md bg-accent-500 px-3 text-[12px] font-medium text-white hover:bg-accent-600 focus-visible:outline-none disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-white hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy || !canSave}
 						onclick={handleSaveAnswers}
 					>
@@ -410,7 +414,7 @@
 				{:else if job.status === 'READY_FOR_REVIEW'}
 					<button
 						type="button"
-						class="h-8 rounded-md bg-accent-500 px-3 text-[12px] font-medium text-white hover:bg-accent-600 focus-visible:outline-none disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-white hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy}
 						onclick={handleApply}
 					>
@@ -420,4 +424,5 @@
 			</div>
 		</div>
 	{/if}
+	</div>
 </div>

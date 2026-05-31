@@ -91,7 +91,7 @@
 					<th class="w-9 px-3 py-2.5 text-left">
 						<button
 							type="button"
-							class="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-border-default {allSelected ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
+							class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {allSelected ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
 							onclick={toggleAll}
 							aria-label="Selecionar todos"
 						>
@@ -116,7 +116,7 @@
 						<td class="px-3 py-2.5" onclick={(e) => { e.stopPropagation(); toggleSelect(job.id); }}>
 							<button
 								type="button"
-								class="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-border-default {selected.has(job.id) ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
+								class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {selected.has(job.id) ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
 								aria-label="Selecionar vaga"
 							>
 								{#if selected.has(job.id)}

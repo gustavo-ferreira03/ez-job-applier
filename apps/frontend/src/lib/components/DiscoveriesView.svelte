@@ -78,7 +78,7 @@
 		</div>
 		<button
 			type="button"
-			class="h-8 rounded-md bg-accent-500 px-3 text-[12px] font-medium text-white hover:bg-accent-600 focus-visible:outline-none"
+			class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-[12px] font-medium text-white hover:bg-accent-600 focus-visible:outline-none"
 			onclick={onStartNew}
 		>
 			Nova busca
@@ -114,7 +114,7 @@
 									<span class="text-[11px] text-text-faint">{d.discovered} encontradas</span>
 									<button
 										type="button"
-										class="h-6 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] text-text-muted hover:border-border-strong focus-visible:outline-none"
+										class="h-6 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] text-text-muted hover:border-border-strong focus-visible:outline-none"
 										onclick={() => handleCancel(d)}
 									>
 										Cancelar
@@ -123,7 +123,7 @@
 									<span class="text-[12px] font-semibold text-text-secondary">{d.discovered} vagas</span>
 									<button
 										type="button"
-										class="h-6 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] text-text-muted hover:border-border-strong focus-visible:outline-none"
+										class="h-6 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] text-text-muted hover:border-border-strong focus-visible:outline-none"
 										onclick={() => handleRepeat(d)}
 									>
 										Repetir

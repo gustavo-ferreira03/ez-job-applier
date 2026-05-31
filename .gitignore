@@ -11,6 +11,7 @@ __pycache__/
 .vscode/
 .agents/
 .claude/
+.superpowers/
 .playwright-cli/
 skills-lock.json
 

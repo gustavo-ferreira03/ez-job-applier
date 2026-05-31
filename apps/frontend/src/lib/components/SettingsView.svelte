@@ -115,7 +115,7 @@
 			{#each [{ value: 'pt-BR', label: 'Português (BR)' }, { value: 'en-US', label: 'English (US)' }] as opt (opt.value)}
 				<button
 					type="button"
-					class="flex-1 px-3 py-2 text-[12px] font-medium transition-colors duration-100 focus-visible:outline-none
+					class="flex-1 cursor-pointer px-3 py-2 text-[12px] font-medium transition-colors duration-100 focus-visible:outline-none
 						{appState.settings.searchLocale === opt.value
 							? 'bg-accent-500 text-white'
 							: 'bg-surface-overlay text-text-muted hover:bg-surface-hover'}"
@@ -157,7 +157,7 @@
 							{:else}
 								<button
 									type="button"
-									class="text-[10px] font-medium text-text-faint hover:text-text-muted focus-visible:outline-none"
+									class="cursor-pointer text-[10px] font-medium text-text-faint hover:text-text-muted focus-visible:outline-none"
 									onclick={() => handleSetDefault(filename)}
 								>
 									Definir padrão
@@ -165,7 +165,7 @@
 							{/if}
 							<button
 								type="button"
-								class="text-[10px] font-medium text-[#ef4444] hover:text-[#dc2626] focus-visible:outline-none"
+								class="cursor-pointer text-[10px] font-medium text-[#ef4444] hover:text-[#dc2626] focus-visible:outline-none"
 								onclick={() => handleDelete(filename)}
 							>
 								Remover
@@ -187,7 +187,7 @@
 			</div>
 			<button
 				type="button"
-				class="h-8 flex-shrink-0 rounded-md border px-3 text-[12px] font-medium focus-visible:outline-none transition-colors
+				class="h-8 cursor-pointer flex-shrink-0 rounded-md border px-3 text-[12px] font-medium focus-visible:outline-none transition-colors
 					{clearConfirming
 						? 'border-[#ef4444] bg-[#1c0a0a] text-[#ef4444] hover:bg-[#2a0f0f]'
 						: 'border-border-default bg-surface-overlay text-[#ef4444] hover:border-[#ef4444]'}"

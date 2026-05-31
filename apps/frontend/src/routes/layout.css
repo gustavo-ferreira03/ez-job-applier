@@ -66,3 +66,23 @@
   --shadow-drawer: -12px 0 32px rgb(0 0 0 / 0.6);
   --shadow-modal:  0 24px 56px rgb(0 0 0 / 0.7);
 }
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #27272a transparent;
+}
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}

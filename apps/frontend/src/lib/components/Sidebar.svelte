@@ -45,14 +45,14 @@
 	</div>
 
 	<!-- Nav -->
-	<nav class="flex-1 overflow-y-auto p-2" aria-label="Navegação principal">
+	<nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2" aria-label="Navegação principal">
 		{#each navItems as item (item.page)}
 			<button
 				type="button"
-				class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-100 focus-visible:outline-none
+				class="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors duration-100 focus-visible:outline-none
 					{activePage === item.page
 						? 'bg-surface-overlay text-text-primary'
-						: 'text-text-faint hover:bg-surface-hover hover:text-text-muted'}"
+						: 'text-text-muted hover:bg-surface-hover hover:text-text-secondary'}"
 				onclick={() => onNavigate(item.page)}
 			>
 				<item.icon size={15} strokeWidth={activePage === item.page ? 2.25 : 1.75} aria-hidden="true" />
@@ -67,7 +67,7 @@
 		{#if autoApply.running}
 			<button
 				type="button"
-				class="flex w-full items-center gap-2 rounded-md bg-autoapply-bg px-2.5 py-2 text-[12px] font-semibold text-autoapply-text transition-opacity hover:opacity-80 focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-autoapply-bg px-2.5 py-2 text-[13px] font-semibold text-autoapply-text transition-opacity hover:opacity-80 focus-visible:outline-none"
 				title="Clique para parar"
 				onclick={onToggleAutoApply}
 			>
@@ -80,7 +80,7 @@
 		{:else}
 			<button
 				type="button"
-				class="flex w-full items-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[12px] font-medium text-text-faint hover:bg-surface-hover hover:text-text-muted focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted hover:bg-surface-hover hover:text-text-secondary focus-visible:outline-none"
 				onclick={onToggleAutoApply}
 			>
 				<Bot size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -92,7 +92,7 @@
 		{#if isDiscovering}
 			<button
 				type="button"
-				class="flex w-full items-center gap-2 rounded-md bg-[#2a2208] px-2.5 py-2 text-[12px] font-semibold text-[#ca8a04] hover:opacity-80 focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-[#2a2208] px-2.5 py-2 text-[12px] font-semibold text-[#ca8a04] hover:opacity-80 focus-visible:outline-none"
 				title="Clique para cancelar"
 				onclick={onStopDiscovery}
 			>
@@ -103,7 +103,7 @@
 		{:else}
 			<button
 				type="button"
-				class="flex w-full items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[12px] font-semibold text-white hover:bg-accent-600 focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-white hover:bg-accent-600 focus-visible:outline-none"
 				onclick={onStartDiscovery}
 			>
 				<Search size={13} strokeWidth={2.25} aria-hidden="true" />
