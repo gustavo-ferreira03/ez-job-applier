@@ -6,7 +6,7 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function runLoop(): Promise<void> {
+export async function runExecution(): Promise<void> {
     try {
         while (!isStopRequested()) {
             const ctx = getCtx();

@@ -6,16 +6,17 @@ import { db, initDb } from "./db/client";
 import { linkedinProvider } from "./providers/linkedin/index";
 import { JobRepository } from "./infra/JobRepository";
 import { ApplicationRepository } from "./infra/ApplicationRepository";
-import { DiscoveryRepository } from "./infra/DiscoveryRepository";
+import { ExecutionRepository } from "./infra/ExecutionRepository";
 import { ResumeRepository } from "./infra/ResumeRepository";
 import { ProviderRegistry } from "./infra/ProviderRegistry";
-import { createDiscoveriesRouter } from "./routes/discoveries";
 import { createJobsRouter } from "./routes/jobs";
 import { createApplicationsRouter } from "./routes/applications";
 import { createAutoApplyRouter } from "./routes/auto-apply";
+import { createExecutionRouter } from "./routes/execution";
 import resumesRouter from "./routes/resumes";
 import settingsRouter from "./routes/settings";
 import databaseRouter from "./routes/database";
+import { startExecution } from "./core/execution/manager";
 import type { AppContext } from "./core/context";
 
 await initDb();
@@ -26,10 +27,21 @@ providerRegistry.register(linkedinProvider);
 const ctx: AppContext = {
     jobRepo: new JobRepository(db),
     appRepo: new ApplicationRepository(db),
-    discoveryRepo: new DiscoveryRepository(db),
+    executionRepo: new ExecutionRepository(db),
     resumeRepo: new ResumeRepository(),
     providerRegistry,
 };
+
+// Auto-resume: find the most recent execution interrupted by a server restart
+const allExecutions = await ctx.executionRepo.list();
+const interrupted = allExecutions.find((e) => e.errorMessage === "Server restarted");
+if (interrupted) {
+    console.log("[execution] resuming from server restart...");
+    startExecution(interrupted.config, ctx, {
+        cycleMaxMs: interrupted.cycleMaxMs,
+        intervalMs: interrupted.intervalMs,
+    }).catch((e) => console.error("[execution] resume failed:", e));
+}
 
 const app = new OpenAPIHono();
 
@@ -40,10 +52,10 @@ app.onError((err, c) => {
     return c.json({ error: err.message }, 500);
 });
 
-app.route("/", createDiscoveriesRouter(ctx));
 app.route("/", createJobsRouter(ctx));
 app.route("/", createApplicationsRouter(ctx));
 app.route("/", createAutoApplyRouter(ctx));
+app.route("/", createExecutionRouter(ctx));
 app.route("/", resumesRouter);
 app.route("/", settingsRouter);
 app.route("/", databaseRouter);
@@ -56,13 +68,6 @@ app.doc("/openapi", {
 
 app.get("/docs", apiReference({ url: "/openapi", theme: "saturn" }));
 
-serve(
-    {
-        fetch: app.fetch,
-        port: 3000,
-    },
-    (info) => {
-        console.log(`Server is running on http://localhost:${info.port}`);
-        console.log(`API docs available at http://localhost:${info.port}/docs`);
-    },
-);
+serve({ fetch: app.fetch, port: 3000 }, (info) => {
+    console.log(`Server running on http://localhost:${info.port}`);
+});

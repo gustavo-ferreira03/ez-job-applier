@@ -78,6 +78,15 @@ export class JobRepository implements IJobRepo {
         return new Set(rows.map((r) => r.externalId));
     }
 
+    async listSkipIds(provider: string): Promise<Set<string>> {
+        const rows = await this.db
+            .select({ externalId: jobs.externalId })
+            .from(jobs)
+            .innerJoin(applications, eq(applications.jobId, jobs.id))
+            .where(eq(jobs.provider, provider));
+        return new Set(rows.map((r) => r.externalId));
+    }
+
     async save(job: Job): Promise<void> {
         const timestamp = new Date().toISOString();
         await this.db

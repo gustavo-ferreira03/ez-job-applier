@@ -40,7 +40,7 @@ export function start(ctx: AppContext): void {
     _ctx = ctx;
     state = { running: true, applied: 0, failed: 0 };
     stopFlag = false;
-    import("./worker").then(({ runLoop }) => runLoop().catch(console.error));
+    import("./worker").then(({ runExecution }) => runExecution().catch(console.error));
 }
 
 export function stop(): void {

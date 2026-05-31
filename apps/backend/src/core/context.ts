@@ -1,9 +1,9 @@
-import type { IJobRepo, IAppRepo, IDiscoveryRepo, IResumeRepo, IProviderRegistry } from "./ports";
+import type { IJobRepo, IAppRepo, IExecutionRepo, IResumeRepo, IProviderRegistry } from "./ports";
 
 export interface AppContext {
     jobRepo: IJobRepo;
     appRepo: IAppRepo;
-    discoveryRepo: IDiscoveryRepo;
+    executionRepo: IExecutionRepo;
     resumeRepo: IResumeRepo;
     providerRegistry: IProviderRegistry;
 }

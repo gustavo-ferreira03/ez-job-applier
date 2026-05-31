@@ -143,7 +143,7 @@ export class ApplicationRepository implements IAppRepo {
         }
     }
 
-    async listIdsByStatus(status: ApplicationStatus | string): Promise<number[]> {
+    async listIdsByStatus(status: ApplicationStatus): Promise<number[]> {
         const rows = await this.db
             .select({ jobId: applications.jobId })
             .from(applications)
@@ -159,4 +159,5 @@ export class ApplicationRepository implements IAppRepo {
             .where(isNull(applications.id));
         return rows.map((r) => r.id);
     }
+
 }
