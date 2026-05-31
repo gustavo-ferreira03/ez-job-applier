@@ -92,7 +92,7 @@
 		finally { busy = false; }
 	}
 
-	async function handleSkip() {
+async function handleSkip() {
 		if (busy) return;
 		busy = true;
 		try {

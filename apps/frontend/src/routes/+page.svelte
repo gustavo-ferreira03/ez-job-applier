@@ -6,21 +6,18 @@
 	import JobDrawer from '$lib/components/JobDrawer.svelte';
 	import DiscoveriesView from '$lib/components/DiscoveriesView.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
-	import DiscoveryModal from '$lib/components/DiscoveryModal.svelte';
+	import ExecutionModal from '$lib/components/ExecutionModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { appState } from '$lib/state.svelte';
-	import { cancelDiscovery, startAutoApply, stopAutoApply } from '$lib/api';
+	import { startAutoApply, stopAutoApply, startExecution, stopExecution, pauseExecution, resumeExecution } from '$lib/api';
 	import { toastState } from '$lib/toast.svelte';
 	import type { JobSummary, KanbanTab, Page } from '$lib/types';
 
 	let activePage = $state<Page>('pipeline');
 	let selectedJob = $state<{ job: JobSummary; tab: KanbanTab } | null>(null);
-	let discoveryModalOpen = $state(false);
+	let executionModalOpen = $state(false);
 
 	onMount(() => appState.init());
-
-	const isDiscovering = $derived(appState.activeDiscovery?.status === 'running');
-	const discoveredCount = $derived(appState.activeDiscovery?.discovered ?? 0);
 
 	function openJob(job: JobSummary, tab: KanbanTab) {
 		selectedJob = { job, tab };
@@ -48,22 +45,46 @@
 		}
 	}
 
-	async function handleStopDiscovery() {
-		if (!appState.activeDiscovery) return;
+	async function handleStartExecution() {
+		executionModalOpen = true;
+	}
+
+	async function handleStopExecution() {
 		try {
-			await cancelDiscovery(appState.activeDiscovery.id);
-			appState.stopPolling();
-			appState.activeDiscovery = null;
-			toastState.show('Descoberta cancelada');
+			await stopExecution();
+			appState.execution = { ...appState.execution, active: false, running: false };
+			appState.stopExecutionPolling();
+			toastState.show('Execução parada');
 		} catch {
-			toastState.show('Falha ao cancelar descoberta');
+			toastState.show('Falha ao parar execução');
 		}
 	}
+
+	async function handlePauseExecution() {
+		try {
+			await pauseExecution();
+			appState.execution = { ...appState.execution, paused: true };
+			toastState.show('Execução pausada');
+		} catch {
+			toastState.show('Falha ao pausar execução');
+		}
+	}
+
+	async function handleResumeExecution() {
+		try {
+			await resumeExecution();
+			appState.execution = { ...appState.execution, paused: false };
+			toastState.show('Execução retomada');
+		} catch {
+			toastState.show('Falha ao retomar execução');
+		}
+	}
+
 
 	const pageTitles: Record<Page, string> = {
 		pipeline: 'Pipeline',
 		tabela: 'Tabela',
-		discoveries: 'Buscas',
+		discoveries: 'Histórico',
 		configuracoes: 'Configurações'
 	};
 
@@ -83,13 +104,12 @@
 	<!-- Sidebar -->
 	<Sidebar
 		{activePage}
-		autoApply={appState.autoApply}
-		{isDiscovering}
-		{discoveredCount}
+		execution={appState.execution}
 		onNavigate={(p) => { activePage = p; }}
-		onStartDiscovery={() => { discoveryModalOpen = true; }}
-		onToggleAutoApply={handleToggleAutoApply}
-		onStopDiscovery={handleStopDiscovery}
+		onStartExecution={handleStartExecution}
+		onStopExecution={handleStopExecution}
+		onPauseExecution={handlePauseExecution}
+		onResumeExecution={handleResumeExecution}
 	/>
 
 	<!-- Área principal -->
@@ -114,7 +134,7 @@
 			{:else if activePage === 'tabela'}
 				<JobTable jobs={appState.jobs} onOpenJob={openJob} />
 			{:else if activePage === 'discoveries'}
-				<DiscoveriesView onStartNew={() => { discoveryModalOpen = true; }} />
+				<DiscoveriesView />
 			{:else if activePage === 'configuracoes'}
 				<SettingsView />
 			{/if}
@@ -131,9 +151,9 @@
 	</div>
 </div>
 
-<!-- Modal de nova descoberta -->
-{#if discoveryModalOpen}
-	<DiscoveryModal onClose={() => { discoveryModalOpen = false; }} />
+<!-- Modal de loop eterno -->
+{#if executionModalOpen}
+	<ExecutionModal onClose={() => { executionModalOpen = false; }} />
 {/if}
 
 <Toast />

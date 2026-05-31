@@ -52,12 +52,14 @@ export interface JobDetail extends JobSummary {
 	questions: ApplicationQuestion[];
 }
 
-export interface DiscoveryJob {
+export interface Execution {
 	id: string;
-	provider: string;
 	config: DiscoverConfig;
-	status: 'running' | 'done' | 'failed' | 'cancelled';
+	status: 'running' | 'waiting' | 'paused' | 'done' | 'failed' | 'cancelled';
 	discovered: number;
+	cycleMaxMs: number;
+	intervalMs: number;
+	nextRunAt: string | null;
 	startedAt: string;
 	finishedAt: string | null;
 	errorMessage: string | null;
@@ -84,3 +86,13 @@ export interface KanbanColumn {
 }
 
 export type Page = 'pipeline' | 'tabela' | 'discoveries' | 'configuracoes';
+
+export interface ExecutionStatus {
+    active: boolean;
+    running: boolean;
+    paused: boolean;
+    nextRunAt: string | null;
+    cycleMaxMs: number;
+    intervalMs: number;
+    config: DiscoverConfig | null;
+}

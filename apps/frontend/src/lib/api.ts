@@ -1,5 +1,5 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { AppSettings, AutoApplyStatus, DiscoverConfig, DiscoveryJob, JobDetail, JobSummary } from './types';
+import type { AppSettings, AutoApplyStatus, DiscoverConfig, Execution, JobDetail, JobSummary, ExecutionStatus } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -34,22 +34,15 @@ export function getJob(id: number): Promise<JobDetail> {
 	return get(`/jobs/${id}`);
 }
 
-// Discoveries
-export function startDiscovery(config: DiscoverConfig): Promise<DiscoveryJob> {
-	return post('/discoveries', config);
+// Executions
+export function listExecutions(): Promise<{ executions: Execution[] }> {
+	return get('/executions');
 }
 
-export function getDiscovery(id: string): Promise<DiscoveryJob> {
-	return get(`/discoveries/${id}`);
+export function getExecution(id: string): Promise<Execution> {
+	return get(`/executions/${id}`);
 }
 
-export function cancelDiscovery(id: string): Promise<{ ok: boolean }> {
-	return del(`/discoveries/${id}`);
-}
-
-export function listDiscoveries(): Promise<{ discoveries: DiscoveryJob[] }> {
-	return get('/discoveries');
-}
 
 // Applications
 export function getQuestions(jobId: number): Promise<unknown> {
@@ -122,4 +115,25 @@ export function deleteResume(filename: string): Promise<{ ok: boolean }> {
 // Database
 export function clearDatabase(): Promise<{ ok: boolean }> {
 	return del('/database');
+}
+
+// Loop eterno
+export function getExecutionStatus(): Promise<ExecutionStatus> {
+	return get('/execution');
+}
+
+export function startExecution(config: DiscoverConfig & { cycleMaxMs?: number; intervalMs?: number }): Promise<{ ok: boolean }> {
+	return post('/execution/start', config);
+}
+
+export function stopExecution(): Promise<{ ok: boolean }> {
+	return post('/execution/stop');
+}
+
+export function pauseExecution(): Promise<{ ok: boolean }> {
+	return post('/execution/pause');
+}
+
+export function resumeExecution(): Promise<{ ok: boolean }> {
+	return post('/execution/resume');
 }

@@ -53,6 +53,11 @@
   --color-danger-500: #ef4444;
   --color-danger-600: #dc2626;
   --color-danger-bg:  #1c0a0a;
+  --color-danger-border: #7f1d1d;
+
+  /* ─── Execution running (ciano) ───────────────────────────── */
+  --color-execution-bg:   #062830;
+  --color-execution-text: #22d3ee;
 
   /* ─── Success ─────────────────────────────────────────────── */
   --color-success-500: #22c55e;

@@ -1,5 +1,5 @@
-import { getResumes, listJobs, getDiscovery, getAutoApplyStatus, getAppSettings, listDiscoveries } from './api';
-import type { AppSettings, AutoApplyStatus, DiscoverConfig, DiscoveryJob, JobSummary } from './types';
+import { getResumes, listJobs, getAutoApplyStatus, getAppSettings, listExecutions, getExecutionStatus } from './api';
+import type { AppSettings, AutoApplyStatus, DiscoverConfig, Execution, JobSummary, ExecutionStatus } from './types';
 
 function defaultConfig(): DiscoverConfig {
 	return { provider: 'linkedin', options: { easyApply: true } };
@@ -7,40 +7,37 @@ function defaultConfig(): DiscoverConfig {
 
 class AppState {
 	jobs = $state<JobSummary[]>([]);
-	discoveries = $state<DiscoveryJob[]>([]);
-	activeDiscovery = $state<DiscoveryJob | null>(null);
+	executions = $state<Execution[]>([]);
 	autoApply = $state<AutoApplyStatus>({ running: false, applied: 0, failed: 0 });
+	execution = $state<ExecutionStatus>({ active: false, running: false, paused: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
 	settings = $state<AppSettings>({ browserVisible: false, searchLocale: 'pt-BR' });
 	resumes = $state<string[]>([]);
 	defaultResume = $state<string | null>(null);
 	discoverConfig = $state<DiscoverConfig>(defaultConfig());
 
-	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private autoApplyTimer: ReturnType<typeof setInterval> | null = null;
+	private executionTimer: ReturnType<typeof setInterval> | null = null;
 	private backgroundTimer: ReturnType<typeof setInterval> | null = null;
 
 	async init() {
 		try {
-			const [jobsRes, resumesRes, autoApplyRes, settingsRes, discoveriesRes] = await Promise.all([
+			const [jobsRes, resumesRes, autoApplyRes, settingsRes, executionsRes, execRes] = await Promise.all([
 				listJobs(),
 				getResumes(),
 				getAutoApplyStatus(),
 				getAppSettings(),
-				listDiscoveries()
+				listExecutions(),
+				getExecutionStatus()
 			]);
 			this.jobs = jobsRes.jobs;
 			this.resumes = resumesRes.resumes;
 			this.defaultResume = resumesRes.default;
 			this.autoApply = autoApplyRes;
 			this.settings = settingsRes;
-			this.discoveries = discoveriesRes.discoveries;
-
-			const running = discoveriesRes.discoveries.find((d) => d.status === 'running');
-			if (running) {
-				this.activeDiscovery = running;
-				this.startPolling(running.id);
-			}
+			this.executions = executionsRes.executions;
+			this.execution = execRes;
 			if (autoApplyRes.running) this.startAutoApplyPolling();
+			if (execRes.active) this.startExecutionPolling();
 			this.startBackgroundPolling();
 		} catch (e) {
 			console.error('Failed to load state:', e);
@@ -56,36 +53,12 @@ class AppState {
 		}
 	}
 
-	async refreshDiscoveries() {
+	async refreshExecutions() {
 		try {
-			const res = await listDiscoveries();
-			this.discoveries = res.discoveries;
+			const res = await listExecutions();
+			this.executions = res.executions;
 		} catch (e) {
-			console.error('Failed to refresh discoveries:', e);
-		}
-	}
-
-	startPolling(discoveryId: string) {
-		this.stopPolling();
-		this.pollTimer = setInterval(async () => {
-			try {
-				const updated = await getDiscovery(discoveryId);
-				this.activeDiscovery = updated;
-				this.discoveries = this.discoveries.map((d) => (d.id === updated.id ? updated : d));
-				if (updated.status !== 'running') {
-					this.stopPolling();
-					this.activeDiscovery = null;
-				}
-			} catch (e) {
-				console.error('Discovery poll failed:', e);
-			}
-		}, 2000);
-	}
-
-	stopPolling() {
-		if (this.pollTimer !== null) {
-			clearInterval(this.pollTimer);
-			this.pollTimer = null;
+			console.error('Failed to refresh executions:', e);
 		}
 	}
 
@@ -109,11 +82,30 @@ class AppState {
 		}
 	}
 
+	startExecutionPolling() {
+		this.stopExecutionPolling();
+		this.executionTimer = setInterval(async () => {
+			try {
+				this.execution = await getExecutionStatus();
+				if (!this.execution.active) this.stopExecutionPolling();
+			} catch (e) {
+				console.error('Execution poll failed:', e);
+			}
+		}, 3000);
+	}
+
+	stopExecutionPolling() {
+		if (this.executionTimer !== null) {
+			clearInterval(this.executionTimer);
+			this.executionTimer = null;
+		}
+	}
+
 	startBackgroundPolling() {
 		if (this.backgroundTimer !== null) return;
 		this.backgroundTimer = setInterval(async () => {
 			await this.refreshJobs();
-			await this.refreshDiscoveries();
+			await this.refreshExecutions();
 		}, 5000);
 	}
 }

@@ -3,36 +3,31 @@
 	import List from '@lucide/svelte/icons/list';
 	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
-	import Bot from '@lucide/svelte/icons/bot';
-	import type { AutoApplyStatus, Page } from '$lib/types';
+	import type { Page, ExecutionStatus } from '$lib/types';
 
 	interface Props {
 		activePage: Page;
-		autoApply: AutoApplyStatus;
-		isDiscovering: boolean;
-		discoveredCount: number;
+		execution: ExecutionStatus;
 		onNavigate: (page: Page) => void;
-		onStartDiscovery: () => void;
-		onToggleAutoApply: () => void;
-		onStopDiscovery: () => void;
+		onStartExecution: () => void;
+		onStopExecution: () => void;
+		onPauseExecution: () => void;
+		onResumeExecution: () => void;
 	}
 
-	let {
-		activePage,
-		autoApply,
-		isDiscovering,
-		discoveredCount,
-		onNavigate,
-		onStartDiscovery,
-		onToggleAutoApply,
-		onStopDiscovery
-	}: Props = $props();
+	let { activePage, execution, onNavigate, onStartExecution, onStopExecution, onPauseExecution, onResumeExecution }: Props = $props();
+
+	function fmtCountdown(isoStr: string): string {
+		const secs = Math.max(0, Math.round((new Date(isoStr).getTime() - Date.now()) / 1000));
+		const m = Math.floor(secs / 60), s = secs % 60;
+		return m > 0 ? `${m}m ${s}s` : `${s}s`;
+	}
 
 	const navItems: { page: Page; label: string; icon: typeof LayoutDashboard }[] = [
-		{ page: 'pipeline',       label: 'Pipeline',       icon: LayoutDashboard },
-		{ page: 'tabela',         label: 'Tabela',         icon: List },
-		{ page: 'discoveries',    label: 'Buscas',         icon: Search },
-		{ page: 'configuracoes',  label: 'Configurações',  icon: Settings }
+		{ page: 'pipeline',      label: 'Pipeline',      icon: LayoutDashboard },
+		{ page: 'tabela',        label: 'Tabela',        icon: List },
+		{ page: 'discoveries',   label: 'Buscas',        icon: Search },
+		{ page: 'configuracoes', label: 'Configurações', icon: Settings }
 	];
 </script>
 
@@ -61,53 +56,64 @@
 		{/each}
 	</nav>
 
-	<!-- Ações -->
+	<!-- Execução -->
 	<div class="flex flex-shrink-0 flex-col gap-1.5 border-t border-border-subtle p-2">
-		<!-- Auto-apply -->
-		{#if autoApply.running}
+		{#if execution.active}
+			{#if execution.running}
+				<button
+					type="button"
+					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text hover:opacity-80 focus-visible:outline-none"
+					onclick={onPauseExecution}
+					title="Pausar"
+				>
+					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-execution-text"></span>
+					Executando
+				</button>
+			{:else if execution.paused}
+				<button
+					type="button"
+					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text hover:opacity-80 focus-visible:outline-none"
+					onclick={onResumeExecution}
+					title="Retomar"
+				>
+					<span class="h-1.5 w-1.5 rounded-full bg-status-input-text"></span>
+					Pausada
+				</button>
+			{:else if execution.nextRunAt}
+				<button
+					type="button"
+					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted hover:bg-surface-hover focus-visible:outline-none"
+					onclick={onStopExecution}
+					title="Aguardando próximo ciclo"
+				>
+					<span class="h-1.5 w-1.5 rounded-full bg-border-strong"></span>
+					{fmtCountdown(execution.nextRunAt)}
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted focus-visible:outline-none"
+					disabled
+				>
+					<span class="h-1.5 w-1.5 rounded-full bg-border-strong"></span>
+					Iniciando…
+				</button>
+			{/if}
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-autoapply-bg px-2.5 py-2 text-[13px] font-semibold text-autoapply-text transition-opacity hover:opacity-80 focus-visible:outline-none"
-				title="Clique para parar"
-				onclick={onToggleAutoApply}
+				class="flex w-full cursor-pointer items-center justify-center rounded-md border border-danger-border bg-danger-bg px-2.5 py-1.5 text-xs font-medium text-danger-500 hover:bg-danger-500/10 focus-visible:outline-none"
+				onclick={onStopExecution}
 			>
-				<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-autoapply-text"></span>
-				Auto-apply ativo
-				{#if autoApply.applied > 0}
-					<span class="ml-auto text-[11px] opacity-70">{autoApply.applied}</span>
-				{/if}
-			</button>
-		{:else}
-			<button
-				type="button"
-				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted hover:bg-surface-hover hover:text-text-secondary focus-visible:outline-none"
-				onclick={onToggleAutoApply}
-			>
-				<Bot size={14} strokeWidth={1.75} aria-hidden="true" />
-				Auto-apply
-			</button>
-		{/if}
-
-		<!-- Discover -->
-		{#if isDiscovering}
-			<button
-				type="button"
-				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-[#2a2208] px-2.5 py-2 text-[12px] font-semibold text-[#ca8a04] hover:opacity-80 focus-visible:outline-none"
-				title="Clique para cancelar"
-				onclick={onStopDiscovery}
-			>
-				<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ca8a04]"></span>
-				Descobrindo...
-				<span class="ml-auto text-[11px] opacity-70">{discoveredCount}</span>
+				Parar execução
 			</button>
 		{:else}
 			<button
 				type="button"
 				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-white hover:bg-accent-600 focus-visible:outline-none"
-				onclick={onStartDiscovery}
+				onclick={onStartExecution}
 			>
 				<Search size={13} strokeWidth={2.25} aria-hidden="true" />
-				Nova descoberta
+				Iniciar execução
 			</button>
 		{/if}
 	</div>
