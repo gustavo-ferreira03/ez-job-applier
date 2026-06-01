@@ -102,6 +102,12 @@ async function runForever(
 
             if (_stopFlag) break;
 
+            const pendingApproved = await ctx.appRepo.listIdsByStatus("APPROVED");
+            if (pendingApproved.length > 0) {
+                console.log(`[execution] ${pendingApproved.length} APPROVED job(s) pending — restarting cycle`);
+                continue;
+            }
+
             const nextRunAt = new Date(Date.now() + intervalMs).toISOString();
             await ctx.executionRepo.setStatus(id, "waiting", nextRunAt);
             console.log(`[execution] waiting until ${nextRunAt}`);

@@ -36,6 +36,8 @@ export async function runCycle(
 
             await processQueue(session, resumePath, ctx, shouldStop);
         }
+
+        await processQueue(session, resumePath, ctx, shouldStop);
     } finally {
         onSession?.(null);
         await session.close();
