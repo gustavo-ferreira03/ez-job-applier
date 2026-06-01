@@ -40,6 +40,6 @@ export async function applyToJob(
 
         return result;
     } finally {
-        await session.close().catch(() => undefined);
+        await session.close();
     }
 }

@@ -54,7 +54,7 @@ export async function runCycle(
         }
     } finally {
         onSession?.(null);
-        await session.close().catch(() => undefined);
+        await session.close();
         const elapsed = Math.round((Date.now() - cycleStart) / 1000);
         console.log(`[execution] cycle finished (${elapsed}s)`);
     }
