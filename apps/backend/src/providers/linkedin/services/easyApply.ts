@@ -204,13 +204,11 @@ async function fillSelects(
 
         const label = await fieldLabel(select, `select field ${i + 1}`);
         const options = await selectOptions(select);
-        const checkedOption = select.locator("option:checked");
-        const selected = (await checkedOption.count())
-            ? (await checkedOption.innerText()).trim()
-            : "";
-        const selectedValue = (await checkedOption.count())
-            ? (await checkedOption.getAttribute("value")) ?? ""
-            : "";
+        const checkedEl = select.locator("option:checked");
+        const hasChecked = (await checkedEl.count()) > 0;
+        const selected = hasChecked ? (await checkedEl.innerText()).trim() : "";
+        const selectedValue = hasChecked ? (await checkedEl.getAttribute("value")) ?? "" : "";
+        const isDisabled = hasChecked && await checkedEl.evaluate((el) => (el as HTMLOptionElement).disabled);
         const answer = answers[label];
 
         if (answer) {
@@ -223,7 +221,8 @@ async function fillSelects(
             continue;
         }
 
-        const isPlaceholder = !selected || !selectedValue || selected.toLowerCase().includes("select") || selected.toLowerCase().includes("choose");
+        const placeholderWords = ["select", "choose", "selecionar", "seleccionar"];
+        const isPlaceholder = !selected || !selectedValue || isDisabled || placeholderWords.some((w) => selected.toLowerCase().includes(w));
 
         if (!isPlaceholder) {
             collected.push({

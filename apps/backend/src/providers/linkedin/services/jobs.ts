@@ -65,6 +65,8 @@ function buildSearchUrl(config: SearchConfig, start: number): string {
         .filter((j) => j in JT_MAP)
         .map((j) => JT_MAP[j]);
 
+    const hasFilters = config.easyApply || wtParts.length || expParts.length || jtParts.length || (config.datePosted && DATE_MAP[config.datePosted]);
+
     const params = new URLSearchParams();
     if (config.keywords) params.set("keywords", config.keywords);
     if (config.location) params.set("location", config.location);
@@ -75,6 +77,9 @@ function buildSearchUrl(config: SearchConfig, start: number): string {
     if (config.datePosted && DATE_MAP[config.datePosted])
         params.set("f_TPR", DATE_MAP[config.datePosted]);
     if (start) params.set("start", String(start));
+    if (hasFilters) {
+        params.set("origin", "JOB_SEARCH_PAGE_JOB_FILTER");
+    }
 
     const query = params.toString();
     return "https://www.linkedin.com/jobs/search-results/" + (query ? `?${query}` : "");
@@ -86,9 +91,11 @@ async function openJobs(
     start: number,
 ): Promise<void> {
     const url = buildSearchUrl(config, start);
-    console.log(`Opening jobs page: ${url}`);
+    console.log(`[jobs] navigating to: ${url}`);
     await page.goto(url, { waitUntil: "domcontentloaded" });
-    if (isAuthWall(page.url()))
+    const finalUrl = page.url();
+    console.log(`[jobs] landed on: ${finalUrl}`);
+    if (isAuthWall(finalUrl))
         throw new Error("LinkedIn session expired; log in again");
     await page.waitForTimeout(5000);
 }

@@ -21,28 +21,36 @@ function run(cmd: string, args: string[]): Promise<void> {
     });
 }
 
-function spawnSafe(cmd: string, args: string[], env = process.env): Promise<ChildProcess> {
+function spawnWithOutput(cmd: string, args: string[], env = process.env): Promise<ChildProcess> {
     return new Promise((resolve, reject) => {
-        const proc = spawn(cmd, args, { stdio: "ignore", env });
+        const proc = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"], env });
         let settled = false;
+        let stderr = "";
+
+        proc.stderr?.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+
         const timer = setTimeout(() => {
             settled = true;
             proc.off("error", onError);
             proc.off("exit", onExit);
             resolve(proc);
         }, 700);
+
         const onError = (error: Error) => {
             if (settled) return;
             settled = true;
             clearTimeout(timer);
             reject(error);
         };
+
         const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
             if (settled) return;
             settled = true;
             clearTimeout(timer);
-            reject(new Error(`${cmd} exited early: ${code ?? signal ?? "unknown"}`));
+            const reason = stderr.trim() || `${cmd} exited early: ${code ?? signal ?? "unknown"}`;
+            reject(new Error(reason));
         };
+
         proc.once("error", onError);
         proc.once("exit", onExit);
     });
@@ -60,7 +68,7 @@ export async function startVncStack(): Promise<void> {
     for (let display = DISPLAY_START; display <= DISPLAY_END; display += 1) {
         activeDisplay = `:${display}`;
         try {
-            xvfbProc = await spawnSafe("Xvfb", [activeDisplay, "-screen", "0", "1280x800x24"], x11Env());
+            xvfbProc = await spawnWithOutput("Xvfb", [activeDisplay, "-screen", "0", "1280x800x24"], x11Env());
             break;
         } catch (e) {
             lastError = e;
@@ -70,7 +78,7 @@ export async function startVncStack(): Promise<void> {
     if (!xvfbProc) throw lastError instanceof Error ? lastError : new Error("Xvfb failed to start");
     await sleep(1200);
     try {
-        x11vncProc = await spawnSafe("x11vnc", [
+        x11vncProc = await spawnWithOutput("x11vnc", [
             "-display", activeDisplay,
             "-localhost",
             "-rfbport", String(VNC_PORT),
@@ -85,16 +93,14 @@ export async function startVncStack(): Promise<void> {
 }
 
 async function stopStaleVncStack(): Promise<void> {
-    await run("pkill", ["-f", `x11vnc .* -rfbport ${VNC_PORT}`]);
-    for (let display = DISPLAY_START; display <= DISPLAY_END; display += 1) {
-        await run("pkill", ["-f", `Xvfb :${display} `]);
-    }
-    await sleep(300);
+    await run("pkill", ["-9", "-f", "x11vnc"]);
+    await run("pkill", ["-9", "-f", "Xvfb"]);
+    await sleep(1000);
 }
 
 export function stopVncStack(): void {
-    x11vncProc?.kill();
-    xvfbProc?.kill();
+    x11vncProc?.kill("SIGKILL");
+    xvfbProc?.kill("SIGKILL");
     x11vncProc = null;
     xvfbProc = null;
     console.log("[login] VNC stack stopped");
