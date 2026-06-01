@@ -1,6 +1,6 @@
-import path from "node:path";
 import type { AppContext } from "../context";
 import type { ApplyResult } from "../types";
+import { saveAnswers } from "./answer";
 
 export async function applyToJob(
     jobId: number,
@@ -10,36 +10,15 @@ export async function applyToJob(
     const job = await ctx.jobRepo.getById(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
 
-    const existing = await ctx.appRepo.get(job.provider, job.jobId);
-    if (existing) {
-        const persisted = await ctx.appRepo.getQuestions(existing.id);
-        for (const q of persisted) {
-            if (q.answer && !answers[q.label]) {
-                answers[q.label] = q.answer;
-            }
-        }
-    }
+    await saveAnswers(jobId, answers, ctx);
 
-    const resumePath = await ctx.resumeRepo.getDefaultResumePath();
-    const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
+    const application = await ctx.appRepo.get(job.provider, job.jobId);
+    const questions = application
+        ? await ctx.appRepo.getQuestions(application.id)
+        : [];
 
-    const provider = ctx.providerRegistry.getForJob(job);
-    const session = await provider.createSession();
-
-    try {
-        const result = await session.apply(job, answers, resumePath);
-
-        const application = await ctx.appRepo.upsert(
-            job.provider,
-            job.jobId,
-            result.status,
-            resumeFilename,
-            result.errorMessage,
-        );
-        await ctx.appRepo.replaceQuestions(application.id, result.questions);
-
-        return result;
-    } finally {
-        await session.close();
-    }
+    return {
+        status: application?.status ?? "READY_FOR_REVIEW",
+        questions,
+    };
 }
