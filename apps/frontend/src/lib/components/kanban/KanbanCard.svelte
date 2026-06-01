@@ -67,8 +67,8 @@
 					Pronto p/ enviar
 				</span>
 			{:else if job.status === 'READY_FOR_REVIEW'}
-				<span class="rounded-sm bg-execution-bg px-1.5 py-0.5 text-xs font-medium text-execution-text">
-					Na fila
+				<span class="rounded-sm bg-status-review-bg px-1.5 py-0.5 text-xs font-medium text-status-review-text">
+					Revisar
 				</span>
 			{/if}
 		</div>

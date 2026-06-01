@@ -423,7 +423,7 @@ async function handleSkip() {
 						</button>
 					{/if}
 				{:else if job.status === 'READY_FOR_REVIEW'}
-					<p class="text-[13px] text-execution-text">Na fila — aguardando envio pelo bot</p>
+					<p class="text-[13px] text-text-muted">Candidatura aprovada — será enviada na próxima execução</p>
 				{/if}
 			</div>
 		</div>
