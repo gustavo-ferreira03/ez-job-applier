@@ -1,35 +1,6 @@
 import type { Locator, Page } from "playwright-core";
 import type { LinkedinJob, SearchConfig } from "./types";
 
-const EXP_MAP: Record<string, string> = {
-    entry: "2",
-    associate: "3",
-    mid_senior: "4",
-    director: "5",
-    executive: "6",
-};
-const JT_MAP: Record<string, string> = {
-    full_time: "F",
-    part_time: "P",
-    contract: "C",
-    temporary: "T",
-    internship: "I",
-};
-const WT_MAP: Record<string, string> = {
-    remote: "2",
-    hybrid: "3",
-    onsite: "1",
-};
-const DATE_MAP: Record<string, string> = {
-    hour: "r3600",
-    hours6: "r21600",
-    hours12: "r43200",
-    hours24: "r86400",
-    day: "r86400",
-    week: "r604800",
-    month: "r2592000",
-};
-
 function isAuthWall(url: string): boolean {
     const lower = url.toLowerCase();
     return lower.includes("/login") || lower.includes("checkpoint");
@@ -51,45 +22,141 @@ function cleanListItems(texts: string[]): string[] {
 }
 
 function buildSearchUrl(config: SearchConfig, start: number): string {
-    const wtParts = (config.workType ?? "")
-        .split(",")
-        .map((w) => w.trim())
-        .filter((w) => w in WT_MAP)
-        .map((w) => WT_MAP[w]);
-
-    const expParts = (config.experienceLevel ?? [])
-        .filter((e) => e in EXP_MAP)
-        .map((e) => EXP_MAP[e]);
-
-    const jtParts = (config.jobType ?? [])
-        .filter((j) => j in JT_MAP)
-        .map((j) => JT_MAP[j]);
-
-    const hasFilters = config.easyApply || wtParts.length || expParts.length || jtParts.length || (config.datePosted && DATE_MAP[config.datePosted]);
-
     const params = new URLSearchParams();
     if (config.keywords) params.set("keywords", config.keywords);
     if (config.location) params.set("location", config.location);
-    if (config.easyApply) params.set("f_AL", "true");
-    if (wtParts.length) params.set("f_WT", wtParts.join(","));
-    if (expParts.length) params.set("f_E", expParts.join(","));
-    if (jtParts.length) params.set("f_JT", jtParts.join(","));
-    if (config.datePosted && DATE_MAP[config.datePosted])
-        params.set("f_TPR", DATE_MAP[config.datePosted]);
     if (start) params.set("start", String(start));
-    if (hasFilters) {
-        params.set("origin", "JOB_SEARCH_PAGE_JOB_FILTER");
-    }
 
     const query = params.toString();
     return "https://www.linkedin.com/jobs/search-results/" + (query ? `?${query}` : "");
 }
 
-async function openJobs(
-    page: Page,
-    config: SearchConfig,
-    start: number,
-): Promise<void> {
+async function clickDropdownOption(page: Page, triggerLabel: RegExp, optionLabel: RegExp): Promise<boolean> {
+    const trigger = page.getByRole("button").filter({ hasText: triggerLabel }).first();
+    if (!(await trigger.count())) {
+        console.log(`[filter] trigger not found: ${triggerLabel.source}`);
+        return false;
+    }
+
+    await trigger.click();
+    await page.waitForTimeout(400);
+
+    const radio = page.getByRole("radio").filter({ hasText: optionLabel }).first();
+    if (await radio.count()) {
+        await radio.click();
+        await page.waitForTimeout(600);
+        return true;
+    }
+
+    const btn = page.getByRole("button").filter({ hasText: optionLabel }).first();
+    if (await btn.count()) {
+        await btn.click();
+        await page.waitForTimeout(600);
+        return true;
+    }
+
+    console.log(`[filter] option not found: ${optionLabel.source}`);
+    return false;
+}
+
+async function toggleFilterPill(page: Page, label: RegExp): Promise<boolean> {
+    const pill = page.locator("button, a, label").filter({ hasText: label }).first();
+    if (!(await pill.count())) {
+        console.log(`[filter] pill not found: ${label.source}`);
+        return false;
+    }
+
+    const ariaPressed = await pill.getAttribute("aria-pressed");
+    const isChecked = ariaPressed === "true" || await pill.evaluate((el) => (el as HTMLInputElement).checked);
+
+    if (!isChecked) {
+        await pill.click();
+        await page.waitForTimeout(800);
+        console.log(`[filter] toggled pill: ${label.source}`);
+        return true;
+    }
+
+    console.log(`[filter] pill already active: ${label.source}`);
+    return true;
+}
+
+async function applyFiltersViaUI(page: Page, config: SearchConfig): Promise<void> {
+    const applied: string[] = [];
+
+    if (config.easyApply) {
+        if (await toggleFilterPill(page, /^\s*Easy Apply\s*$/i)) {
+            applied.push("Easy Apply");
+        }
+    }
+
+    if (config.datePosted) {
+        const dateMap: Record<string, RegExp> = {
+            hour: /past hour/i,
+            hours6: /past 6 hours/i,
+            hours12: /past 12 hours/i,
+            hours24: /past 24 hours|last 24 hours/i,
+            day: /past 24 hours|last 24 hours|past day/i,
+            week: /past week|last week/i,
+            month: /past month|last month/i,
+        };
+        const pattern = dateMap[config.datePosted];
+        if (pattern && await clickDropdownOption(page, /date posted/i, pattern)) {
+            applied.push(`Date posted: ${config.datePosted}`);
+        }
+    }
+
+    if (config.workType) {
+        const wtMap: Record<string, RegExp> = {
+            remote: /remote/i,
+            hybrid: /hybrid/i,
+            onsite: /on-site|onsite/i,
+        };
+        const pattern = wtMap[config.workType];
+        if (pattern && await clickDropdownOption(page, /workplace type|work type|on-site/i, pattern)) {
+            applied.push(`Work type: ${config.workType}`);
+        }
+    }
+
+    if (config.experienceLevel && config.experienceLevel.length > 0) {
+        const expMap: Record<string, RegExp> = {
+            entry: /internship|entry level/i,
+            associate: /associate/i,
+            mid_senior: /mid-senior level|mid senior/i,
+            director: /director/i,
+            executive: /executive/i,
+        };
+        for (const level of config.experienceLevel) {
+            const pattern = expMap[level];
+            if (pattern && await clickDropdownOption(page, /experience level/i, pattern)) {
+                applied.push(`Experience: ${level}`);
+            }
+        }
+    }
+
+    if (config.jobType && config.jobType.length > 0) {
+        const jtMap: Record<string, RegExp> = {
+            full_time: /full-time|full time/i,
+            part_time: /part-time|part time/i,
+            contract: /contract/i,
+            temporary: /temporary/i,
+            internship: /internship/i,
+        };
+        for (const jt of config.jobType) {
+            const pattern = jtMap[jt];
+            if (pattern && await clickDropdownOption(page, /job type|employment type/i, pattern)) {
+                applied.push(`Job type: ${jt}`);
+            }
+        }
+    }
+
+    if (applied.length > 0) {
+        console.log(`[jobs] applied filters: ${applied.join(", ")}`);
+        await page.waitForTimeout(2000);
+        console.log(`[jobs] final URL after filters: ${page.url()}`);
+    }
+}
+
+async function openJobs(page: Page, config: SearchConfig, start: number): Promise<void> {
     const url = buildSearchUrl(config, start);
     console.log(`[jobs] navigating to: ${url}`);
     await page.goto(url, { waitUntil: "domcontentloaded" });
@@ -97,13 +164,12 @@ async function openJobs(
     console.log(`[jobs] landed on: ${finalUrl}`);
     if (isAuthWall(finalUrl))
         throw new Error("LinkedIn session expired; log in again");
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(3000);
+    await applyFiltersViaUI(page, config);
 }
 
 async function openTopApplicant(page: Page, start: number): Promise<void> {
-    const url =
-        "https://www.linkedin.com/jobs/collections/top-applicant/" +
-        (start ? `?start=${start}` : "");
+    const url = "https://www.linkedin.com/jobs/collections/top-applicant/" + (start ? `?start=${start}` : "");
     console.log(`Opening top applicant collection: ${url}`);
     await page.goto(url, { waitUntil: "domcontentloaded" });
     if (isAuthWall(page.url()))
@@ -168,11 +234,7 @@ function parseCardText(text: string): { title: string; company: string; location
     return { title, company, location };
 }
 
-async function getApplicationUrl(
-    page: Page,
-    detailPane: Locator,
-    easyApply: boolean,
-): Promise<string | null> {
+async function getApplicationUrl(page: Page, detailPane: Locator, easyApply: boolean): Promise<string | null> {
     if (easyApply) return null;
 
     let applyControl = detailPane
@@ -233,15 +295,11 @@ async function addMissingSkills(page: Page, skillsUl: Locator): Promise<void> {
         await page.waitForTimeout(1500);
         const dialog = page.getByRole("dialog").last();
         if (await dialog.count()) {
-            const saveBtn = dialog
-                .getByRole("button", { name: /save/i })
-                .first();
+            const saveBtn = dialog.getByRole("button", { name: /save/i }).first();
             if (await saveBtn.count()) {
                 await saveBtn.click();
                 await page.waitForTimeout(1000);
-                const closeBtn = page
-                    .getByRole("button", { name: /dismiss|close/i })
-                    .first();
+                const closeBtn = page.getByRole("button", { name: /dismiss|close/i }).first();
                 if (await closeBtn.count()) {
                     await closeBtn.click();
                     await page.waitForTimeout(500);
@@ -251,11 +309,7 @@ async function addMissingSkills(page: Page, skillsUl: Locator): Promise<void> {
     }
 }
 
-async function getJobDetails(
-    page: Page,
-    easyApply: boolean,
-    fillSkillGaps: boolean,
-): Promise<Partial<LinkedinJob>> {
+async function getJobDetails(page: Page, easyApply: boolean, fillSkillGaps: boolean): Promise<Partial<LinkedinJob>> {
     const detailPane = page
         .locator("[data-sdui-screen='com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails']")
         .first();
@@ -270,17 +324,12 @@ async function getJobDetails(
     let preferences: string[] = [];
     let skills: string[] = [];
 
-    const skillsBtn = detailPane
-        .getByRole("button")
-        .filter({ hasText: /skills match/i })
-        .first();
+    const skillsBtn = detailPane.getByRole("button").filter({ hasText: /skills match/i }).first();
     if (await skillsBtn.count()) {
         await skillsBtn.click();
         const modal = page.getByRole("dialog").last();
         await modal.waitFor();
-        preferences = cleanListItems(
-            await modal.locator("ul").first().locator("li").allInnerTexts(),
-        );
+        preferences = cleanListItems(await modal.locator("ul").first().locator("li").allInnerTexts());
         const skillsUl = modal.locator("ul").nth(1);
         skills = cleanListItems(await skillsUl.locator("li").allInnerTexts());
         if (fillSkillGaps) await addMissingSkills(page, skillsUl);
@@ -313,17 +362,13 @@ async function* extractJobs(
         onCandidate?.(key);
 
         const lazyCol = page.locator("[data-testid='lazy-column']").first();
-        const cardBtn = lazyCol
-            .locator(`div[role='button'][componentkey='${key}']`)
-            .first();
+        const cardBtn = lazyCol.locator(`div[role='button'][componentkey='${key}']`).first();
         await cardBtn.scrollIntoViewIfNeeded();
 
         const cardText = await cardBtn.innerText();
         const { title, company, location } = parseCardText(cardText);
 
-        if (!company) {
-            continue;
-        }
+        if (!company) continue;
 
         if (/\bapplied\b/i.test(cardText)) {
             console.log(`Skipping already-applied job: ${title}`);
@@ -391,8 +436,7 @@ export async function* discoverJobs(
             while (true) {
                 if (config.maxJobs != null && total >= config.maxJobs) break;
                 await openTopApplicant(page, start);
-                const remaining =
-                    config.maxJobs != null ? config.maxJobs - total : undefined;
+                const remaining = config.maxJobs != null ? config.maxJobs - total : undefined;
                 let pageNew = 0;
                 for await (const job of extractJobs(
                     page,
@@ -417,13 +461,8 @@ export async function* discoverJobs(
             let start = 0;
             while (true) {
                 if (config.maxJobs != null && total >= config.maxJobs) return;
-                await openJobs(
-                    page,
-                    { ...config, keywords: keyword || undefined },
-                    start,
-                );
-                const remaining =
-                    config.maxJobs != null ? config.maxJobs - total : undefined;
+                await openJobs(page, { ...config, keywords: keyword || undefined }, start);
+                const remaining = config.maxJobs != null ? config.maxJobs - total : undefined;
                 let pageNew = 0;
                 for await (const job of extractJobs(
                     page,
