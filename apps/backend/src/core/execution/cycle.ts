@@ -33,6 +33,11 @@ export async function runCycle(
             await ctx.executionRepo.incrementDiscovered(executionId);
             console.log(`[execution] discovered: ${job.title} @ ${job.company}`);
 
+            await drainRetries(session, resumePath, ctx);
+
+            const initApp = await ctx.appRepo.upsert(job.provider, job.jobId, "FOUND");
+            await ctx.appRepo.setProcessing(initApp.id, true);
+
             try {
                 const result = await session.getQuestions(job, resumePath);
                 const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
@@ -43,14 +48,14 @@ export async function runCycle(
                     resumeFilename,
                     result.errorMessage,
                 );
+                await ctx.appRepo.setProcessing(appRec.id, false);
                 await ctx.appRepo.replaceQuestions(appRec.id, result.questions);
                 console.log(`[execution] processed: ${job.title} → ${result.status}`);
             } catch (e) {
                 console.error(`[execution] getQuestions failed for ${job.jobId}:`, e);
-                await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
+                const appRec = await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
+                await ctx.appRepo.setProcessing(appRec.id, false);
             }
-
-            await drainRetries(session, resumePath, ctx);
         }
     } finally {
         onSession?.(null);

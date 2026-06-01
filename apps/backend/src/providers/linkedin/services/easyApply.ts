@@ -144,7 +144,73 @@ async function fillRadioGroups(
             collected.push({ label, answer: selected, fieldType: "radio", options });
             continue;
         }
-        pending.push({ label, fieldType: "radio", options });
+        if (await isRequired(first)) {
+            if (count > 0) await radios.first().check({ force: true }).catch(() => undefined);
+            pending.push({ label, fieldType: "radio", options });
+        }
+    }
+}
+
+async function fillCheckboxGroups(
+    modal: Locator,
+    answers: Record<string, string>,
+    pending: ApplicationQuestion[],
+    collected: ApplicationQuestion[],
+): Promise<void> {
+    const names = await modal.locator("input[type=checkbox]").evaluateAll((nodes) => {
+        const found = new Set<string>();
+        for (const node of nodes) {
+            const input = node as HTMLInputElement;
+            if (input.name) found.add(input.name);
+        }
+        return [...found];
+    });
+
+    for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        const cbs = modal.locator(`input[type=checkbox][name="${cssAttr(name)}"]`);
+        const count = await cbs.count();
+        if (count === 0) continue;
+
+        const first = cbs.first();
+        if (!(await first.isVisible()) || !(await first.isEnabled())) continue;
+
+        const label = await radioGroupLabel(first, `checkbox group ${i + 1}`);
+        const options: string[] = [];
+        const checkedValues: string[] = [];
+
+        for (let j = 0; j < count; j++) {
+            const cb = cbs.nth(j);
+            const option = await choiceLabel(cb, `option ${j + 1}`);
+            if (option) options.push(option);
+            if (await cb.isChecked()) checkedValues.push(option);
+        }
+
+        const answer = answers[label];
+        if (answer) {
+            const targets = answer.split(",").map((a) => a.trim());
+            let matched = false;
+            for (let j = 0; j < count; j++) {
+                const cb = cbs.nth(j);
+                const option = await choiceLabel(cb, `option ${j + 1}`);
+                if (targets.some((t) => sameText(t, option))) {
+                    if (!(await cb.isChecked())) await cb.check({ force: true });
+                    matched = true;
+                }
+            }
+            if (matched) {
+                collected.push({ label, answer, fieldType: "checkbox", options });
+                continue;
+            }
+        } else if (checkedValues.length > 0) {
+            collected.push({ label, answer: checkedValues.join(", "), fieldType: "checkbox", options });
+            continue;
+        }
+
+        if (await isRequired(first)) {
+            await cbs.first().check({ force: true }).catch(() => undefined);
+            pending.push({ label, fieldType: "checkbox", options });
+        }
     }
 }
 
@@ -158,6 +224,22 @@ async function selectOptions(select: Locator): Promise<string[]> {
         if (label && value) options.push(label);
     }
     return options;
+}
+
+async function selectFirstAutocomplete(field: Locator): Promise<void> {
+    const page = field.page();
+    await page.waitForTimeout(400);
+    const listbox = page.getByRole("listbox").first();
+    if (await listbox.isVisible().catch(() => false)) {
+        const first = listbox.getByRole("option").first();
+        if (await first.count()) await first.click().catch(() => undefined);
+    }
+}
+
+async function isRequired(el: Locator): Promise<boolean> {
+    const req = await el.getAttribute("required");
+    const aria = await el.getAttribute("aria-required");
+    return req !== null || aria === "true";
 }
 
 async function fillTextFields(
@@ -181,10 +263,15 @@ async function fillTextFields(
 
         if (answer) {
             if (current !== answer) await field.fill(answer);
+            await selectFirstAutocomplete(field);
             collected.push({ label, answer, fieldType });
         } else if (current) {
             collected.push({ label, answer: current, fieldType });
-        } else {
+        } else if (await isRequired(field)) {
+            const rawType = await field.getAttribute("type");
+            const placeholder = rawType === "number" ? "0" : "N/A";
+            await field.fill(placeholder);
+            await selectFirstAutocomplete(field);
             pending.push({ label, fieldType });
         }
     }
@@ -211,6 +298,9 @@ async function fillSelects(
         const isDisabled = hasChecked && await checkedEl.evaluate((el) => (el as HTMLOptionElement).disabled);
         const answer = answers[label];
 
+        const placeholderWords = ["select", "choose", "selecionar", "seleccionar"];
+        const isPlaceholder = !selected || !selectedValue || isDisabled || placeholderWords.some((w) => selected.toLowerCase().includes(w));
+
         if (answer) {
             try {
                 await select.selectOption({ label: answer });
@@ -221,17 +311,11 @@ async function fillSelects(
             continue;
         }
 
-        const placeholderWords = ["select", "choose", "selecionar", "seleccionar"];
-        const isPlaceholder = !selected || !selectedValue || isDisabled || placeholderWords.some((w) => selected.toLowerCase().includes(w));
-
         if (!isPlaceholder) {
-            collected.push({
-                label,
-                answer: selected,
-                fieldType: "select",
-                options,
-            });
-        } else {
+            collected.push({ label, answer: selected, fieldType: "select", options });
+        } else if (await isRequired(select)) {
+            const firstReal = options.find((o) => !placeholderWords.some((w) => o.toLowerCase().includes(w)));
+            if (firstReal) await select.selectOption({ label: firstReal }).catch(() => undefined);
             pending.push({ label, fieldType: "select", options });
         }
     }
@@ -297,6 +381,7 @@ export async function runEasyApply(
     const answers = config.answers ?? {};
     const shouldSubmit = config.shouldSubmit ?? false;
     const collected: ApplicationQuestion[] = [];
+    const allPending: ApplicationQuestion[] = [];
 
     try {
         await page.goto(jobUrl, { waitUntil: "domcontentloaded" });
@@ -331,25 +416,24 @@ export async function runEasyApply(
         }
 
         for (let step = 0; step < MAX_STEPS; step++) {
-            const pending: ApplicationQuestion[] = [];
+            const stepPending: ApplicationQuestion[] = [];
 
-            await fillTextFields(modal, answers, pending, collected);
-            await fillSelects(modal, answers, pending, collected);
-            await fillRadioGroups(modal, answers, pending, collected);
+            await fillTextFields(modal, answers, stepPending, collected);
+            await fillSelects(modal, answers, stepPending, collected);
+            await fillRadioGroups(modal, answers, stepPending, collected);
+            await fillCheckboxGroups(modal, answers, stepPending, collected);
             if (config.resumePath) await fillFileFields(modal, config.resumePath);
 
-            if (pending.length > 0) {
-                await closeModal(page, modal);
-                return {
-                    status: "NEEDS_INPUT",
-                    questions: [...collected, ...pending],
-                };
-            }
+            allPending.push(...stepPending);
 
             const submitBtn = modal
                 .getByRole("button", { name: /submit application/i })
                 .first();
             if (await submitBtn.count()) {
+                if (allPending.length > 0) {
+                    await closeModal(page, modal);
+                    return { status: "NEEDS_INPUT", questions: [...collected, ...allPending] };
+                }
                 await unfollow(modal);
                 if (shouldSubmit) {
                     await submitBtn.click();
@@ -365,6 +449,9 @@ export async function runEasyApply(
                 .first();
             if (!(await nextBtn.count())) {
                 await closeModal(page, modal);
+                if (allPending.length > 0) {
+                    return { status: "NEEDS_INPUT", questions: [...collected, ...allPending] };
+                }
                 return {
                     status: "FAILED",
                     questions: collected,

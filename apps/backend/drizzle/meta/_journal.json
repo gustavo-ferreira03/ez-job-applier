@@ -43,6 +43,13 @@
       "when": 1780262259546,
       "tag": "0005_vengeful_proteus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1780284698266,
+      "tag": "0006_tiny_vermin",
+      "breakpoints": true
     }
   ]
 }

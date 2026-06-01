@@ -35,6 +35,7 @@ export interface IAppRepo {
     answerQuestions(appId: number, answers: Record<string, string>): Promise<void>;
     listIdsByStatus(status: ApplicationStatus): Promise<number[]>;
     listFoundJobIds(): Promise<number[]>;
+    setProcessing(appId: number, processing: boolean): Promise<void>;
 }
 
 export interface IExecutionRepo {

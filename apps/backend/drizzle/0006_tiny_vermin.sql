@@ -1,0 +1,1 @@
+ALTER TABLE `applications` ADD `processing` integer DEFAULT 0 NOT NULL;

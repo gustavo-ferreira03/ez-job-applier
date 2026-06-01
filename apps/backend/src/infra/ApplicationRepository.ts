@@ -160,4 +160,11 @@ export class ApplicationRepository implements IAppRepo {
         return rows.map((r) => r.id);
     }
 
+    async setProcessing(appId: number, processing: boolean): Promise<void> {
+        await this.db
+            .update(applications)
+            .set({ processing: processing ? 1 : 0 })
+            .where(eq(applications.id, appId));
+    }
+
 }

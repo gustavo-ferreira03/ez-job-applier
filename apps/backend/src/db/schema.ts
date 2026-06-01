@@ -26,6 +26,7 @@ export const applications = sqliteTable("applications", {
     id: integer("id").primaryKey({ autoIncrement: true }),
     jobId: integer("job_id").notNull().unique(),
     status: text("status", { enum: APPLICATION_STATUSES }).notNull().default("FOUND"),
+    processing: integer("processing").notNull().default(0),
     resumeFilename: text("resume_filename"),
     errorMessage: text("error_message"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
