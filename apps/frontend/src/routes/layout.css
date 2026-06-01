@@ -72,6 +72,14 @@
   --shadow-modal:  0 24px 56px rgb(0 0 0 / 0.7);
 }
 
+/* ── Processing card ────────────────────────────────────────── */
+@keyframes pulse-border {
+  50% { border-color: rgb(56 189 248 / 0.2); }
+}
+.animate-pulse-border {
+  animation: pulse-border 1.4s ease-in-out infinite;
+}
+
 /* ── Scrollbar ──────────────────────────────────────────────── */
 * {
   scrollbar-width: thin;

@@ -88,15 +88,18 @@ async function drainRetries(
             if (q.answer) answers[q.label] = q.answer;
         }
 
+        await ctx.appRepo.setProcessing(appRec.id, true);
         try {
             const result = await session.apply(job, answers, resumePath);
             const updated = await ctx.appRepo.upsert(
                 job.provider, job.jobId, result.status, resumeFilename, result.errorMessage,
             );
+            await ctx.appRepo.setProcessing(updated.id, false);
             await ctx.appRepo.replaceQuestions(updated.id, result.questions);
             console.log(`[execution] submitted: ${job.title} → ${result.status}`);
         } catch (e) {
             console.error(`[execution] apply failed for job ${jobId}:`, e);
+            await ctx.appRepo.setProcessing(appRec.id, false);
         }
     }
 }

@@ -20,7 +20,10 @@
 
 <button
 	type="button"
-	class="w-full cursor-pointer rounded-md border border-border-subtle bg-surface-raised p-2.5 text-left transition-colors duration-100 hover:border-border-default focus-visible:outline-none"
+	class="w-full cursor-pointer rounded-md bg-surface-raised p-2.5 text-left focus-visible:outline-none
+		{job.processing
+			? 'animate-pulse-border border-2 border-accent-500'
+			: 'border border-border-subtle transition-colors duration-100 hover:border-border-default'}"
 	onclick={() => onOpen(job, defaultTab)}
 >
 	<!-- Título -->
