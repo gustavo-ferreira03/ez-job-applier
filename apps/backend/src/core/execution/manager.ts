@@ -14,6 +14,8 @@ let _activeSession: IJobProviderSession | null = null;
 
 function wakeUp(): void { _wake?.(); _wake = null; }
 
+export function nudgeExecution(): void { wakeUp(); }
+
 function interruptibleSleep(ms: number): Promise<void> {
     return new Promise<void>((resolve) => {
         const timer = setTimeout(resolve, ms);
