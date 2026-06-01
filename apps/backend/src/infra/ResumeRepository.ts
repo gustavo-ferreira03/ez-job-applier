@@ -16,4 +16,8 @@ export class ResumeRepository implements IResumeRepo {
             return undefined;
         }
     }
+
+    async getResumePath(filename: string): Promise<string> {
+        return path.join(RESUMES_DIR, filename);
+    }
 }

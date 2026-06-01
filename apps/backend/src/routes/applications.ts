@@ -26,6 +26,7 @@ const ApplyBody = z
         answers: z.record(z.string(), z.string()).optional().openapi({
             example: { "Years of experience": "3" },
         }),
+        resumeFilename: z.string().optional(),
     })
     .openapi("ApplyBody");
 
@@ -107,7 +108,7 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
             const { id } = c.req.valid("param");
             const body = c.req.valid("json");
             try {
-                const result = await applyToJob(id, body?.answers ?? {}, ctx);
+                const result = await applyToJob(id, body?.answers ?? {}, ctx, body?.resumeFilename);
                 return c.json(result);
             } catch (err) {
                 if (err instanceof Error && err.message.includes("not found")) {
