@@ -51,38 +51,127 @@ function cleanListItems(texts: string[]): string[] {
 }
 
 function buildSearchUrl(config: SearchConfig, start: number): string {
-    const wtParts = (config.workType ?? "")
-        .split(",")
-        .map((w) => w.trim())
-        .filter((w) => w in WT_MAP)
-        .map((w) => WT_MAP[w]);
-
-    const expParts = (config.experienceLevel ?? [])
-        .filter((e) => e in EXP_MAP)
-        .map((e) => EXP_MAP[e]);
-
-    const jtParts = (config.jobType ?? [])
-        .filter((j) => j in JT_MAP)
-        .map((j) => JT_MAP[j]);
-
-    const hasFilters = config.easyApply || wtParts.length || expParts.length || jtParts.length || (config.datePosted && DATE_MAP[config.datePosted]);
-
     const params = new URLSearchParams();
     if (config.keywords) params.set("keywords", config.keywords);
     if (config.location) params.set("location", config.location);
-    if (config.easyApply) params.set("f_AL", "true");
-    if (wtParts.length) params.set("f_WT", wtParts.join(","));
-    if (expParts.length) params.set("f_E", expParts.join(","));
-    if (jtParts.length) params.set("f_JT", jtParts.join(","));
-    if (config.datePosted && DATE_MAP[config.datePosted])
-        params.set("f_TPR", DATE_MAP[config.datePosted]);
     if (start) params.set("start", String(start));
-    if (hasFilters) {
-        params.set("origin", "JOB_SEARCH_PAGE_JOB_FILTER");
-    }
 
     const query = params.toString();
     return "https://www.linkedin.com/jobs/search-results/" + (query ? `?${query}` : "");
+}
+
+async function clickFilterOption(page: Page, filterLabel: RegExp, optionLabel: RegExp): Promise<boolean> {
+    const btn = page
+        .getByRole("button")
+        .filter({ hasText: filterLabel })
+        .first();
+    if (!(await btn.count())) return false;
+
+    await btn.click();
+    await page.waitForTimeout(300);
+
+    const option = page
+        .getByRole("radio")
+        .filter({ hasText: optionLabel })
+        .first();
+    if (await option.count()) {
+        await option.click();
+        await page.waitForTimeout(500);
+        return true;
+    }
+
+    const optionBtn = page
+        .getByRole("button")
+        .filter({ hasText: optionLabel })
+        .first();
+    if (await optionBtn.count()) {
+        await optionBtn.click();
+        await page.waitForTimeout(500);
+        return true;
+    }
+
+    return false;
+}
+
+async function applyFiltersViaUI(page: Page, config: SearchConfig): Promise<void> {
+    const applied: string[] = [];
+
+    if (config.easyApply) {
+        const easyBtn = page
+            .locator("button, label, a")
+            .filter({ hasText: /easy apply/i })
+            .first();
+        if (await easyBtn.count()) {
+            await easyBtn.click();
+            applied.push("Easy Apply");
+            await page.waitForTimeout(800);
+        }
+    }
+
+    if (config.datePosted && DATE_MAP[config.datePosted]) {
+        const map: Record<string, RegExp> = {
+            hour: /past hour/i,
+            hours6: /past 6 hours/i,
+            hours12: /past 12 hours/i,
+            hours24: /past 24 hours|last 24 hours/i,
+            day: /past 24 hours|last 24 hours|past day/i,
+            week: /past week|last week/i,
+            month: /past month|last month/i,
+        };
+        const pattern = map[config.datePosted];
+        if (pattern && await clickFilterOption(page, /date posted/i, pattern)) {
+            applied.push(`Date posted: ${config.datePosted}`);
+        }
+    }
+
+    if (config.workType && WT_MAP[config.workType]) {
+        const map: Record<string, RegExp> = {
+            remote: /remote/i,
+            hybrid: /hybrid/i,
+            onsite: /on-site|onsite|presencial/i,
+        };
+        const pattern = map[config.workType];
+        if (pattern && await clickFilterOption(page, /workplace type|work type|remote|on-site|hybrid/i, pattern)) {
+            applied.push(`Work type: ${config.workType}`);
+        }
+    }
+
+    if (config.experienceLevel && config.experienceLevel.length > 0) {
+        const map: Record<string, RegExp> = {
+            entry: /internship|entry level/i,
+            associate: /associate/i,
+            mid_senior: /mid-senior level|mid senior|pleno|sênior/i,
+            director: /director/i,
+            executive: /executive/i,
+        };
+        for (const level of config.experienceLevel) {
+            const pattern = map[level];
+            if (pattern && await clickFilterOption(page, /experience level/i, pattern)) {
+                applied.push(`Experience: ${level}`);
+            }
+        }
+    }
+
+    if (config.jobType && config.jobType.length > 0) {
+        const map: Record<string, RegExp> = {
+            full_time: /full-time|full time|clt/i,
+            part_time: /part-time|part time/i,
+            contract: /contract|pj/i,
+            temporary: /temporary|temporário/i,
+            internship: /internship|estágio/i,
+        };
+        for (const jt of config.jobType) {
+            const pattern = map[jt];
+            if (pattern && await clickFilterOption(page, /job type|employment type/i, pattern)) {
+                applied.push(`Job type: ${jt}`);
+            }
+        }
+    }
+
+    if (applied.length > 0) {
+        console.log(`[jobs] applied UI filters: ${applied.join(", ")}`);
+        await page.waitForTimeout(2500);
+    }
 }
 
 async function openJobs(
@@ -97,7 +186,8 @@ async function openJobs(
     console.log(`[jobs] landed on: ${finalUrl}`);
     if (isAuthWall(finalUrl))
         throw new Error("LinkedIn session expired; log in again");
-    await page.waitForTimeout(5000);
+    await page.waitForTimeout(3000);
+    await applyFiltersViaUI(page, config);
 }
 
 async function openTopApplicant(page: Page, start: number): Promise<void> {
