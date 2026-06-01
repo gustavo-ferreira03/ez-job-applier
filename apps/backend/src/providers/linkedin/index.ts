@@ -22,12 +22,16 @@ export const linkedinProvider: IJobProvider = {
         const { browserVisible, searchLocale } = await getSettings();
         const context = await openLinkedinContext({ visible: browserVisible, searchLocale });
 
-        // Two pages: one stays on the search/listing, the other opens job forms
-        const discoveryPage = context.pages()[0] ?? (await context.newPage());
-        const applyPage = await context.newPage();
-
-        // Login once — session is shared across all pages in the same context
-        await login(discoveryPage);
+        let discoveryPage;
+        let applyPage;
+        try {
+            discoveryPage = context.pages()[0] ?? (await context.newPage());
+            applyPage = await context.newPage();
+            await login(discoveryPage);
+        } catch (e) {
+            await closeLinkedinContext(context);
+            throw e;
+        }
 
         return {
             async *discoverJobs(

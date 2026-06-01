@@ -1,4 +1,4 @@
-import type { Page } from "playwright-core";
+import type { BrowserContext, Page } from "playwright-core";
 
 function isAuthWall(url: string): boolean {
     const lower = url.toLowerCase();
@@ -24,4 +24,13 @@ export async function isLoggedIn(page: Page): Promise<boolean> {
     }
 
     return !isAuthWall(page.url()) && page.url().includes("/feed");
+}
+
+export async function hasLinkedInSession(context: BrowserContext, page?: Page): Promise<boolean> {
+    const cookies = await context.cookies("https://www.linkedin.com");
+    if (cookies.some((cookie) => cookie.name === "li_at" && cookie.value.length > 0)) return true;
+
+    if (!page) return false;
+    const url = page.url();
+    return url.includes("linkedin.com/feed") && !isAuthWall(url);
 }

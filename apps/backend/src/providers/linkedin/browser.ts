@@ -75,3 +75,35 @@ export async function closeLinkedinContext(context = activeContext): Promise<voi
     await context.close().catch(() => undefined);
     if (activeContext === context) activeContext = null;
 }
+
+export async function openLoginContext(): Promise<BrowserContext> {
+    if (activeContext) {
+        throw new Error("LinkedIn browser is already running. Wait for the current action to finish.");
+    }
+    const width = 1272;
+    const height = 715;
+    const context = await launchContext({
+        headless: false,
+        locale: "pt-BR",
+        viewport: { width, height },
+        launchOptions: { slowMo: 50 },
+        args: [`--window-size=${width},${height}`, "--window-position=0,0"],
+        contextOptions: {
+            storageState: await existingSessionFile(),
+            extraHTTPHeaders: { "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6" },
+        },
+    });
+    context.setDefaultTimeout(10 * 60 * 1000);
+    activeContext = context;
+    context.once("close", () => {
+        if (activeContext === context) activeContext = null;
+    });
+    try {
+        const page = context.pages()[0] ?? await context.newPage();
+        await page.goto("https://www.linkedin.com/", { waitUntil: "domcontentloaded" }).catch(() => undefined);
+        return context;
+    } catch (e) {
+        await closeLinkedinContext(context);
+        throw e;
+    }
+}

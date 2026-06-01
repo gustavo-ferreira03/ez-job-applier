@@ -10,17 +10,5 @@ export async function login(page: Page) {
         return;
     }
 
-    await page.goto("https://www.linkedin.com/login", {
-        waitUntil: "domcontentloaded",
-    });
-
-    await page.waitForFunction(
-        () =>
-            !window.location.href.includes("/login") &&
-            !window.location.href.includes("/uas/login") &&
-            !window.location.href.includes("checkpoint"),
-        { timeout: MANUAL_LOGIN_TIMEOUT_MS, polling: 1000 },
-    );
-
-    await setLanguageEnglish(page);
+    throw new Error("LinkedIn session expired; log in again");
 }
