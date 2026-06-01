@@ -119,7 +119,7 @@
 			</div>
 			<button
 				type="button"
-				class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-faint hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
+				class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
 				onclick={onClose}
 				aria-label="Fechar"
 			>
@@ -242,14 +242,14 @@
 		<div class="flex flex-shrink-0 justify-end gap-2 border-t border-border-subtle px-5 py-3.5">
 			<button
 				type="button"
-				class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3.5 text-[12px] font-medium text-text-muted hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
+				class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3.5 text-[12px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
 				onclick={onClose}
 			>
 				Cancelar
 			</button>
 			<button
 				type="button"
-				class="h-8 cursor-pointer rounded-md bg-accent-500 px-3.5 text-[12px] font-medium text-accent-text hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+				class="h-8 cursor-pointer rounded-md bg-accent-500 px-3.5 text-[12px] font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 				disabled={busy}
 				onclick={handleStart}
 			>

@@ -32,7 +32,7 @@
 	];
 </script>
 
-<aside class="flex h-full w-[196px] flex-shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar">
+<aside class="flex h-full w-56 flex-shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar">
 	<!-- Logo -->
 	<div class="flex h-14 flex-shrink-0 items-center border-b border-border-subtle px-4">
 		<span class="text-sm font-extrabold tracking-tight text-text-primary">
@@ -63,7 +63,7 @@
 			{#if execution.actionNeeded}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text hover:opacity-80 focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none"
 					onclick={onOpenLogin}
 					title="Abrir painel de login"
 				>
@@ -73,7 +73,7 @@
 			{:else if execution.running}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text hover:opacity-80 focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none"
 					onclick={onPauseExecution}
 					title="Pausar"
 				>
@@ -83,7 +83,7 @@
 			{:else if execution.paused}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text hover:opacity-80 focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none"
 					onclick={onResumeExecution}
 					title="Retomar"
 				>
@@ -93,7 +93,7 @@
 			{:else if execution.nextRunAt}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted hover:bg-surface-hover focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted transition-colors duration-150 hover:bg-surface-hover focus-visible:outline-none"
 					onclick={onStopExecution}
 					title="Aguardando próximo ciclo"
 				>
@@ -112,7 +112,7 @@
 			{/if}
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center justify-center rounded-md border border-danger-border bg-danger-bg px-2.5 py-1.5 text-xs font-medium text-danger-500 hover:bg-danger-500/10 focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center justify-center rounded-md border border-danger-border bg-danger-bg px-2.5 py-1.5 text-xs font-medium text-danger-500 transition-colors duration-150 hover:bg-danger-500/10 focus-visible:outline-none"
 				onclick={onStopExecution}
 			>
 				Parar execução
@@ -120,7 +120,7 @@
 		{:else}
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-accent-text hover:bg-accent-600 focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none"
 				onclick={onStartExecution}
 			>
 				<Search size={13} strokeWidth={2.25} aria-hidden="true" />

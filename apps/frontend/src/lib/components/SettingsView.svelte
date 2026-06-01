@@ -79,7 +79,7 @@
 		<h3 class="mb-3 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Automação</h3>
 		<button
 			type="button"
-			class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 text-left hover:border-border-default focus-visible:outline-none"
+			class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
 			onclick={() => handleSetting({ browserVisible: !appState.settings.browserVisible })}
 		>
 			<div class="flex items-center gap-3">
@@ -117,7 +117,7 @@
 					type="button"
 					class="flex-1 cursor-pointer px-3 py-2 text-[12px] font-medium transition-colors duration-100 focus-visible:outline-none
 						{appState.settings.searchLocale === opt.value
-							? 'bg-accent-500 text-white'
+							? 'bg-accent-500 text-surface-base'
 							: 'bg-surface-overlay text-text-muted hover:bg-surface-hover'}"
 					onclick={() => handleSetting({ searchLocale: opt.value as 'pt-BR' | 'en-US' })}
 				>
@@ -133,7 +133,7 @@
 			<h3 class="text-[10px] font-semibold uppercase tracking-wide text-text-faint">
 				Currículos {#if appState.resumes.length > 0}<span class="normal-case font-normal">({appState.resumes.length})</span>{/if}
 			</h3>
-			<label class="flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] font-medium text-text-muted hover:border-border-strong hover:text-text-secondary">
+			<label class="flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary">
 				<Upload size={11} aria-hidden="true" />
 				Upload PDF
 				<input type="file" class="sr-only" accept=".pdf" onchange={handleUpload} />
@@ -157,7 +157,7 @@
 							{:else}
 								<button
 									type="button"
-									class="cursor-pointer text-[10px] font-medium text-text-faint hover:text-text-muted focus-visible:outline-none"
+									class="cursor-pointer text-[10px] font-medium text-text-faint transition-colors duration-150 hover:text-text-muted focus-visible:outline-none"
 									onclick={() => handleSetDefault(filename)}
 								>
 									Definir padrão
@@ -165,7 +165,7 @@
 							{/if}
 							<button
 								type="button"
-								class="cursor-pointer text-[10px] font-medium text-[#ef4444] hover:text-[#dc2626] focus-visible:outline-none"
+								class="cursor-pointer text-[10px] font-medium text-[#ef4444] transition-colors duration-150 hover:text-[#dc2626] focus-visible:outline-none"
 								onclick={() => handleDelete(filename)}
 							>
 								Remover

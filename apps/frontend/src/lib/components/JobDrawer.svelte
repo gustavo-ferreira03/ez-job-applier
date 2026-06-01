@@ -143,7 +143,7 @@ async function handleSkip() {
 							href={job.url}
 							target="_blank"
 							rel="noreferrer noopener"
-							class="flex cursor-pointer items-center gap-1 text-xs text-text-faint hover:text-text-muted"
+							class="flex cursor-pointer items-center gap-1 text-xs text-text-faint transition-colors duration-150 hover:text-text-muted"
 						>
 							<ExternalLink size={10} aria-hidden="true" />
 							LinkedIn
@@ -153,7 +153,7 @@ async function handleSkip() {
 			</div>
 			<button
 				type="button"
-				class="flex h-7 w-7 cursor-pointer flex-shrink-0 items-center justify-center rounded-md text-text-faint hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
+				class="flex h-7 w-7 cursor-pointer flex-shrink-0 items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
 				onclick={onClose}
 				aria-label="Fechar"
 			>
@@ -385,7 +385,7 @@ async function handleSkip() {
 				{#if ['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)}
 					<button
 						type="button"
-						class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy}
 						onclick={handleSkip}
 					>
@@ -396,7 +396,7 @@ async function handleSkip() {
 				{#if job.status === 'FOUND'}
 					<button
 						type="button"
-						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy}
 						onclick={handleGetQuestions}
 					>
@@ -405,7 +405,7 @@ async function handleSkip() {
 				{:else if job.status === 'NEEDS_INPUT'}
 					<button
 						type="button"
-						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy || !canSave}
 						onclick={handleSaveAnswers}
 					>
@@ -414,7 +414,7 @@ async function handleSkip() {
 				{:else if job.status === 'READY_FOR_REVIEW'}
 					<button
 						type="button"
-						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 						disabled={busy}
 						onclick={handleApply}
 					>

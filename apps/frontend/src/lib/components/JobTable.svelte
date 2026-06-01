@@ -110,7 +110,7 @@
 			<tbody>
 				{#each filtered as job (job.id)}
 					<tr
-						class="cursor-pointer border-b border-border-subtle/40 hover:bg-surface-raised"
+						class="cursor-pointer border-b border-border-subtle/40 transition-colors duration-100 hover:bg-surface-raised"
 						onclick={() => onOpenJob(job, 'info')}
 					>
 						<td class="px-3 py-2.5" onclick={(e) => { e.stopPropagation(); toggleSelect(job.id); }}>
