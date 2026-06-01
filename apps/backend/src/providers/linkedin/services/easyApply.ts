@@ -7,9 +7,16 @@ const MAX_STEPS = 20;
 
 function cleanLabel(raw: string): string {
     const lines = raw.trim().split("\n").map((l) => l.trim()).filter(Boolean);
-    // Deduplicate consecutive identical lines (LinkedIn sometimes renders label twice)
     const deduped = lines.filter((l, i) => i === 0 || l !== lines[i - 1]);
     return deduped.join(" ").replace(/\s*\*\s*$/, "").trim();
+}
+
+function cssAttr(value: string): string {
+    return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+}
+
+function sameText(a: string, b: string): boolean {
+    return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 async function fieldLabel(field: Locator, fallback: string): Promise<string> {
@@ -18,7 +25,6 @@ async function fieldLabel(field: Locator, fallback: string): Promise<string> {
         if (value?.trim()) return value.trim();
     }
 
-    // Try associated <label> element via id
     const id = await field.getAttribute("id");
     if (id) {
         const page = field.page();
@@ -30,7 +36,6 @@ async function fieldLabel(field: Locator, fallback: string): Promise<string> {
         }
     }
 
-    // Walk up one div and grab first line of text
     const ancestor = field.locator("xpath=ancestor::div[1]");
     if (await ancestor.count()) {
         const text = await ancestor.innerText();
@@ -39,6 +44,111 @@ async function fieldLabel(field: Locator, fallback: string): Promise<string> {
     }
 
     return fallback;
+}
+
+async function choiceLabel(input: Locator, fallback: string): Promise<string> {
+    const id = await input.getAttribute("id");
+    if (id) {
+        const label = input.page().locator(`label[for="${cssAttr(id)}"]`).first();
+        if (await label.count()) {
+            const text = cleanLabel(await label.innerText());
+            if (text) return text;
+        }
+    }
+
+    const aria = await input.getAttribute("aria-label");
+    if (aria?.trim()) return cleanLabel(aria);
+
+    const labelAncestor = input.locator("xpath=ancestor::label[1]");
+    if (await labelAncestor.count()) {
+        const text = cleanLabel(await labelAncestor.innerText());
+        if (text) return text;
+    }
+
+    const value = await input.getAttribute("value");
+    return value?.trim() || fallback;
+}
+
+async function radioGroupLabel(first: Locator, fallback: string): Promise<string> {
+    const fieldset = first.locator("xpath=ancestor::fieldset[1]");
+    if (await fieldset.count()) {
+        const legend = fieldset.locator("legend").first();
+        if (await legend.count()) {
+            const text = cleanLabel(await legend.innerText());
+            if (text) return text;
+        }
+    }
+
+    const radiogroup = first.locator("xpath=ancestor::*[@role='radiogroup'][1]");
+    if (await radiogroup.count()) {
+        const aria = await radiogroup.getAttribute("aria-label");
+        if (aria?.trim()) return cleanLabel(aria);
+    }
+
+    const container = first.locator("xpath=ancestor::div[contains(@class, 'form') or contains(@class, 'question') or contains(@class, 'fb-dash-form-element')][1]");
+    if (await container.count()) {
+        const text = await container.innerText();
+        const options = new Set<string>();
+        const inputs = container.locator("input[type=radio]");
+        const count = await inputs.count();
+        for (let i = 0; i < count; i++) options.add(await choiceLabel(inputs.nth(i), ""));
+        const line = text.trim().split("\n").map((l) => l.trim()).find((l) => l && !options.has(cleanLabel(l)) && !/please make a selection|additional questions|screening questions/i.test(l));
+        if (line) return cleanLabel(line);
+    }
+
+    return fallback;
+}
+
+async function fillRadioGroups(
+    modal: Locator,
+    answers: Record<string, string>,
+    pending: ApplicationQuestion[],
+    collected: ApplicationQuestion[],
+): Promise<void> {
+    const names = await modal.locator("input[type=radio]").evaluateAll((nodes) => {
+        const found = new Set<string>();
+        for (const node of nodes) {
+            const input = node as HTMLInputElement;
+            if (input.name) found.add(input.name);
+        }
+        return [...found];
+    });
+
+    for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        const radios = modal.locator(`input[type=radio][name="${cssAttr(name)}"]`);
+        const count = await radios.count();
+        if (count === 0) continue;
+
+        const first = radios.first();
+        if (!(await first.isEnabled())) continue;
+
+        const label = await radioGroupLabel(first, `radio field ${i + 1}`);
+        const options: string[] = [];
+        let selected = "";
+
+        for (let j = 0; j < count; j++) {
+            const radio = radios.nth(j);
+            const option = await choiceLabel(radio, `option ${j + 1}`);
+            if (option) options.push(option);
+            if (await radio.isChecked()) selected = option;
+        }
+
+        const answer = answers[label];
+        if (answer) {
+            const idx = options.findIndex((option) => sameText(option, answer));
+            if (idx >= 0) {
+                await radios.nth(idx).check({ force: true });
+                collected.push({ label, answer: options[idx], fieldType: "radio", options });
+            } else {
+                pending.push({ label, fieldType: "radio", options });
+            }
+        } else if (selected) {
+            collected.push({ label, answer: selected, fieldType: "radio", options });
+        } else {
+            pending.push({ label, fieldType: "radio", options });
+        }
+    }
 }
 
 async function selectOptions(select: Locator): Promise<string[]> {
@@ -148,7 +258,6 @@ async function unfollow(modal: Locator): Promise<void> {
             try {
                 if (await el.isChecked()) await el.click({ force: true });
             } catch {
-                // best effort
             }
             return;
         }
@@ -163,7 +272,6 @@ async function unfollow(modal: Locator): Promise<void> {
                 await label.click({ force: true });
             }
         } catch {
-            // best effort
         }
     }
 }
@@ -195,7 +303,6 @@ export async function runEasyApply(
         await page.goto(jobUrl, { waitUntil: "domcontentloaded" });
         await page.waitForTimeout(2000);
 
-        // Find and click the Easy Apply button
         let easyApplyBtn = page
             .getByRole("link", { name: /easy apply/i })
             .first();
@@ -229,6 +336,7 @@ export async function runEasyApply(
 
             await fillTextFields(modal, answers, pending, collected);
             await fillSelects(modal, answers, pending, collected);
+            await fillRadioGroups(modal, answers, pending, collected);
             if (config.resumePath) await fillFileFields(modal, config.resumePath);
 
             if (pending.length > 0) {
@@ -276,13 +384,10 @@ export async function runEasyApply(
             errorMessage: "Reached step limit",
         };
     } catch (err) {
-        // Close any open modal before returning
         try {
             const modal = page.getByRole("dialog").last();
             if (await modal.count()) await closeModal(page, modal);
-        } catch {
-            // ignore cleanup errors
-        }
+        } catch {}
         return {
             status: "FAILED",
             questions: collected,
