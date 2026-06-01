@@ -36,7 +36,7 @@
 	<!-- Logo -->
 	<div class="flex h-14 flex-shrink-0 items-center border-b border-border-subtle px-4">
 		<span class="text-sm font-extrabold tracking-tight text-text-primary">
-			EZ<span class="text-accent-500">Job</span>Applier
+			<span class="text-accent-500">EZ</span>JobApplier
 		</span>
 	</div>
 
@@ -120,7 +120,7 @@
 		{:else}
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-white hover:bg-accent-600 focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-accent-text hover:bg-accent-600 focus-visible:outline-none"
 				onclick={onStartExecution}
 			>
 				<Search size={13} strokeWidth={2.25} aria-hidden="true" />

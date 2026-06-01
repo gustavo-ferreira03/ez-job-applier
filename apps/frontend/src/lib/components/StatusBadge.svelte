@@ -19,13 +19,13 @@
 	};
 
 	const styles: Record<ApplicationStatus, string> = {
-		FOUND:            'bg-[#1c1c20] text-[#71717a]',
-		NEEDS_INPUT:      'bg-[#2d2508] text-[#ca8a04]',
-		READY_FOR_REVIEW: 'bg-[#1e3a5f] text-[#3b82f6]',
-		EXTERNAL:         'bg-[#2e1065] text-[#a855f7]',
-		SUBMITTED:        'bg-[#052e16] text-[#22c55e]',
-		SKIPPED:          'bg-[#1c1c20] text-[#52525b]',
-		FAILED:           'bg-[#1c0a0a] text-[#ef4444]'
+		FOUND:            'bg-status-found-bg text-status-found-text',
+		NEEDS_INPUT:      'bg-status-input-bg text-status-input-text',
+		READY_FOR_REVIEW: 'bg-status-review-bg text-status-review-text',
+		EXTERNAL:         'bg-status-external-bg text-status-external-text',
+		SUBMITTED:        'bg-status-submitted-bg text-status-submitted-text',
+		SKIPPED:          'bg-status-found-bg text-text-faint',
+		FAILED:           'bg-status-failed-bg text-status-failed-text'
 	};
 
 	const padding = $derived(size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]');

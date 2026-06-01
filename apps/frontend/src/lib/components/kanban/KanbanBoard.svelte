@@ -22,28 +22,28 @@
 			title: 'Precisa Resposta',
 			statuses: ['NEEDS_INPUT'],
 			defaultTab: 'actions' as KanbanTab,
-			headerClass: 'text-[#ca8a04]'
+			headerClass: 'text-status-input-text'
 		},
 		{
 			id: 'review',
 			title: 'Revisar',
 			statuses: ['READY_FOR_REVIEW'],
 			defaultTab: 'actions' as KanbanTab,
-			headerClass: 'text-[#3b82f6]'
+			headerClass: 'text-status-review-text'
 		},
 		{
 			id: 'external',
 			title: 'Externa',
 			statuses: ['EXTERNAL'],
 			defaultTab: 'actions' as KanbanTab,
-			headerClass: 'text-[#a855f7]'
+			headerClass: 'text-status-external-text'
 		},
 		{
 			id: 'submitted',
 			title: 'Enviadas',
 			statuses: ['SUBMITTED'],
 			defaultTab: 'info' as KanbanTab,
-			headerClass: 'text-[#22c55e]'
+			headerClass: 'text-status-submitted-text'
 		},
 		{
 			id: 'done',

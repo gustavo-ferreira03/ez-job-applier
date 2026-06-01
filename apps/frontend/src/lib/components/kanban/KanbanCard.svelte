@@ -60,7 +60,7 @@
 					{job.unansweredCount} sem resp.
 				</span>
 			{:else if job.status === 'READY_FOR_REVIEW'}
-				<span class="rounded-sm bg-[#1e3a5f] px-1.5 py-0.5 text-xs font-medium text-[#3b82f6]">
+				<span class="rounded-sm bg-status-review-bg px-1.5 py-0.5 text-xs font-medium text-status-review-text">
 					Pronto p/ enviar
 				</span>
 			{/if}

@@ -249,7 +249,7 @@
 			</button>
 			<button
 				type="button"
-				class="h-8 cursor-pointer rounded-md bg-accent-500 px-3.5 text-[12px] font-medium text-white hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+				class="h-8 cursor-pointer rounded-md bg-accent-500 px-3.5 text-[12px] font-medium text-accent-text hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 				disabled={busy}
 				onclick={handleStart}
 			>

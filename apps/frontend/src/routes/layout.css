@@ -16,51 +16,51 @@
   --color-border-strong:  #3f3f46;
 
   /* ─── Texto ───────────────────────────────────────────────── */
-  --color-text-primary:     #e4e4e7;
-  --color-text-secondary:   #a1a1aa;
-  --color-text-muted:       #71717a;
-  --color-text-faint:       #52525b;
+  --color-text-primary:     #f1f5f9;
+  --color-text-secondary:   #cbd5e1;
+  --color-text-muted:       #94a3b8;
+  --color-text-faint:       #64748b;
   --color-text-placeholder: #3f3f46;
 
-  /* ─── Acento (azul) ───────────────────────────────────────── */
-  --color-accent-500:  #2563eb;
-  --color-accent-600:  #1d4ed8;
-  --color-accent-text: #ffffff;
+  /* ─── Acento (sky blue) ───────────────────────────────────── */
+  --color-accent-500:  #38bdf8;
+  --color-accent-600:  #0ea5e9;
+  --color-accent-text: #04243a;
 
   /* ─── Status ──────────────────────────────────────────────── */
-  --color-status-found-bg:      #1c1c20;
-  --color-status-found-text:    #71717a;
+  --color-status-found-bg:      #1e293b;
+  --color-status-found-text:    #64748b;
   --color-status-input-bg:      #2d2508;
-  --color-status-input-text:    #ca8a04;
+  --color-status-input-text:    #fbbf24;
   --color-status-input-border:  #2a2208;
-  --color-status-review-bg:     #1e3a5f;
-  --color-status-review-text:   #3b82f6;
-  --color-status-review-border: #1a2f4a;
+  --color-status-review-bg:     #0c2540;
+  --color-status-review-text:   #38bdf8;
+  --color-status-review-border: #0a1e30;
   --color-status-external-bg:   #2e1065;
   --color-status-external-text: #a855f7;
   --color-status-external-border: #2a1040;
   --color-status-submitted-bg:   #052e16;
-  --color-status-submitted-text: #22c55e;
+  --color-status-submitted-text: #4ade80;
   --color-status-submitted-border: #0a3d1c;
   --color-status-failed-bg:    #1c0a0a;
-  --color-status-failed-text:  #ef4444;
+  --color-status-failed-text:  #f87171;
 
   /* ─── Auto-apply ──────────────────────────────────────────── */
   --color-autoapply-bg:   #14532d;
   --color-autoapply-text: #86efac;
 
   /* ─── Danger ──────────────────────────────────────────────── */
-  --color-danger-500: #ef4444;
-  --color-danger-600: #dc2626;
+  --color-danger-500: #f87171;
+  --color-danger-600: #ef4444;
   --color-danger-bg:  #1c0a0a;
   --color-danger-border: #7f1d1d;
 
-  /* ─── Execution running (ciano) ───────────────────────────── */
-  --color-execution-bg:   #062830;
-  --color-execution-text: #22d3ee;
+  /* ─── Execution running ───────────────────────────────────── */
+  --color-execution-bg:   #0c2d4a;
+  --color-execution-text: #38bdf8;
 
   /* ─── Success ─────────────────────────────────────────────── */
-  --color-success-500: #22c55e;
+  --color-success-500: #4ade80;
 
   /* ─── Z-index ─────────────────────────────────────────────── */
   --z-drawer: 50;
