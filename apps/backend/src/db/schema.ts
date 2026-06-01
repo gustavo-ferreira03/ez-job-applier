@@ -50,7 +50,7 @@ export type NewApplicationRow = typeof applications.$inferInsert;
 export type ApplicationQuestionRow = typeof applicationQuestions.$inferSelect;
 export type NewApplicationQuestionRow = typeof applicationQuestions.$inferInsert;
 
-export const EXECUTION_STATUSES = ["running", "waiting", "paused", "done", "failed", "cancelled"] as const;
+export const EXECUTION_STATUSES = ["running", "waiting", "paused", "action_needed", "done", "failed", "cancelled"] as const;
 export type ExecutionStatusValue = (typeof EXECUTION_STATUSES)[number];
 
 export const executions = sqliteTable("executions", {

@@ -64,7 +64,7 @@ export class ExecutionRepository implements IExecutionRepo {
         const [row] = await this.db
             .select()
             .from(executions)
-            .where(inArray(executions.status, ["running", "waiting", "paused"]))
+            .where(inArray(executions.status, ["running", "waiting", "paused", "action_needed"]))
             .orderBy(desc(executions.startedAt))
             .limit(1);
         return row ? toExecution(row) : null;
