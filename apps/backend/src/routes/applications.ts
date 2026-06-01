@@ -108,7 +108,7 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
             const { id } = c.req.valid("param");
             const body = c.req.valid("json");
             try {
-                const result = await applyToJob(id, body?.answers ?? {}, ctx, body?.resumeFilename);
+                const result = await applyToJob(id, body?.answers ?? {}, ctx);
                 return c.json(result);
             } catch (err) {
                 if (err instanceof Error && err.message.includes("not found")) {
