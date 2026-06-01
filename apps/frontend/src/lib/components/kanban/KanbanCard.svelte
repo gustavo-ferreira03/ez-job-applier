@@ -62,13 +62,12 @@
 				<span class="rounded-sm bg-[#431407] px-1.5 py-0.5 text-xs font-medium text-[#f97316]">
 					{job.unansweredCount} sem resp.
 				</span>
-			{:else if job.status === 'APPROVED'}
-				<span class="rounded-sm bg-execution-bg px-1.5 py-0.5 text-xs font-medium text-execution-text">
-					Na fila
-				</span>
 			{:else if job.status === 'READY_FOR_REVIEW'}
-				<span class="rounded-sm bg-status-review-bg px-1.5 py-0.5 text-xs font-medium text-status-review-text">
-					Pronto p/ enviar
+				<span class="rounded-sm px-1.5 py-0.5 text-xs font-medium
+					{job.approved
+						? 'bg-execution-bg text-execution-text'
+						: 'bg-status-review-bg text-status-review-text'}">
+					{job.approved ? 'Na fila' : 'Pronto p/ enviar'}
 				</span>
 			{/if}
 		</div>

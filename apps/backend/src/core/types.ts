@@ -2,7 +2,6 @@ export const APPLICATION_STATUSES = [
     "FOUND",
     "NEEDS_INPUT",
     "READY_FOR_REVIEW",
-    "APPROVED",
     "SUBMITTED",
     "SKIPPED",
     "FAILED",

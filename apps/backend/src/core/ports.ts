@@ -36,6 +36,9 @@ export interface IAppRepo {
     listIdsByStatus(status: ApplicationStatus): Promise<number[]>;
     listFoundJobIds(): Promise<number[]>;
     setProcessing(appId: number, processing: boolean): Promise<void>;
+    approveForSubmit(appId: number, resumeFilename?: string): Promise<void>;
+    nextTask(): Promise<{ jobId: number; action: "getQuestions" | "apply" } | null>;
+    hasPendingWork(): Promise<boolean>;
 }
 
 export interface IExecutionRepo {

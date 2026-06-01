@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { jobs, applications, applicationQuestions } from "../db/schema";
 import type { IAppRepo, ApplicationRecord } from "../core/ports";
@@ -81,6 +81,7 @@ export class ApplicationRepository implements IAppRepo {
                 target: applications.jobId,
                 set: {
                     status,
+                    approved: 0,
                     resumeFilename: resumeFilename ?? null,
                     errorMessage: errorMessage ?? null,
                     updatedAt: timestamp,
@@ -93,7 +94,7 @@ export class ApplicationRepository implements IAppRepo {
     async updateStatus(id: number, status: ApplicationStatus, errorMessage?: string): Promise<void> {
         await this.db
             .update(applications)
-            .set({ status, errorMessage: errorMessage ?? null, updatedAt: new Date().toISOString() })
+            .set({ status, approved: 0, errorMessage: errorMessage ?? null, updatedAt: new Date().toISOString() })
             .where(eq(applications.id, id));
     }
 
@@ -165,6 +166,40 @@ export class ApplicationRepository implements IAppRepo {
             .update(applications)
             .set({ processing: processing ? 1 : 0 })
             .where(eq(applications.id, appId));
+    }
+
+    async approveForSubmit(appId: number, resumeFilename?: string): Promise<void> {
+        await this.db
+            .update(applications)
+            .set({
+                approved: 1,
+                ...(resumeFilename ? { resumeFilename } : {}),
+                updatedAt: new Date().toISOString(),
+            })
+            .where(and(eq(applications.id, appId), eq(applications.status, "READY_FOR_REVIEW")));
+    }
+
+    async nextTask(): Promise<{ jobId: number; action: "getQuestions" | "apply" } | null> {
+        const found = await this.db
+            .select({ jobId: applications.jobId })
+            .from(applications)
+            .where(eq(applications.status, "FOUND"))
+            .limit(1);
+        if (found.length > 0) return { jobId: found[0].jobId, action: "getQuestions" };
+
+        const approved = await this.db
+            .select({ jobId: applications.jobId })
+            .from(applications)
+            .where(and(eq(applications.status, "READY_FOR_REVIEW"), eq(applications.approved, 1)))
+            .limit(1);
+        if (approved.length > 0) return { jobId: approved[0].jobId, action: "apply" };
+
+        return null;
+    }
+
+    async hasPendingWork(): Promise<boolean> {
+        const task = await this.nextTask();
+        return task !== null;
     }
 
 }

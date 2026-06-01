@@ -27,7 +27,7 @@
 		{
 			id: 'review',
 			title: 'Revisar',
-			statuses: ['READY_FOR_REVIEW', 'APPROVED'],
+			statuses: ['READY_FOR_REVIEW'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-review-text'
 		},

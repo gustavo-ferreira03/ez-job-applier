@@ -4,7 +4,6 @@ import { getQuestions } from "../core/applications/get-questions";
 import { saveAnswers } from "../core/applications/answer";
 import { applyToJob } from "../core/applications/apply";
 import { skipJob } from "../core/applications/skip";
-import { nudgeExecution } from "../core/execution/manager";
 import type { AppContext } from "../core/context";
 
 const JobIdParam = z.object({
@@ -109,9 +108,8 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
             const { id } = c.req.valid("param");
             const body = c.req.valid("json");
             try {
-                const result = await applyToJob(id, body?.answers ?? {}, ctx);
-                nudgeExecution();
-                return c.json(result);
+                await applyToJob(id, body?.answers ?? {}, ctx, body?.resumeFilename);
+                return c.json({ ok: true });
             } catch (err) {
                 if (err instanceof Error && err.message.includes("not found")) {
                     throw new HTTPException(404, { message: err.message });
