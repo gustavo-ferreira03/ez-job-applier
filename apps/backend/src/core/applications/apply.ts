@@ -1,12 +1,13 @@
 import type { AppContext } from "../context";
-import type { ApplyResult } from "../types";
 import { saveAnswers } from "./answer";
+import { wakeExecution } from "../execution/manager";
 
 export async function applyToJob(
     jobId: number,
     answers: Record<string, string> = {},
     ctx: AppContext,
-): Promise<ApplyResult> {
+    resumeFilename?: string,
+): Promise<void> {
     const job = await ctx.jobRepo.getById(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
 
@@ -15,8 +16,11 @@ export async function applyToJob(
     const application = await ctx.appRepo.get(job.provider, job.jobId);
     if (!application) throw new Error(`No application found for job ${jobId}`);
 
-    await ctx.appRepo.updateStatus(application.id, "APPROVED");
+    await ctx.appRepo.updateStatus(application.id, "READY_FOR_REVIEW");
 
-    const questions = await ctx.appRepo.getQuestions(application.id);
-    return { status: "APPROVED", questions };
+    if (resumeFilename) {
+        await ctx.appRepo.upsert(job.provider, job.jobId, "READY_FOR_REVIEW", resumeFilename);
+    }
+
+    wakeExecution();
 }

@@ -14,7 +14,7 @@ let _activeSession: IJobProviderSession | null = null;
 
 function wakeUp(): void { _wake?.(); _wake = null; }
 
-export function nudgeExecution(): void { wakeUp(); }
+export function wakeExecution(): void { wakeUp(); }
 
 function interruptibleSleep(ms: number): Promise<void> {
     return new Promise<void>((resolve) => {
@@ -102,9 +102,9 @@ async function runForever(
 
             if (_stopFlag) break;
 
-            const pendingApproved = await ctx.appRepo.listIdsByStatus("APPROVED");
-            if (pendingApproved.length > 0) {
-                console.log(`[execution] ${pendingApproved.length} APPROVED job(s) pending — restarting cycle`);
+            const pending = await ctx.appRepo.listIdsByStatus("READY_FOR_REVIEW");
+            if (pending.length > 0) {
+                console.log(`[execution] ${pending.length} job(s) ready for submission — restarting cycle`);
                 continue;
             }
 

@@ -440,7 +440,7 @@ export async function runEasyApply(
                     return { status: "SUBMITTED", questions: collected };
                 }
                 await closeModal(page, modal);
-                return { status: "READY_FOR_REVIEW", questions: collected };
+                return { status: "NEEDS_INPUT", questions: collected };
             }
 
             const nextBtn = modal

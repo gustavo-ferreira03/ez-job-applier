@@ -2,7 +2,6 @@ export type ApplicationStatus =
 	| 'FOUND'
 	| 'NEEDS_INPUT'
 	| 'READY_FOR_REVIEW'
-	| 'APPROVED'
 	| 'EXTERNAL'
 	| 'SUBMITTED'
 	| 'SKIPPED'

@@ -26,10 +26,10 @@
 		},
 		{
 			id: 'review',
-			title: 'Revisar',
-			statuses: ['READY_FOR_REVIEW', 'APPROVED'],
+			title: 'Na fila',
+			statuses: ['READY_FOR_REVIEW'],
 			defaultTab: 'actions' as KanbanTab,
-			headerClass: 'text-status-review-text'
+			headerClass: 'text-execution-text'
 		},
 		{
 			id: 'external',

@@ -78,7 +78,7 @@ async function processQueue(
         }
     }
 
-    const approvedIds = await ctx.appRepo.listIdsByStatus("APPROVED");
+    const approvedIds = await ctx.appRepo.listIdsByStatus("READY_FOR_REVIEW");
     for (const jobId of approvedIds) {
         if (shouldStop()) return;
         const job = await ctx.jobRepo.getById(jobId);
