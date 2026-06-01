@@ -26,6 +26,6 @@ export async function getQuestions(jobId: number, ctx: AppContext): Promise<Appl
 
         return result;
     } finally {
-        await session.close();
+        await session.close().catch(() => undefined);
     }
 }
