@@ -108,7 +108,18 @@ async function openTopApplicant(page: Page, start: number): Promise<void> {
 // Each card appears multiple times in the virtual list; dedup by componentkey.
 const CARD_SELECTOR = "[data-testid='lazy-column'] div[role='button'][componentkey]";
 
+async function hasNoResults(page: Page): Promise<boolean> {
+    const noResults = page.locator("text='No results found'").first();
+    if (await noResults.count()) return true;
+    const noResultsHeading = page.locator("h1, h2, h3").filter({ hasText: /no results found/i }).first();
+    return !!(await noResultsHeading.count());
+}
+
 async function loadCardKeys(page: Page): Promise<string[]> {
+    if (await hasNoResults(page)) {
+        console.log("No results page detected");
+        return [];
+    }
     try {
         await page.waitForSelector(CARD_SELECTOR, { timeout: 30000 });
     } catch {

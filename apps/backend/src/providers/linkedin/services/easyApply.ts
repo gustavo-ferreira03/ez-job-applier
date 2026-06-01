@@ -71,12 +71,10 @@ async function choiceLabel(input: Locator, fallback: string): Promise<string> {
 
 async function radioGroupLabel(first: Locator, fallback: string): Promise<string> {
     const fieldset = first.locator("xpath=ancestor::fieldset[1]");
-    if (await fieldset.count()) {
-        const legend = fieldset.locator("legend").first();
-        if (await legend.count()) {
-            const text = cleanLabel(await legend.innerText());
-            if (text) return text;
-        }
+    const legend = fieldset.locator("legend").first();
+    if (await legend.count()) {
+        const text = cleanLabel(await legend.innerText());
+        if (text) return text;
     }
 
     const radiogroup = first.locator("xpath=ancestor::*[@role='radiogroup'][1]");
@@ -88,12 +86,12 @@ async function radioGroupLabel(first: Locator, fallback: string): Promise<string
     const container = first.locator("xpath=ancestor::div[contains(@class, 'form') or contains(@class, 'question') or contains(@class, 'fb-dash-form-element')][1]");
     if (await container.count()) {
         const text = await container.innerText();
-        const options = new Set<string>();
         const inputs = container.locator("input[type=radio]");
         const count = await inputs.count();
-        for (let i = 0; i < count; i++) options.add(await choiceLabel(inputs.nth(i), ""));
-        const line = text.trim().split("\n").map((l) => l.trim()).find((l) => l && !options.has(cleanLabel(l)) && !/please make a selection|additional questions|screening questions/i.test(l));
-        if (line) return cleanLabel(line);
+        const optionTexts = new Set<string>();
+        for (let i = 0; i < count; i++) optionTexts.add(await choiceLabel(inputs.nth(i), ""));
+        const labelLine = text.trim().split("\n").map((l) => l.trim()).find((l) => l && !optionTexts.has(cleanLabel(l)) && !/please make a selection|additional questions|screening questions/i.test(l));
+        if (labelLine) return cleanLabel(labelLine);
     }
 
     return fallback;
@@ -140,14 +138,13 @@ async function fillRadioGroups(
             if (idx >= 0) {
                 await radios.nth(idx).check({ force: true });
                 collected.push({ label, answer: options[idx], fieldType: "radio", options });
-            } else {
-                pending.push({ label, fieldType: "radio", options });
+                continue;
             }
         } else if (selected) {
             collected.push({ label, answer: selected, fieldType: "radio", options });
-        } else {
-            pending.push({ label, fieldType: "radio", options });
+            continue;
         }
+        pending.push({ label, fieldType: "radio", options });
     }
 }
 
@@ -211,6 +208,9 @@ async function fillSelects(
         const selected = (await checkedOption.count())
             ? (await checkedOption.innerText()).trim()
             : "";
+        const selectedValue = (await checkedOption.count())
+            ? (await checkedOption.getAttribute("value")) ?? ""
+            : "";
         const answer = answers[label];
 
         if (answer) {
@@ -223,7 +223,7 @@ async function fillSelects(
             continue;
         }
 
-        const isPlaceholder = !selected || selected.toLowerCase().includes("select");
+        const isPlaceholder = !selected || !selectedValue || selected.toLowerCase().includes("select") || selected.toLowerCase().includes("choose");
 
         if (!isPlaceholder) {
             collected.push({

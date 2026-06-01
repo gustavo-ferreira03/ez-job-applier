@@ -20,7 +20,7 @@
 
 	<div
 		class="relative z-10 mt-8 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
-		style="height: calc(100vh - 80px)"
+		style="max-height: calc(100vh - 80px)"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Login no LinkedIn"
@@ -44,11 +44,13 @@
 			</button>
 		</div>
 
-		<iframe
-			class="flex-1 w-full border-0 bg-black"
-			src="/vnc"
-			title="Navegador do servidor"
-		></iframe>
+		<div class="w-full overflow-hidden bg-black" style="aspect-ratio: 1280/800;">
+			<iframe
+				class="h-full w-full border-0"
+				src="/vnc"
+				title="Navegador do servidor"
+			></iframe>
+		</div>
 
 		<div class="flex-shrink-0 border-t border-border-subtle px-5 py-2">
 			<p class="text-xs text-text-faint">Conexão privada — acessível apenas pela rede local.</p>
