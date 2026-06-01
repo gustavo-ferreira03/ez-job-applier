@@ -61,7 +61,7 @@
 		try {
 			await api.clearDatabase();
 			appState.jobs = [];
-			appState.discoveries = [];
+			appState.executions = [];
 			clearConfirming = false;
 			toastState.show('Banco de dados limpo');
 		} catch {
