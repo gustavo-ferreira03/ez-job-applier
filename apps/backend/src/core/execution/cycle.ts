@@ -21,7 +21,7 @@ export async function runCycle(
     const session = await provider.createSession();
     onSession?.(session);
     try {
-        await drainApproved(session, resumePath, ctx);
+        await processQueue(session, resumePath, ctx, shouldStop);
 
         for await (const job of session.discoverJobs(config, skipIds)) {
             if (shouldStop() || Date.now() - cycleStart > cycleMaxMs) {
@@ -30,32 +30,11 @@ export async function runCycle(
             }
 
             await ctx.jobRepo.save(job);
+            await ctx.appRepo.upsert(job.provider, job.jobId, "FOUND");
             await ctx.executionRepo.incrementDiscovered(executionId);
             console.log(`[execution] discovered: ${job.title} @ ${job.company}`);
 
-            await drainApproved(session, resumePath, ctx);
-
-            const initApp = await ctx.appRepo.upsert(job.provider, job.jobId, "FOUND");
-            await ctx.appRepo.setProcessing(initApp.id, true);
-
-            try {
-                const result = await session.getQuestions(job, resumePath);
-                const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
-                const appRec = await ctx.appRepo.upsert(
-                    job.provider,
-                    job.jobId,
-                    result.status,
-                    resumeFilename,
-                    result.errorMessage,
-                );
-                await ctx.appRepo.setProcessing(appRec.id, false);
-                await ctx.appRepo.replaceQuestions(appRec.id, result.questions);
-                console.log(`[execution] processed: ${job.title} → ${result.status}`);
-            } catch (e) {
-                console.error(`[execution] getQuestions failed for ${job.jobId}:`, e);
-                const appRec = await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
-                await ctx.appRepo.setProcessing(appRec.id, false);
-            }
+            await processQueue(session, resumePath, ctx, shouldStop);
         }
     } finally {
         onSession?.(null);
@@ -65,18 +44,41 @@ export async function runCycle(
     }
 }
 
-async function drainApproved(
+async function processQueue(
     session: IJobProviderSession,
     resumePath: string | undefined,
     ctx: AppContext,
+    shouldStop: () => boolean,
 ): Promise<void> {
-    const approvedIds = await ctx.appRepo.listIdsByStatus("APPROVED");
-    if (approvedIds.length === 0) return;
-
-    console.log(`[execution] submitting ${approvedIds.length} APPROVED job(s)`);
     const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
 
+    const foundIds = await ctx.appRepo.listIdsByStatus("FOUND");
+    for (const jobId of foundIds) {
+        if (shouldStop()) return;
+        const job = await ctx.jobRepo.getById(jobId);
+        if (!job) continue;
+        const appRec = await ctx.appRepo.get(job.provider, job.jobId);
+        if (!appRec) continue;
+
+        await ctx.appRepo.setProcessing(appRec.id, true);
+        try {
+            const result = await session.getQuestions(job, resumePath);
+            const updated = await ctx.appRepo.upsert(
+                job.provider, job.jobId, result.status, resumeFilename, result.errorMessage,
+            );
+            await ctx.appRepo.setProcessing(updated.id, false);
+            await ctx.appRepo.replaceQuestions(updated.id, result.questions);
+            console.log(`[execution] questions: ${job.title} → ${result.status}`);
+        } catch (e) {
+            console.error(`[execution] getQuestions failed for ${job.jobId}:`, e);
+            const failed = await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
+            await ctx.appRepo.setProcessing(failed.id, false);
+        }
+    }
+
+    const approvedIds = await ctx.appRepo.listIdsByStatus("APPROVED");
     for (const jobId of approvedIds) {
+        if (shouldStop()) return;
         const job = await ctx.jobRepo.getById(jobId);
         if (!job) continue;
         const appRec = await ctx.appRepo.get(job.provider, job.jobId);
