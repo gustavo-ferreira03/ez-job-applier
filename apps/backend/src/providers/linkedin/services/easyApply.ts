@@ -268,8 +268,7 @@ async function fillTextFields(
         } else if (current) {
             collected.push({ label, answer: current, fieldType });
         } else if (await isRequired(field)) {
-            const rawType = await field.getAttribute("type");
-            const placeholder = rawType === "number" ? "0" : "N/A";
+            const placeholder = "0";
             await field.fill(placeholder);
             await selectFirstAutocomplete(field);
             pending.push({ label, fieldType });
