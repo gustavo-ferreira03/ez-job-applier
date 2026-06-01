@@ -7,6 +7,7 @@
 	import DiscoveriesView from '$lib/components/DiscoveriesView.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
 	import ExecutionModal from '$lib/components/ExecutionModal.svelte';
+	import LoginModal from '$lib/components/LoginModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { appState } from '$lib/state.svelte';
 	import { startAutoApply, stopAutoApply, startExecution, stopExecution, pauseExecution, resumeExecution } from '$lib/api';
@@ -16,8 +17,17 @@
 	let activePage = $state<Page>('pipeline');
 	let selectedJob = $state<{ job: JobSummary; tab: KanbanTab } | null>(null);
 	let executionModalOpen = $state(false);
+	let loginModalOpen = $state(false);
+	let wasActionNeeded = $state(false);
 
 	onMount(() => appState.init());
+
+	$effect(() => {
+		const actionNeeded = appState.execution.actionNeeded;
+		if (actionNeeded && !wasActionNeeded) loginModalOpen = true;
+		if (!actionNeeded && wasActionNeeded) loginModalOpen = false;
+		wasActionNeeded = actionNeeded;
+	});
 
 	function openJob(job: JobSummary, tab: KanbanTab) {
 		selectedJob = { job, tab };
@@ -110,6 +120,7 @@
 		onStopExecution={handleStopExecution}
 		onPauseExecution={handlePauseExecution}
 		onResumeExecution={handleResumeExecution}
+		onOpenLogin={() => { loginModalOpen = true; }}
 	/>
 
 	<!-- Área principal -->
@@ -154,6 +165,10 @@
 <!-- Modal de loop eterno -->
 {#if executionModalOpen}
 	<ExecutionModal onClose={() => { executionModalOpen = false; }} />
+{/if}
+
+{#if loginModalOpen}
+	<LoginModal onClose={() => { loginModalOpen = false; }} />
 {/if}
 
 <Toast />

@@ -13,9 +13,10 @@
 		onStopExecution: () => void;
 		onPauseExecution: () => void;
 		onResumeExecution: () => void;
+		onOpenLogin: () => void;
 	}
 
-	let { activePage, execution, onNavigate, onStartExecution, onStopExecution, onPauseExecution, onResumeExecution }: Props = $props();
+	let { activePage, execution, onNavigate, onStartExecution, onStopExecution, onPauseExecution, onResumeExecution, onOpenLogin }: Props = $props();
 
 	function fmtCountdown(isoStr: string): string {
 		const secs = Math.max(0, Math.round((new Date(isoStr).getTime() - Date.now()) / 1000));
@@ -59,10 +60,20 @@
 	<!-- Execução -->
 	<div class="flex flex-shrink-0 flex-col gap-1.5 border-t border-border-subtle p-2">
 		{#if execution.active}
-			{#if execution.running}
+			{#if execution.actionNeeded}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text hover:opacity-80 focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text hover:opacity-80 focus-visible:outline-none"
+					onclick={onOpenLogin}
+					title="Abrir painel de login"
+				>
+					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-input-text"></span>
+					Login necessário
+				</button>
+			{:else if execution.running}
+				<button
+					type="button"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text hover:opacity-80 focus-visible:outline-none"
 					onclick={onPauseExecution}
 					title="Pausar"
 				>
@@ -72,7 +83,7 @@
 			{:else if execution.paused}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text hover:opacity-80 focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text hover:opacity-80 focus-visible:outline-none"
 					onclick={onResumeExecution}
 					title="Retomar"
 				>
@@ -82,7 +93,7 @@
 			{:else if execution.nextRunAt}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted hover:bg-surface-hover focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted hover:bg-surface-hover focus-visible:outline-none"
 					onclick={onStopExecution}
 					title="Aguardando próximo ciclo"
 				>
@@ -92,7 +103,7 @@
 			{:else}
 				<button
 					type="button"
-					class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted focus-visible:outline-none"
+					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted focus-visible:outline-none"
 					disabled
 				>
 					<span class="h-1.5 w-1.5 rounded-full bg-border-strong"></span>
