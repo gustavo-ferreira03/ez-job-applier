@@ -2,6 +2,7 @@ export type ApplicationStatus =
 	| 'FOUND'
 	| 'NEEDS_INPUT'
 	| 'READY_FOR_REVIEW'
+	| 'APPROVED'
 	| 'EXTERNAL'
 	| 'SUBMITTED'
 	| 'SKIPPED'
@@ -41,7 +42,6 @@ export interface JobSummary {
 	about: string | null;
 	applicationUrl: string | null;
 	status: ApplicationStatus;
-	approved: boolean;
 	processing: boolean;
 	resumeFilename: string | null;
 	errorMessage: string | null;

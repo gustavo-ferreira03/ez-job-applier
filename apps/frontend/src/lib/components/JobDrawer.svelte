@@ -49,7 +49,7 @@
 	const canSave    = $derived(unanswered.every((q) => answerInputs[q.label]?.trim()));
 
 	const hasActions = $derived(
-		['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)
+		['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'APPROVED', 'EXTERNAL', 'FAILED'].includes(job.status)
 	);
 
 	async function handleGetQuestions() {
@@ -381,8 +381,8 @@ async function handleSkip() {
 	{#if hasActions && detail}
 		<div class="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border-subtle px-4 py-3">
 			<span class="text-[13px] text-text-faint">{notice}</span>
-			<div class="flex gap-2 items-center">
-				{#if ['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)}
+			<div class="flex gap-2">
+				{#if ['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'APPROVED', 'EXTERNAL', 'FAILED'].includes(job.status)}
 					<button
 						type="button"
 						class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
@@ -412,18 +412,16 @@ async function handleSkip() {
 						Salvar respostas
 					</button>
 				{:else if job.status === 'READY_FOR_REVIEW'}
-					{#if job.approved}
-						<p class="text-[13px] text-execution-text">Na fila — será enviada no próximo ciclo</p>
-					{:else}
-						<button
-							type="button"
-							class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-							disabled={busy}
-							onclick={handleApply}
-						>
-							{busy ? 'Aprovando…' : 'Enviar candidatura'}
-						</button>
-					{/if}
+					<button
+						type="button"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+						disabled={busy}
+						onclick={handleApply}
+					>
+						{busy ? 'Enfileirando…' : 'Enviar candidatura'}
+					</button>
+				{:else if job.status === 'APPROVED'}
+					<p class="text-[13px] text-execution-text">Na fila — será enviada no próximo ciclo</p>
 				{/if}
 			</div>
 		</div>
