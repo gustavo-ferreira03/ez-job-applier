@@ -23,11 +23,12 @@ export function createExecutionRouter(ctx: AppContext): OpenAPIHono {
 
     router.get("/execution", async (c) => {
         const ex = await ctx.executionRepo.getActive();
-        if (!ex) return c.json({ active: false, running: false, paused: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
+        if (!ex) return c.json({ active: false, running: false, paused: false, actionNeeded: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
         return c.json({
             active: true,
             running: ex.status === "running",
             paused: ex.status === "paused",
+            actionNeeded: ex.status === "action_needed",
             nextRunAt: ex.nextRunAt,
             cycleMaxMs: ex.cycleMaxMs,
             intervalMs: ex.intervalMs,

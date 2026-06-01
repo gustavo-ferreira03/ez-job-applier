@@ -9,7 +9,7 @@ class AppState {
 	jobs = $state<JobSummary[]>([]);
 	executions = $state<Execution[]>([]);
 	autoApply = $state<AutoApplyStatus>({ running: false, applied: 0, failed: 0 });
-	execution = $state<ExecutionStatus>({ active: false, running: false, paused: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
+	execution = $state<ExecutionStatus>({ active: false, running: false, paused: false, actionNeeded: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
 	settings = $state<AppSettings>({ browserVisible: false, searchLocale: 'pt-BR' });
 	resumes = $state<string[]>([]);
 	defaultResume = $state<string | null>(null);
