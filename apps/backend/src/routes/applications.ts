@@ -101,6 +101,7 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
             },
             responses: {
                 200: { description: "Application result" },
+                400: { description: "Application has unanswered questions" },
                 404: { description: "Job not found" },
             },
         }),
@@ -111,6 +112,9 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
                 await applyToJob(id, body?.answers ?? {}, ctx, body?.resumeFilename);
                 return c.json({ ok: true });
             } catch (err) {
+                if (err instanceof Error && err.message.includes("must be answered")) {
+                    throw new HTTPException(400, { message: err.message });
+                }
                 if (err instanceof Error && err.message.includes("not found")) {
                     throw new HTTPException(404, { message: err.message });
                 }

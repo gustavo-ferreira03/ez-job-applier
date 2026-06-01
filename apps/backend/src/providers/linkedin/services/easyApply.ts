@@ -4,6 +4,8 @@ import type { EasyApplyConfig } from "./types";
 import type { ApplyResult as EasyApplyResult } from "../../../core/types";
 
 const MAX_STEPS = 20;
+const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
+const EASY_APPLY_LIMIT_RE = /reached today.?s Easy Apply limit/i;
 
 function cleanLabel(raw: string): string {
     const lines = raw.trim().split("\n").map((l) => l.trim()).filter(Boolean);
@@ -372,6 +374,32 @@ async function closeModal(page: Page, modal: Locator): Promise<void> {
     }
 }
 
+async function dismissEasyApplyLimit(page: Page): Promise<boolean> {
+    const dialog = page
+        .getByRole("dialog")
+        .filter({ hasText: EASY_APPLY_LIMIT_RE })
+        .last();
+    if (!(await dialog.count())) return false;
+
+    const close = dialog
+        .getByRole("button", { name: /got it|dismiss|close/i })
+        .first();
+    if (await close.count()) await close.click().catch(() => undefined);
+
+    return true;
+}
+
+function easyApplyLimitResult(
+    shouldSubmit: boolean,
+    questions: ApplicationQuestion[] = [],
+): EasyApplyResult {
+    return {
+        status: shouldSubmit ? "APPROVED" : "FOUND",
+        questions,
+        errorMessage: EASY_APPLY_LIMIT_MESSAGE,
+    };
+}
+
 export async function runEasyApply(
     page: Page,
     jobUrl: string,
@@ -402,6 +430,8 @@ export async function runEasyApply(
             };
         }
         await easyApplyBtn.click();
+        await page.waitForTimeout(500);
+        if (await dismissEasyApplyLimit(page)) return easyApplyLimitResult(shouldSubmit);
 
         const modal = page.getByRole("dialog").last();
         try {
@@ -437,6 +467,9 @@ export async function runEasyApply(
                 if (shouldSubmit) {
                     await submitBtn.click();
                     await page.waitForTimeout(2000);
+                    if (await dismissEasyApplyLimit(page)) {
+                        return easyApplyLimitResult(shouldSubmit, collected);
+                    }
                     return { status: "SUBMITTED", questions: collected };
                 }
                 await closeModal(page, modal);
@@ -460,6 +493,9 @@ export async function runEasyApply(
 
             await nextBtn.click();
             await page.waitForTimeout(1000);
+            if (await dismissEasyApplyLimit(page)) {
+                return easyApplyLimitResult(shouldSubmit, [...collected, ...allPending]);
+            }
         }
 
         await closeModal(page, modal);

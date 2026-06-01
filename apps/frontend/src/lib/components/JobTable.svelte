@@ -15,7 +15,8 @@
 
 	const statusLabels: Record<ApplicationStatus, string> = {
 		FOUND: 'Encontrada', NEEDS_INPUT: 'Precisa Resposta', READY_FOR_REVIEW: 'Revisar',
-		EXTERNAL: 'Externa', SUBMITTED: 'Enviada', SKIPPED: 'Ignorada', FAILED: 'Falhou'
+		APPROVED: 'Na fila', EXTERNAL: 'Externa', SUBMITTED: 'Enviada', SKIPPED: 'Ignorada',
+		FAILED: 'Falhou'
 	};
 
 	const filtered = $derived(
@@ -54,7 +55,7 @@
 	}
 
 	const allStatuses: ApplicationStatus[] = [
-		'FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'SUBMITTED', 'SKIPPED', 'FAILED'
+		'FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'APPROVED', 'EXTERNAL', 'SUBMITTED', 'SKIPPED', 'FAILED'
 	];
 
 	const allSelected = $derived(filtered.length > 0 && selected.size === filtered.length);

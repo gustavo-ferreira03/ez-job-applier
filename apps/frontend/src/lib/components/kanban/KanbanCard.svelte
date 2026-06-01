@@ -66,6 +66,10 @@
 				<span class="rounded-sm bg-status-review-bg px-1.5 py-0.5 text-xs font-medium text-status-review-text">
 					Pronto p/ enviar
 				</span>
+			{:else if job.status === 'APPROVED'}
+				<span class="rounded-sm bg-execution-bg px-1.5 py-0.5 text-xs font-medium text-execution-text">
+					Na fila
+				</span>
 			{/if}
 		</div>
 		<span class="text-xs text-text-muted">{relativeDate(job.createdAt)}</span>

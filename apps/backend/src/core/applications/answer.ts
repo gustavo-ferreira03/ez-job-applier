@@ -1,5 +1,9 @@
 import type { AppContext } from "../context";
 
+function hasAnswer(answer: string | undefined): boolean {
+    return answer !== undefined && answer.trim().length > 0;
+}
+
 export async function saveAnswers(
     jobId: number,
     answers: Record<string, string>,
@@ -17,8 +21,8 @@ export async function saveAnswers(
     await ctx.appRepo.answerQuestions(application.id, answers);
 
     const questions = await ctx.appRepo.getQuestions(application.id);
-    const allAnswered = questions.length > 0 && questions.every((q) => q.answer != null);
-    if (allAnswered) {
+    const allAnswered = questions.length > 0 && questions.every((q) => hasAnswer(q.answer));
+    if (application.status === "NEEDS_INPUT" && allAnswered) {
         await ctx.appRepo.updateStatus(application.id, "READY_FOR_REVIEW");
     }
 }

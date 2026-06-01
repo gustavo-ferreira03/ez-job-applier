@@ -87,8 +87,10 @@ async function runForever(
             if (_stopFlag) break;
 
             await ctx.executionRepo.setStatus(id, "running", null);
+            let easyApplyLimited = false;
             try {
-                await runCycle(id, config, cycleMaxMs, ctx, () => _stopFlag, (s) => { _activeSession = s; });
+                const result = await runCycle(id, config, cycleMaxMs, ctx, () => _stopFlag, (s) => { _activeSession = s; });
+                easyApplyLimited = result.easyApplyLimited;
             } catch (e) {
                 const msg = e instanceof Error ? e.message : String(e);
                 if (isAuthError(msg)) {
@@ -102,7 +104,7 @@ async function runForever(
 
             if (_stopFlag) break;
 
-            const pending = await ctx.appRepo.listIdsByStatus("READY_FOR_REVIEW");
+            const pending = easyApplyLimited ? [] : await ctx.appRepo.listIdsByStatus("APPROVED");
             if (pending.length > 0) {
                 console.log(`[execution] ${pending.length} job(s) ready for submission — restarting cycle`);
                 continue;

@@ -8,7 +8,16 @@
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
 	import StatusBadge from './StatusBadge.svelte';
-	import type { JobDetail, JobSummary, KanbanTab } from '$lib/types';
+	import type { ApplicationStatus, JobDetail, JobSummary, KanbanTab } from '$lib/types';
+
+	const ACTION_STATUSES: ApplicationStatus[] = [
+		'FOUND',
+		'NEEDS_INPUT',
+		'READY_FOR_REVIEW',
+		'APPROVED',
+		'EXTERNAL',
+		'FAILED'
+	];
 
 	interface Props {
 		job: JobSummary;
@@ -30,7 +39,7 @@
 		try {
 			detail = await api.getJob(job.id);
 			selectedResume = detail.resumeFilename ?? '';
-			if (job.status === 'READY_FOR_REVIEW') {
+			if (job.status === 'READY_FOR_REVIEW' || job.status === 'APPROVED') {
 				for (const q of detail.questions) {
 					if (q.answer != null) answerInputs[q.label] = q.answer;
 				}
@@ -44,13 +53,30 @@
 		if (e.key === 'Escape') onClose();
 	}
 
+	function hasAnswerValue(value: string | null | undefined): boolean {
+		return value !== null && value !== undefined && value.trim().length > 0;
+	}
+
+	function currentAnswer(q: JobDetail['questions'][number]): string {
+		return answerInputs[q.label] ?? q.answer ?? '';
+	}
+
+	function collectCurrentAnswers(): Record<string, string> {
+		const answers: Record<string, string> = {};
+		for (const q of detail?.questions ?? []) {
+			const answer = currentAnswer(q).trim();
+			if (answer) answers[q.label] = answer;
+		}
+		return answers;
+	}
+
 	const unanswered = $derived(detail?.questions.filter((q) => q.answer == null) ?? []);
 	const answered   = $derived(detail?.questions.filter((q) => q.answer != null) ?? []);
-	const canSave    = $derived(unanswered.every((q) => answerInputs[q.label]?.trim()));
-
-	const hasActions = $derived(
-		['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)
+	const canSave    = $derived(unanswered.every((q) => hasAnswerValue(answerInputs[q.label])));
+	const canApply   = $derived(
+		detail !== null && detail.questions.every((q) => hasAnswerValue(currentAnswer(q)))
 	);
+	const hasActions = $derived(ACTION_STATUSES.includes(job.status));
 
 	async function handleGetQuestions() {
 		if (busy) return;
@@ -82,17 +108,17 @@
 
 	async function handleApply() {
 		if (busy) return;
-		busy = true; notice = 'Enviando candidatura…';
+		busy = true; notice = 'Enfileirando candidatura…';
 		try {
-			await api.applyToJob(job.id, answerInputs, selectedResume || undefined);
-			toastState.show('Candidatura enviada');
+			await api.applyToJob(job.id, collectCurrentAnswers(), selectedResume || undefined);
+			toastState.show('Candidatura enfileirada');
 			onClose();
 			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao enviar candidatura'); }
+		} catch { notice = ''; toastState.show('Falha ao enfileirar candidatura'); }
 		finally { busy = false; }
 	}
 
-async function handleSkip() {
+	async function handleSkip() {
 		if (busy) return;
 		busy = true;
 		try {
@@ -348,6 +374,9 @@ async function handleSkip() {
 					</div>
 				{/if}
 
+			{:else if job.status === 'APPROVED'}
+				<p class="text-sm text-text-muted">Candidatura enfileirada. O bot fará o envio na próxima execução.</p>
+
 			{:else if job.status === 'EXTERNAL'}
 				{#if detail.applicationUrl}
 					<a
@@ -382,7 +411,7 @@ async function handleSkip() {
 		<div class="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border-subtle px-4 py-3">
 			<span class="text-[13px] text-text-faint">{notice}</span>
 			<div class="flex gap-2">
-				{#if ['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL', 'FAILED'].includes(job.status)}
+				{#if ACTION_STATUSES.includes(job.status)}
 					<button
 						type="button"
 						class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
@@ -416,21 +445,23 @@ async function handleSkip() {
 						<button
 							type="button"
 							class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-							disabled={busy}
+							disabled={busy || !canApply}
 							onclick={handleApply}
 						>
-							{busy ? 'Enviando…' : 'Enviar candidatura'}
+							{busy ? 'Enfileirando…' : 'Enviar candidatura'}
 						</button>
 					{/if}
 				{:else if job.status === 'READY_FOR_REVIEW'}
 					<button
 						type="button"
 						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-						disabled={busy}
+						disabled={busy || !canApply}
 						onclick={handleApply}
 					>
-						{busy ? 'Enviando…' : 'Enviar candidatura'}
+						{busy ? 'Enfileirando…' : 'Enviar candidatura'}
 					</button>
+				{:else if job.status === 'APPROVED'}
+					<p class="text-[13px] text-execution-text">Na fila — será enviada na próxima execução</p>
 				{/if}
 			</div>
 		</div>
