@@ -27,10 +27,10 @@
 	onclick={() => onOpen(job, defaultTab)}
 >
 	<!-- Título -->
-	<div class="flex items-center gap-1.5">
-		<p class="truncate text-sm font-medium text-text-primary">{job.title}</p>
+	<div class="flex items-center justify-between gap-2">
+		<p class="min-w-0 truncate text-sm font-medium text-text-primary">{job.title}</p>
 		{#if job.processing}
-			<svg class="h-3.5 w-3.5 shrink-0 animate-spin text-execution-text" viewBox="0 0 24 24" fill="none">
+			<svg class="h-3.5 w-3.5 shrink-0 animate-spin text-accent-500" viewBox="0 0 24 24" fill="none">
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
 			</svg>
