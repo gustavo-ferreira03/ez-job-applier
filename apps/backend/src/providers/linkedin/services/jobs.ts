@@ -1,5 +1,6 @@
 import type { Locator, Page } from "playwright-core";
 import type { LinkedinJob, SearchConfig } from "./types";
+import { trySavedAccountLogin } from "./auth";
 
 function isAuthWall(url: string): boolean {
     const lower = url.toLowerCase();
@@ -124,8 +125,13 @@ async function openJobs(page: Page, config: SearchConfig, start: number): Promis
     const url = buildSearchUrl(config, start);
     console.log(`[jobs] navigating to: ${url}`);
     await page.goto(url, { waitUntil: "domcontentloaded" });
-    const finalUrl = page.url();
+    let finalUrl = page.url();
     console.log(`[jobs] landed on: ${finalUrl}`);
+    if (isAuthWall(finalUrl) && await trySavedAccountLogin(page)) {
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+        finalUrl = page.url();
+        console.log(`[jobs] landed after saved account login: ${finalUrl}`);
+    }
     if (isAuthWall(finalUrl))
         throw new Error("LinkedIn session expired; log in again");
     await page.waitForTimeout(3000);
@@ -135,6 +141,9 @@ async function openTopApplicant(page: Page, start: number): Promise<void> {
     const url = "https://www.linkedin.com/jobs/collections/top-applicant/" + (start ? `?start=${start}` : "");
     console.log(`Opening top applicant collection: ${url}`);
     await page.goto(url, { waitUntil: "domcontentloaded" });
+    if (isAuthWall(page.url()) && await trySavedAccountLogin(page)) {
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+    }
     if (isAuthWall(page.url()))
         throw new Error("LinkedIn session expired; log in again");
     await page.waitForTimeout(5000);

@@ -19,7 +19,7 @@
 	<button class="absolute inset-0 cursor-default" type="button" aria-label="Fechar" onclick={onClose}></button>
 
 	<div
-		class="relative z-10 mt-8 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
+		class="relative z-10 mt-8 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)] pb-1"
 		style="max-height: calc(100vh - 80px)"
 		role="dialog"
 		aria-modal="true"
@@ -50,10 +50,6 @@
 				src="/vnc"
 				title="Navegador do servidor"
 			></iframe>
-		</div>
-
-		<div class="flex-shrink-0 border-t border-border-subtle px-5 py-2">
-			<p class="text-xs text-text-faint">Conexão privada — acessível apenas pela rede local.</p>
 		</div>
 	</div>
 </div>
