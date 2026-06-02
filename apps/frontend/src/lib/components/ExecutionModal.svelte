@@ -14,16 +14,6 @@
 
 	const lastConfig = appState.executions[0]?.config ?? appState.discoverConfig;
 
-	let keywords = $state(lastConfig.keywords ?? '');
-	let location = $state(lastConfig.location ?? '');
-	let maxJobs = $state(lastConfig.maxJobs?.toString() ?? '');
-	let workType = $state(lastConfig.workType ?? '');
-	let datePosted = $state(lastConfig.datePosted ?? '');
-	let experienceLevel = $state<string[]>([...(lastConfig.experienceLevel ?? [])]);
-	let jobType = $state<string[]>([...(lastConfig.jobType ?? [])]);
-	let easyApply = $state((lastConfig.options?.easyApply as boolean) ?? true);
-	let busy = $state(false);
-
 	const WORK_TYPES = [
 		{ value: '', label: 'Qualquer' },
 		{ value: 'remote', label: 'Remoto' },
@@ -39,20 +29,35 @@
 	];
 
 	const EXP_LEVELS = [
-		{ value: 'entry', label: 'Júnior' },
-		{ value: 'associate', label: 'Associate' },
-		{ value: 'mid_senior', label: 'Pleno/Sênior' },
-		{ value: 'director', label: 'Diretor' },
-		{ value: 'executive', label: 'Executivo' }
+		{ value: 'entry', label: 'Entry-level' },
+		{ value: 'senior', label: 'Senior' },
+		{ value: 'manager', label: 'Manager' },
+		{ value: 'director', label: 'Director' },
+		{ value: 'executive', label: 'Executive' }
 	];
 
 	const JOB_TYPES = [
-		{ value: 'full_time', label: 'CLT' },
 		{ value: 'part_time', label: 'Part-time' },
-		{ value: 'contract', label: 'PJ/Contrato' },
-		{ value: 'temporary', label: 'Temporário' },
-		{ value: 'internship', label: 'Estágio' }
+		{ value: 'contract', label: 'Contract' },
+		{ value: 'internship', label: 'Internship' },
+		{ value: 'full_time', label: 'Full-time' },
+		{ value: 'volunteer', label: 'Volunteer' }
 	];
+
+	const EXP_LEVEL_VALUES = new Set(EXP_LEVELS.map((level) => level.value));
+	const JOB_TYPE_VALUES = new Set(JOB_TYPES.map((type) => type.value));
+
+	let keywords = $state(lastConfig.keywords ?? '');
+	let location = $state(lastConfig.location ?? '');
+	let maxJobs = $state(lastConfig.maxJobs?.toString() ?? '');
+	let workType = $state(lastConfig.workType ?? '');
+	let datePosted = $state(lastConfig.datePosted ?? '');
+	let experienceLevel = $state<string[]>((lastConfig.experienceLevel ?? []).filter((level) => EXP_LEVEL_VALUES.has(level)));
+	let jobType = $state<string[]>((lastConfig.jobType ?? []).filter((type) => JOB_TYPE_VALUES.has(type)));
+	let easyApply = $state((lastConfig.options?.easyApply as boolean) ?? true);
+	let under10Applicants = $state((lastConfig.options?.under10Applicants as boolean) ?? true);
+	let inMyNetwork = $state((lastConfig.options?.inMyNetwork as boolean) ?? false);
+	let busy = $state(false);
 
 	function toggle(arr: string[], val: string): string[] {
 		return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
@@ -74,7 +79,7 @@
 				datePosted: datePosted || undefined,
 				experienceLevel: experienceLevel.length ? experienceLevel : undefined,
 				jobType: jobType.length ? jobType : undefined,
-				options: { easyApply }
+				options: { easyApply, under10Applicants, inMyNetwork }
 			};
 			await api.startExecution(config);
 			appState.discoverConfig = config;
@@ -92,7 +97,6 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<!-- Overlay -->
 <div class="fixed inset-0 z-modal flex items-start justify-center bg-black/70 p-4">
 	<button
 		class="absolute inset-0 cursor-default"
@@ -111,7 +115,6 @@
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>
-		<!-- Header -->
 		<div class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4">
 			<div>
 				<h2 class="text-[13px] font-semibold text-text-primary">Execução</h2>
@@ -127,9 +130,7 @@
 			</button>
 		</div>
 
-		<!-- Body -->
 		<div class="flex-1 space-y-4 overflow-y-auto p-5">
-			<!-- Keywords -->
 			<div>
 				<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="d-keywords">
 					Palavras-chave
@@ -143,7 +144,6 @@
 				<p class="mt-1 text-[10px] text-text-faint">Uma palavra-chave por linha</p>
 			</div>
 
-			<!-- Local + Máx -->
 			<div class="grid grid-cols-2 gap-3">
 				<div>
 					<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="d-location">Local</label>
@@ -168,7 +168,6 @@
 				</div>
 			</div>
 
-			<!-- Tipo de trabalho + Data -->
 			<div class="grid grid-cols-2 gap-3">
 				<div>
 					<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="d-work-type">Modelo</label>
@@ -192,7 +191,6 @@
 				</div>
 			</div>
 
-			<!-- Nível de experiência -->
 			<div>
 				<p class="mb-2 text-[11px] font-medium text-text-secondary">Nível</p>
 				<div class="flex flex-wrap gap-x-4 gap-y-2">
@@ -210,7 +208,6 @@
 				</div>
 			</div>
 
-			<!-- Tipo de contrato -->
 			<div>
 				<p class="mb-2 text-[11px] font-medium text-text-secondary">Tipo de contrato</p>
 				<div class="flex flex-wrap gap-x-4 gap-y-2">
@@ -228,17 +225,67 @@
 				</div>
 			</div>
 
-			<!-- Easy Apply -->
-			<label class="flex cursor-pointer items-center justify-between gap-4">
+			<button
+				type="button"
+				class="flex w-full cursor-pointer items-center justify-between gap-4 text-left focus-visible:outline-none"
+				onclick={() => (easyApply = !easyApply)}
+			>
 				<div>
 					<span class="text-[12px] font-medium text-text-secondary">Somente Easy Apply</span>
 					<p class="text-[10px] text-text-faint">Apenas vagas com candidatura simplificada</p>
 				</div>
-				<input type="checkbox" class="accent-accent-500" bind:checked={easyApply} />
-			</label>
+				<div
+					class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150
+						{easyApply ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}"
+				>
+					<span
+						class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150
+							{easyApply ? 'left-[18px]' : 'left-[3px]'}"
+					></span>
+				</div>
+			</button>
+
+			<button
+				type="button"
+				class="flex w-full cursor-pointer items-center justify-between gap-4 text-left focus-visible:outline-none"
+				onclick={() => (under10Applicants = !under10Applicants)}
+			>
+				<div>
+					<span class="text-[12px] font-medium text-text-secondary">Menos de 10 candidatos</span>
+					<p class="text-[10px] text-text-faint">Apenas vagas com baixa concorrência</p>
+				</div>
+				<div
+					class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150
+						{under10Applicants ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}"
+				>
+					<span
+						class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150
+							{under10Applicants ? 'left-[18px]' : 'left-[3px]'}"
+					></span>
+				</div>
+			</button>
+
+			<button
+				type="button"
+				class="flex w-full cursor-pointer items-center justify-between gap-4 text-left focus-visible:outline-none"
+				onclick={() => (inMyNetwork = !inMyNetwork)}
+			>
+				<div>
+					<span class="text-[12px] font-medium text-text-secondary">Na minha rede</span>
+					<p class="text-[10px] text-text-faint">Apenas vagas em empresas da sua rede</p>
+				</div>
+				<div
+					class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150
+						{inMyNetwork ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}"
+				>
+					<span
+						class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150
+							{inMyNetwork ? 'left-[18px]' : 'left-[3px]'}"
+					></span>
+				</div>
+			</button>
 		</div>
 
-		<!-- Footer -->
 		<div class="flex flex-shrink-0 justify-end gap-2 border-t border-border-subtle px-5 py-3.5">
 			<button
 				type="button"

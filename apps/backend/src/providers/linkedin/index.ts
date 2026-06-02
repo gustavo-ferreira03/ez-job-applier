@@ -49,6 +49,8 @@ export const linkedinProvider: IJobProvider = {
                     maxJobs: config.maxJobs,
                     skipJobIds: skipIds,
                     easyApply: opts.easyApply === true,
+                    under10Applicants: opts.under10Applicants === true,
+                    inMyNetwork: opts.inMyNetwork === true,
                     includeTopApplicant: opts.includeTopApplicant === true,
                     fillSkillGaps: opts.fillSkillGaps === true,
                 };

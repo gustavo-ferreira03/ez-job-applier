@@ -14,6 +14,22 @@
 		return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
 	}
 
+	const experienceMap: Record<string, string> = {
+		entry: 'Entry-level',
+		senior: 'Senior',
+		manager: 'Manager',
+		director: 'Director',
+		executive: 'Executive'
+	};
+
+	const jobTypeMap: Record<string, string> = {
+		part_time: 'Part-time',
+		contract: 'Contract',
+		internship: 'Internship',
+		full_time: 'Full-time',
+		volunteer: 'Volunteer'
+	};
+
 	function configSummary(e: Execution): string {
 		const parts: string[] = [];
 		const cfg = e.config;
@@ -23,7 +39,11 @@
 			const map: Record<string, string> = { remote: 'Remoto', hybrid: 'Híbrido', onsite: 'Presencial' };
 			parts.push(map[cfg.workType] ?? cfg.workType);
 		}
+		if (cfg.experienceLevel?.length) parts.push(cfg.experienceLevel.map((level) => experienceMap[level] ?? level).join(', '));
+		if (cfg.jobType?.length) parts.push(cfg.jobType.map((type) => jobTypeMap[type] ?? type).join(', '));
 		if (cfg.options?.easyApply) parts.push('Easy Apply');
+		if (cfg.options?.under10Applicants) parts.push('< 10 candidatos');
+		if (cfg.options?.inMyNetwork) parts.push('Na minha rede');
 		return parts.join(' · ') || 'LinkedIn';
 	}
 
@@ -47,7 +67,6 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<!-- Header -->
 	<div class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3">
 		<div>
 			<h2 class="text-sm font-semibold text-text-primary">Histórico de execuções</h2>
@@ -55,7 +74,6 @@
 		</div>
 	</div>
 
-	<!-- List -->
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if appState.executions.length === 0}
 			<p class="text-[13px] text-text-faint">Nenhuma execução ainda. Inicie uma pelo botão na barra lateral.</p>

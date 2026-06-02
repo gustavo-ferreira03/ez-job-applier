@@ -1,4 +1,3 @@
-// Generic types live in core — re-exported here for convenience
 export type {
     Job,
     ApplicationStatus,
@@ -8,16 +7,17 @@ export type {
 
 import type { Job } from "../../../core/types";
 
-/** LinkedIn-specific job — extends the core Job with LinkedIn-only fields */
 export interface LinkedinJob extends Job {
     easyApply: boolean;
 }
 
-// LinkedIn-specific search config
 export interface SearchConfig {
     keywords?: string;
     location?: string;
+    geoId?: string;
     easyApply?: boolean;
+    under10Applicants?: boolean;
+    inMyNetwork?: boolean;
     workType?: string;
     experienceLevel?: string[];
     jobType?: string[];
@@ -28,7 +28,6 @@ export interface SearchConfig {
     skipJobIds?: Set<string>;
 }
 
-// LinkedIn Easy Apply config
 export interface EasyApplyConfig {
     answers?: Record<string, string>;
     resumePath?: string;

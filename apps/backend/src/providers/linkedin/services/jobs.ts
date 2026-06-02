@@ -21,139 +21,103 @@ function cleanListItems(texts: string[]): string[] {
         .filter((t) => t.length > 0);
 }
 
+const WT_MAP: Record<string, string> = { onsite: "1", remote: "2", hybrid: "3" };
+const WT_SAL_MAP: Record<string, string> = { remote: "272001" };
+const EXP_SAL_MAP: Record<string, string> = {
+    entry: "276001",
+    senior: "277001",
+    manager: "278001",
+    director: "272003",
+    executive: "279001",
+};
+const JT_SAL_MAP: Record<string, string> = {
+    part_time: "273001",
+    contract: "274001",
+    internship: "275001",
+    full_time: "272015",
+    volunteer: "272002",
+};
+const DATE_MAP: Record<string, string> = {
+    hour: "r3600",
+    hours6: "r21600",
+    hours12: "r43200",
+    hours24: "r86400",
+    day: "r86400",
+    week: "r604800",
+    month: "r2592000",
+};
+
+async function resolveGeoId(page: Page, location: string): Promise<string | null> {
+    const url = `https://www.linkedin.com/jobs-guest/api/typeaheadHits?query=${encodeURIComponent(location)}&typeaheadType=GEO`;
+    try {
+        const res = await page.request.get(url);
+        if (!res.ok()) return null;
+        const hits = (await res.json()) as Array<{ id?: string; type?: string }>;
+        const first = hits.find((h) => h.type === "GEO" && h.id) ?? hits[0];
+        return first?.id ?? null;
+    } catch (e) {
+        console.log(`[jobs] geoId lookup failed for "${location}": ${String(e)}`);
+        return null;
+    }
+}
+
+function semanticGroup(conceptId: string, values: string[]): string | null {
+    return values.length ? `f_SA_id_${conceptId}:${values.join(",")}` : null;
+}
+
+function buildSemanticFilters(config: SearchConfig): string | null {
+    const groups: string[] = [];
+    const wt = config.workType ? WT_SAL_MAP[config.workType] : undefined;
+    const exp = (config.experienceLevel ?? [])
+        .filter((e) => e in EXP_SAL_MAP)
+        .map((e) => EXP_SAL_MAP[e]);
+    const jt = (config.jobType ?? [])
+        .filter((j) => j in JT_SAL_MAP)
+        .map((j) => JT_SAL_MAP[j]);
+
+    const wtGroup = semanticGroup("225001", wt ? [wt] : []);
+    const expGroup = semanticGroup("227001", exp);
+    const jtGroup = semanticGroup("226001", jt);
+
+    if (wtGroup) groups.push(wtGroup);
+    if (expGroup) groups.push(expGroup);
+    if (jtGroup) groups.push(jtGroup);
+
+    return groups.length ? groups.join(",") : null;
+}
+
 function buildSearchUrl(config: SearchConfig, start: number): string {
+    const wtParts = (config.workType ?? "")
+        .split(",")
+        .map((w) => w.trim())
+        .filter((w) => w in WT_MAP)
+        .map((w) => WT_MAP[w]);
+    const tpr = config.datePosted ? DATE_MAP[config.datePosted] : undefined;
+    const sal = buildSemanticFilters(config);
+
+    const hasFilters =
+        config.easyApply ||
+        config.under10Applicants ||
+        config.inMyNetwork ||
+        wtParts.length ||
+        sal ||
+        tpr;
+
     const params = new URLSearchParams();
     if (config.keywords) params.set("keywords", config.keywords);
-    if (config.location) params.set("location", config.location);
+    if (config.geoId) params.set("geoId", config.geoId);
+    else if (config.location) params.set("location", config.location);
+    if (config.easyApply) params.set("f_AL", "true");
+    if (config.under10Applicants) params.set("f_EA", "true");
+    if (config.inMyNetwork) params.set("f_JIYN", "true");
+    if (sal) params.set("f_SAL", sal);
+    if (wtParts.length) params.set("f_WT", wtParts.join(","));
+    if (tpr) params.set("f_TPR", tpr);
     if (start) params.set("start", String(start));
+    if (hasFilters) params.set("origin", "JOB_SEARCH_PAGE_JOB_FILTER");
 
     const query = params.toString();
     return "https://www.linkedin.com/jobs/search-results/" + (query ? `?${query}` : "");
-}
-
-async function clickDropdownOption(page: Page, triggerLabel: RegExp, optionLabel: RegExp): Promise<boolean> {
-    const trigger = page.getByRole("button").filter({ hasText: triggerLabel }).first();
-    if (!(await trigger.count())) {
-        console.log(`[filter] trigger not found: ${triggerLabel.source}`);
-        return false;
-    }
-
-    await trigger.click();
-    await page.waitForTimeout(400);
-
-    const radio = page.getByRole("radio").filter({ hasText: optionLabel }).first();
-    if (await radio.count()) {
-        await radio.click();
-        await page.waitForTimeout(600);
-        return true;
-    }
-
-    const btn = page.getByRole("button").filter({ hasText: optionLabel }).first();
-    if (await btn.count()) {
-        await btn.click();
-        await page.waitForTimeout(600);
-        return true;
-    }
-
-    console.log(`[filter] option not found: ${optionLabel.source}`);
-    return false;
-}
-
-async function toggleFilterPill(page: Page, label: RegExp): Promise<boolean> {
-    const pill = page.locator("button, a, label").filter({ hasText: label }).first();
-    if (!(await pill.count())) {
-        console.log(`[filter] pill not found: ${label.source}`);
-        return false;
-    }
-
-    const ariaPressed = await pill.getAttribute("aria-pressed");
-    const isChecked = ariaPressed === "true" || await pill.evaluate((el) => (el as HTMLInputElement).checked);
-
-    if (!isChecked) {
-        await pill.click();
-        await page.waitForTimeout(800);
-        console.log(`[filter] toggled pill: ${label.source}`);
-        return true;
-    }
-
-    console.log(`[filter] pill already active: ${label.source}`);
-    return true;
-}
-
-async function applyFiltersViaUI(page: Page, config: SearchConfig): Promise<void> {
-    const applied: string[] = [];
-
-    if (config.easyApply) {
-        if (await toggleFilterPill(page, /^\s*Easy Apply\s*$/i)) {
-            applied.push("Easy Apply");
-        }
-    }
-
-    if (config.datePosted) {
-        const dateMap: Record<string, RegExp> = {
-            hour: /past hour/i,
-            hours6: /past 6 hours/i,
-            hours12: /past 12 hours/i,
-            hours24: /past 24 hours|last 24 hours/i,
-            day: /past 24 hours|last 24 hours|past day/i,
-            week: /past week|last week/i,
-            month: /past month|last month/i,
-        };
-        const pattern = dateMap[config.datePosted];
-        if (pattern && await clickDropdownOption(page, /date posted/i, pattern)) {
-            applied.push(`Date posted: ${config.datePosted}`);
-        }
-    }
-
-    if (config.workType) {
-        const wtMap: Record<string, RegExp> = {
-            remote: /remote/i,
-            hybrid: /hybrid/i,
-            onsite: /on-site|onsite/i,
-        };
-        const pattern = wtMap[config.workType];
-        if (pattern && await clickDropdownOption(page, /workplace type|work type|on-site/i, pattern)) {
-            applied.push(`Work type: ${config.workType}`);
-        }
-    }
-
-    if (config.experienceLevel && config.experienceLevel.length > 0) {
-        const expMap: Record<string, RegExp> = {
-            entry: /internship|entry level/i,
-            associate: /associate/i,
-            mid_senior: /mid-senior level|mid senior/i,
-            director: /director/i,
-            executive: /executive/i,
-        };
-        for (const level of config.experienceLevel) {
-            const pattern = expMap[level];
-            if (pattern && await clickDropdownOption(page, /experience level/i, pattern)) {
-                applied.push(`Experience: ${level}`);
-            }
-        }
-    }
-
-    if (config.jobType && config.jobType.length > 0) {
-        const jtMap: Record<string, RegExp> = {
-            full_time: /full-time|full time/i,
-            part_time: /part-time|part time/i,
-            contract: /contract/i,
-            temporary: /temporary/i,
-            internship: /internship/i,
-        };
-        for (const jt of config.jobType) {
-            const pattern = jtMap[jt];
-            if (pattern && await clickDropdownOption(page, /job type|employment type/i, pattern)) {
-                applied.push(`Job type: ${jt}`);
-            }
-        }
-    }
-
-    if (applied.length > 0) {
-        console.log(`[jobs] applied filters: ${applied.join(", ")}`);
-        await page.waitForTimeout(2000);
-        console.log(`[jobs] final URL after filters: ${page.url()}`);
-    }
 }
 
 async function openJobs(page: Page, config: SearchConfig, start: number): Promise<void> {
@@ -165,7 +129,6 @@ async function openJobs(page: Page, config: SearchConfig, start: number): Promis
     if (isAuthWall(finalUrl))
         throw new Error("LinkedIn session expired; log in again");
     await page.waitForTimeout(3000);
-    await applyFiltersViaUI(page, config);
 }
 
 async function openTopApplicant(page: Page, start: number): Promise<void> {
@@ -177,8 +140,6 @@ async function openTopApplicant(page: Page, start: number): Promise<void> {
     await page.waitForTimeout(5000);
 }
 
-// Cards are div[role="button"][componentkey] inside the first lazy-column.
-// Each card appears multiple times in the virtual list; dedup by componentkey.
 const CARD_SELECTOR = "[data-testid='lazy-column'] div[role='button'][componentkey]";
 
 async function hasNoResults(page: Page): Promise<boolean> {
@@ -224,9 +185,17 @@ async function loadCardKeys(page: Page): Promise<string[]> {
     return keys;
 }
 
+function matchesWorkType(location: string, workType?: string): boolean {
+    if (!workType) return true;
+    const loc = location.toLowerCase();
+    if (workType === "remote") return /remote/.test(loc);
+    if (workType === "hybrid") return /hybrid/.test(loc);
+    if (workType === "onsite") return !/remote|hybrid/.test(loc);
+    return true;
+}
+
 function parseCardText(text: string): { title: string; company: string; location: string } {
     const parts = text.split("\n\n");
-    // Title block: may have "Job Title (Verified job)\nJob Title" — take last non-empty line
     const titleLines = parts[0].split("\n").map((l) => l.trim()).filter(Boolean);
     const title = titleLines[titleLines.length - 1] ?? "";
     const company = (parts[1] ?? "").trim();
@@ -249,7 +218,6 @@ async function getApplicationUrl(page: Page, detailPane: Locator, easyApply: boo
     }
     if (!(await applyControl.count())) return null;
 
-    // Extract URL directly from LinkedIn safety redirect href when available
     const href = await applyControl.getAttribute("href").catch(() => null);
     if (href) {
         const match = href.match(/[?&]url=([^&]+)/);
@@ -257,7 +225,6 @@ async function getApplicationUrl(page: Page, detailPane: Locator, easyApply: boo
         if (!href.includes("linkedin.com")) return href;
     }
 
-    // Fallback: click and capture popup or navigation
     const currentUrl = page.url();
     try {
         const [popup] = await Promise.all([
@@ -314,9 +281,8 @@ async function getJobDetails(page: Page, easyApply: boolean, fillSkillGaps: bool
         .locator("[data-sdui-screen='com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails']")
         .first();
 
-    // About section: the H2 is wrapped in a single-child div; actual content is 2 levels up
     const aboutH2 = detailPane.locator("h2").filter({ hasText: /about the job/i }).first();
-    const aboutContainer = aboutH2.locator("xpath=../.."); // grandparent holds H2 wrapper + content siblings
+    const aboutContainer = aboutH2.locator("xpath=../..");
     await aboutContainer.locator("p, li").first().waitFor({ timeout: 10000 });
     const rawAbout = await aboutContainer.innerText();
     const about = rawAbout.replace(/^About the job\s*/i, "").trim();
@@ -353,6 +319,7 @@ async function* extractJobs(
     fillSkillGaps = false,
     skipJobIds = new Set<string>(),
     onCandidate?: (key: string) => void,
+    workType?: string,
 ): AsyncGenerator<LinkedinJob> {
     let count = 0;
     const cardKeys = await loadCardKeys(page);
@@ -369,6 +336,11 @@ async function* extractJobs(
         const { title, company, location } = parseCardText(cardText);
 
         if (!company) continue;
+
+        if (!matchesWorkType(location, workType)) {
+            console.log(`Skipping ${workType} mismatch: ${title} (${location})`);
+            continue;
+        }
 
         if (/\bapplied\b/i.test(cardText)) {
             console.log(`Skipping already-applied job: ${title}`);
@@ -425,6 +397,16 @@ export async function* discoverJobs(
 
     if (keywordsList.length === 0) keywordsList.push("");
 
+    if (config.location && !config.geoId) {
+        const geoId = await resolveGeoId(page, config.location);
+        if (geoId) {
+            config = { ...config, geoId };
+            console.log(`[jobs] resolved geoId for "${config.location}": ${geoId}`);
+        } else {
+            console.log(`[jobs] no geoId for "${config.location}"; falling back to text location`);
+        }
+    }
+
     let total = 0;
     const seenIds = new Set<string>();
 
@@ -444,6 +426,7 @@ export async function* discoverJobs(
                     config.fillSkillGaps,
                     config.skipJobIds,
                     () => pageNew++,
+                    config.workType,
                 )) {
                     if (!seenIds.has(job.jobId)) {
                         seenIds.add(job.jobId);
@@ -470,6 +453,7 @@ export async function* discoverJobs(
                     config.fillSkillGaps,
                     config.skipJobIds,
                     () => pageNew++,
+                    config.workType,
                 )) {
                     if (!seenIds.has(job.jobId)) {
                         seenIds.add(job.jobId);
