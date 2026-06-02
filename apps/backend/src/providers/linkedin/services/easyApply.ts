@@ -9,7 +9,9 @@ const EASY_APPLY_LIMIT_RE = /reached today.?s Easy Apply limit/i;
 
 function cleanLabel(raw: string): string {
     const lines = raw.trim().split("\n").map((l) => l.trim()).filter(Boolean);
-    const deduped = lines.filter((l, i) => i === 0 || l !== lines[i - 1]);
+    const deduped = lines
+        .filter((l) => !/^(required|obrigat[oó]rio)$/i.test(l))
+        .filter((l, i, arr) => i === 0 || l !== arr[i - 1]);
     return deduped.join(" ").replace(/\s*\*\s*$/, "").trim();
 }
 
@@ -19,6 +21,20 @@ function cssAttr(value: string): string {
 
 function sameText(a: string, b: string): boolean {
     return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+const REQUIRED_RE = /(^|\n)\s*(required|obrigat[oó]rio)\s*($|\n)/i;
+
+async function nearestFieldContainer(el: Locator): Promise<Locator | null> {
+    for (const selector of [
+        "xpath=ancestor::fieldset[1]",
+        "xpath=ancestor::*[contains(@class, 'fb-dash-form-element')][1]",
+        "xpath=ancestor::*[@role='group'][1]",
+    ]) {
+        const container = el.locator(selector);
+        if (await container.count()) return container;
+    }
+    return null;
 }
 
 async function fieldLabel(field: Locator, fallback: string): Promise<string> {
@@ -61,10 +77,12 @@ async function choiceLabel(input: Locator, fallback: string): Promise<string> {
     const aria = await input.getAttribute("aria-label");
     if (aria?.trim()) return cleanLabel(aria);
 
-    const labelAncestor = input.locator("xpath=ancestor::label[1]");
-    if (await labelAncestor.count()) {
-        const text = cleanLabel(await labelAncestor.innerText());
-        if (text) return text;
+    for (const selector of ["xpath=ancestor::label[1]", "xpath=ancestor::div[1]"]) {
+        const container = input.locator(selector);
+        if (await container.count()) {
+            const text = cleanLabel(await container.innerText());
+            if (text) return text;
+        }
     }
 
     const value = await input.getAttribute("value");
@@ -159,18 +177,19 @@ async function fillCheckboxGroups(
     pending: ApplicationQuestion[],
     collected: ApplicationQuestion[],
 ): Promise<void> {
-    const names = await modal.locator("input[type=checkbox]").evaluateAll((nodes) => {
-        const found = new Set<string>();
-        for (const node of nodes) {
-            const input = node as HTMLInputElement;
-            if (input.name) found.add(input.name);
-        }
-        return [...found];
-    });
+    const inputs = modal.locator("input[type=checkbox]");
+    const total = await inputs.count();
+    const seenNames = new Set<string>();
 
-    for (let i = 0; i < names.length; i++) {
-        const name = names[i];
-        const cbs = modal.locator(`input[type=checkbox][name="${cssAttr(name)}"]`);
+    for (let i = 0; i < total; i++) {
+        const current = inputs.nth(i);
+        const name = await current.getAttribute("name");
+        if (name && seenNames.has(name)) continue;
+        if (name) seenNames.add(name);
+
+        const cbs = name
+            ? modal.locator(`input[type=checkbox][name="${cssAttr(name)}"]`)
+            : current;
         const count = await cbs.count();
         if (count === 0) continue;
 
@@ -210,8 +229,13 @@ async function fillCheckboxGroups(
         }
 
         if (await isRequired(first)) {
+            const option = options[0] ?? await choiceLabel(cbs.first(), "option 1");
             await cbs.first().check({ force: true }).catch(() => undefined);
-            pending.push({ label, fieldType: "checkbox", options });
+            if (count === 1) {
+                collected.push({ label, answer: option, fieldType: "checkbox", options });
+            } else {
+                pending.push({ label, fieldType: "checkbox", options });
+            }
         }
     }
 }
@@ -241,7 +265,15 @@ async function selectFirstAutocomplete(field: Locator): Promise<void> {
 async function isRequired(el: Locator): Promise<boolean> {
     const req = await el.getAttribute("required");
     const aria = await el.getAttribute("aria-required");
-    return req !== null || aria === "true";
+    if (req !== null || aria === "true") return true;
+
+    const container = await nearestFieldContainer(el);
+    if (!container) return false;
+
+    const text = await container.innerText().catch(() => "");
+    if (REQUIRED_RE.test(text)) return true;
+
+    return false;
 }
 
 async function fillTextFields(
@@ -314,7 +346,7 @@ async function fillSelects(
 
         if (!isPlaceholder) {
             collected.push({ label, answer: selected, fieldType: "select", options });
-        } else if (await isRequired(select)) {
+        } else {
             const firstReal = options.find((o) => !placeholderWords.some((w) => o.toLowerCase().includes(w)));
             if (firstReal) await select.selectOption({ label: firstReal }).catch(() => undefined);
             pending.push({ label, fieldType: "select", options });
@@ -473,7 +505,7 @@ export async function runEasyApply(
                     return { status: "SUBMITTED", questions: collected };
                 }
                 await closeModal(page, modal);
-                return { status: "NEEDS_INPUT", questions: collected };
+                return { status: "READY_FOR_REVIEW", questions: collected };
             }
 
             const nextBtn = modal

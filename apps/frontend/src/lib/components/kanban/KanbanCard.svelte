@@ -55,16 +55,11 @@
 		</div>
 	{/if}
 
-	<!-- Rodapé -->
 	<div class="mt-2 flex items-center justify-between border-t border-border-subtle pt-1.5">
 		<div class="flex items-center gap-1.5">
 			{#if job.unansweredCount > 0}
 				<span class="rounded-sm bg-[#431407] px-1.5 py-0.5 text-xs font-medium text-[#f97316]">
 					{job.unansweredCount} sem resp.
-				</span>
-			{:else if job.status === 'NEEDS_INPUT'}
-				<span class="rounded-sm bg-status-review-bg px-1.5 py-0.5 text-xs font-medium text-status-review-text">
-					Pronto p/ enviar
 				</span>
 			{:else if job.status === 'APPROVED'}
 				<span class="rounded-sm bg-execution-bg px-1.5 py-0.5 text-xs font-medium text-execution-text">
