@@ -25,6 +25,9 @@
 		onClose: () => void;
 	}
 
+	type Question = JobDetail['questions'][number];
+	type IndexedQuestion = { question: Question; index: number };
+
 	let { job, initialTab = 'info', onClose }: Props = $props();
 
 	let detail = $state<JobDetail | null>(null);
@@ -40,8 +43,8 @@
 			detail = await api.getJob(job.id);
 			selectedResume = detail.resumeFilename ?? '';
 			if (job.status === 'READY_FOR_REVIEW' || job.status === 'APPROVED') {
-				for (const q of detail.questions) {
-					if (q.answer != null) answerInputs[q.label] = q.answer;
+				for (const [index, q] of detail.questions.entries()) {
+					if (q.answer != null) answerInputs[inputKey(q, index)] = q.answer;
 				}
 			}
 		} catch {
@@ -57,24 +60,33 @@
 		return value !== null && value !== undefined && value.trim().length > 0;
 	}
 
-	function currentAnswer(q: JobDetail['questions'][number]): string {
-		return answerInputs[q.label] ?? q.answer ?? '';
+	function inputKey(q: Question, index: number): string {
+		return `${index}:${q.label}`;
+	}
+
+	function questionKey(item: IndexedQuestion): string {
+		return inputKey(item.question, item.index);
+	}
+
+	function currentAnswer(q: Question, index: number): string {
+		return answerInputs[inputKey(q, index)] ?? q.answer ?? '';
 	}
 
 	function collectCurrentAnswers(): Record<string, string> {
 		const answers: Record<string, string> = {};
-		for (const q of detail?.questions ?? []) {
-			const answer = currentAnswer(q).trim();
+		for (const [index, q] of (detail?.questions ?? []).entries()) {
+			const answer = currentAnswer(q, index).trim();
 			if (answer) answers[q.label] = answer;
 		}
 		return answers;
 	}
 
-	const unanswered = $derived(detail?.questions.filter((q) => q.answer == null) ?? []);
-	const answered   = $derived(detail?.questions.filter((q) => q.answer != null) ?? []);
-	const canSave    = $derived(unanswered.every((q) => hasAnswerValue(answerInputs[q.label])));
+	const questions  = $derived(detail?.questions.map((question, index) => ({ question, index })) ?? []);
+	const unanswered = $derived(questions.filter(({ question }) => question.answer == null));
+	const answered   = $derived(questions.filter(({ question }) => question.answer != null));
+	const canSave    = $derived(unanswered.every(({ question, index }) => hasAnswerValue(answerInputs[inputKey(question, index)])));
 	const canApply   = $derived(
-		detail !== null && detail.questions.every((q) => hasAnswerValue(currentAnswer(q)))
+		detail !== null && questions.every(({ question, index }) => hasAnswerValue(currentAnswer(question, index)))
 	);
 	const hasActions = $derived(ACTION_STATUSES.includes(job.status));
 
@@ -95,8 +107,9 @@
 		busy = true; notice = 'Salvando…';
 		try {
 			const answers: Record<string, string> = {};
-			for (const q of unanswered) {
-				if (answerInputs[q.label]?.trim()) answers[q.label] = answerInputs[q.label].trim();
+			for (const { question, index } of unanswered) {
+				const answer = answerInputs[inputKey(question, index)]?.trim();
+				if (answer) answers[question.label] = answer;
 			}
 			await api.saveAnswers(job.id, answers);
 			toastState.show('Respostas salvas');
@@ -133,7 +146,6 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<!-- Overlay -->
 <div class="fixed inset-0 z-modal flex items-start justify-center bg-black/70 p-4">
 	<button
 		class="absolute inset-0 cursor-default"
@@ -142,7 +154,6 @@
 		onclick={onClose}
 	></button>
 
-	<!-- Modal -->
 	<div
 		class="relative z-10 mt-12 flex max-h-[calc(100vh-96px)] w-[min(680px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
 		role="dialog"
@@ -153,7 +164,6 @@
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>
-	<!-- Cabeçalho -->
 	<div class="flex-shrink-0 border-b border-border-subtle px-4 pb-0 pt-4">
 		<div class="mb-3 flex items-start justify-between gap-3">
 			<div class="min-w-0 flex-1">
@@ -187,7 +197,6 @@
 			</button>
 		</div>
 
-		<!-- Abas -->
 		<div class="flex" role="tablist">
 			{#each (['info', 'actions'] as KanbanTab[]) as tab (tab)}
 				<button
@@ -205,7 +214,6 @@
 		</div>
 	</div>
 
-	<!-- Conteúdo -->
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if loadError}
 			<p class="text-sm text-[#ef4444]">Falha ao carregar detalhes da vaga.</p>
@@ -214,7 +222,6 @@
 				<LoaderCircle size={20} class="animate-spin" aria-label="Carregando" />
 			</div>
 		{:else if activeTab === 'info'}
-			<!-- Aba Informações -->
 			{#if detail.errorMessage}
 				<div class="mb-4 rounded-md bg-[#1c0a0a] px-3 py-2 text-[13px] text-[#ef4444]">
 					{detail.errorMessage}
@@ -270,7 +277,8 @@
 				<div>
 					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Q&A</h3>
 					<div class="space-y-2">
-						{#each detail.questions as q (q.label)}
+						{#each questions as item (questionKey(item))}
+							{@const q = item.question}
 							<div class="rounded-md bg-surface-overlay px-3 py-2">
 								<p class="text-xs text-text-faint">{q.label}</p>
 								<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer ?? '—'}</p>
@@ -281,7 +289,6 @@
 			{/if}
 
 		{:else}
-			<!-- Aba Ações -->
 			{#if job.status === 'FOUND'}
 				<p class="mb-3 text-sm text-text-muted">Abra o formulário de candidatura para extrair as perguntas.</p>
 				<p class="text-[13px] text-text-faint">Isso abrirá um browser e pode levar alguns segundos.</p>
@@ -289,16 +296,18 @@
 			{:else if job.status === 'NEEDS_INPUT'}
 				{#if unanswered.length > 0}
 					<div class="mb-5 space-y-3">
-						{#each unanswered as q (q.label)}
+						{#each unanswered as item (questionKey(item))}
+							{@const q = item.question}
+							{@const key = inputKey(q, item.index)}
 							<label class="block">
 								<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
 								{#if q.options.length > 0}
 									<select
 										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
-										bind:value={answerInputs[q.label]}
+										bind:value={answerInputs[key]}
 									>
 										<option value="">Selecione…</option>
-										{#each q.options as opt (opt)}
+										{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
 											<option value={opt}>{opt}</option>
 										{/each}
 									</select>
@@ -306,7 +315,7 @@
 									<input
 										type={q.fieldType ?? 'text'}
 										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
-										bind:value={answerInputs[q.label]}
+										bind:value={answerInputs[key]}
 									/>
 								{/if}
 							</label>
@@ -318,7 +327,8 @@
 					<div>
 						<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-faint">Já respondidas</h3>
 						<div class="space-y-1.5">
-							{#each answered as q (q.label)}
+							{#each answered as item (questionKey(item))}
+								{@const q = item.question}
 								<div class="rounded-md bg-surface-overlay px-3 py-2">
 									<p class="text-xs text-text-faint">{q.label}</p>
 									<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer}</p>
@@ -331,25 +341,27 @@
 			{:else if job.status === 'READY_FOR_REVIEW'}
 				{#if detail.questions.length > 0}
 					<div class="mb-5 space-y-3">
-						{#each detail.questions as q (q.label)}
-							<label class="block">
+					{#each questions as item (questionKey(item))}
+						{@const q = item.question}
+						{@const key = inputKey(q, item.index)}
+						<label class="block">
 								<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
 								{#if q.options.length > 0}
 									<select
 										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
-										bind:value={answerInputs[q.label]}
-									>
-										<option value="">Selecione…</option>
-										{#each q.options as opt (opt)}
-											<option value={opt}>{opt}</option>
+									bind:value={answerInputs[key]}
+								>
+									<option value="">Selecione…</option>
+									{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
+										<option value={opt}>{opt}</option>
 										{/each}
 									</select>
 								{:else}
 									<input
 										type={q.fieldType ?? 'text'}
 										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
-										bind:value={answerInputs[q.label]}
-									/>
+									bind:value={answerInputs[key]}
+								/>
 								{/if}
 							</label>
 						{/each}
@@ -406,11 +418,10 @@
 		{/if}
 	</div>
 
-	<!-- Rodapé -->
 	{#if hasActions && detail}
 		<div class="flex flex-shrink-0 items-center justify-between gap-3 border-t border-border-subtle px-4 py-3">
 			<span class="text-[13px] text-text-faint">{notice}</span>
-			<div class="flex gap-2">
+			<div class="flex items-center gap-2">
 				{#if ACTION_STATUSES.includes(job.status)}
 					<button
 						type="button"
@@ -461,7 +472,7 @@
 						{busy ? 'Enfileirando…' : 'Enviar candidatura'}
 					</button>
 				{:else if job.status === 'APPROVED'}
-					<p class="text-[13px] text-execution-text">Na fila — será enviada na próxima execução</p>
+					<p class="text-[13px] text-execution-text">Na fila</p>
 				{/if}
 			</div>
 		</div>

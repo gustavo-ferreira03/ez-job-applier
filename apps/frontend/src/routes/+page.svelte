@@ -3,7 +3,7 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import KanbanBoard from '$lib/components/kanban/KanbanBoard.svelte';
 	import JobTable from '$lib/components/JobTable.svelte';
-	import JobDrawer from '$lib/components/JobDrawer.svelte';
+	import JobModal from '$lib/components/JobModal.svelte';
 	import DiscoveriesView from '$lib/components/DiscoveriesView.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
 	import ExecutionModal from '$lib/components/ExecutionModal.svelte';
@@ -111,7 +111,6 @@
 </svelte:head>
 
 <div class="flex h-screen overflow-hidden bg-surface-base font-sans text-text-primary">
-	<!-- Sidebar -->
 	<Sidebar
 		{activePage}
 		execution={appState.execution}
@@ -123,9 +122,7 @@
 		onOpenLogin={() => { loginModalOpen = true; }}
 	/>
 
-	<!-- Área principal -->
 	<div class="flex flex-1 flex-col overflow-hidden">
-		<!-- Header da página -->
 		{#if activePage !== 'configuracoes' && activePage !== 'discoveries'}
 			<header class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-3.5">
 				<h1 class="text-[14px] font-semibold text-text-primary">{pageTitles[activePage]}</h1>
@@ -138,7 +135,6 @@
 			</header>
 		{/if}
 
-		<!-- Conteúdo -->
 		<main class="relative flex-1 overflow-hidden">
 			{#if activePage === 'pipeline'}
 				<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
@@ -150,9 +146,8 @@
 				<SettingsView />
 			{/if}
 
-			<!-- Drawer (por cima do conteúdo) -->
 			{#if selectedJob}
-				<JobDrawer
+				<JobModal
 					job={selectedJob.job}
 					initialTab={selectedJob.tab}
 					onClose={() => { selectedJob = null; }}
@@ -162,7 +157,6 @@
 	</div>
 </div>
 
-<!-- Modal de loop eterno -->
 {#if executionModalOpen}
 	<ExecutionModal onClose={() => { executionModalOpen = false; }} />
 {/if}
