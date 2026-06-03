@@ -416,66 +416,57 @@ export async function* discoverJobs(
         }
     }
 
-    let total = 0;
     const seenIds = new Set<string>();
 
     while (true) {
-        let anyFound = false;
+        const seenBefore = seenIds.size;
 
         if (config.includeTopApplicant) {
             let start = 0;
-            while (true) {
-                if (config.maxJobs != null && total >= config.maxJobs) break;
+            while (config.maxJobs == null || seenIds.size < config.maxJobs) {
                 await openTopApplicant(page, start);
-                const remaining = config.maxJobs != null ? config.maxJobs - total : undefined;
-                let pageNew = 0;
-                for await (const job of extractJobs(
-                    page,
-                    remaining,
-                    config.fillSkillGaps,
-                    config.skipJobIds,
-                    () => pageNew++,
-                    config.workType,
-                )) {
-                    if (!seenIds.has(job.jobId)) {
-                        seenIds.add(job.jobId);
-                        total++;
-                        anyFound = true;
-                        yield job;
-                    }
-                }
-                if (pageNew === 0) break;
+                if ((yield* fetchPage(page, config, seenIds)) === 0) break;
                 start += 25;
             }
         }
 
-        for (const keyword of keywordsList) {
-            let start = 0;
-            while (true) {
-                if (config.maxJobs != null && total >= config.maxJobs) return;
+        const starts = new Map(keywordsList.map((k) => [k, 0]));
+        const exhausted = new Set<string>();
+
+        while (exhausted.size < keywordsList.length) {
+            for (const keyword of keywordsList) {
+                if (exhausted.has(keyword)) continue;
+                if (config.maxJobs != null && seenIds.size >= config.maxJobs) return;
+
+                const start = starts.get(keyword)!;
                 await openJobs(page, { ...config, keywords: keyword || undefined }, start);
-                const remaining = config.maxJobs != null ? config.maxJobs - total : undefined;
-                let pageNew = 0;
-                for await (const job of extractJobs(
-                    page,
-                    remaining,
-                    config.fillSkillGaps,
-                    config.skipJobIds,
-                    () => pageNew++,
-                    config.workType,
-                )) {
-                    if (!seenIds.has(job.jobId)) {
-                        seenIds.add(job.jobId);
-                        total++;
-                        anyFound = true;
-                        yield job;
-                    }
-                }
-                if (pageNew === 0) break;
-                start += 25;
+                if ((yield* fetchPage(page, config, seenIds)) === 0) exhausted.add(keyword);
+                else starts.set(keyword, start + 25);
             }
         }
 
-        if (config.maxJobs != null || !anyFound) break;
+        if (config.maxJobs != null || seenIds.size === seenBefore) break;
     }
+}
+
+async function* fetchPage(
+    page: Page,
+    config: SearchConfig,
+    seenIds: Set<string>,
+): AsyncGenerator<LinkedinJob, number> {
+    const remaining = config.maxJobs != null ? config.maxJobs - seenIds.size : undefined;
+    let cards = 0;
+    for await (const job of extractJobs(
+        page,
+        remaining,
+        config.fillSkillGaps,
+        config.skipJobIds,
+        () => cards++,
+        config.workType,
+    )) {
+        if (seenIds.has(job.jobId)) continue;
+        seenIds.add(job.jobId);
+        yield job;
+    }
+    return cards;
 }
