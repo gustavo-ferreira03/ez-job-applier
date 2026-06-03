@@ -1,15 +1,37 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
+	import { toastTransition } from '$lib/transitions';
 	import { toastState } from '$lib/toast.svelte';
+	import CircleCheck from '@lucide/svelte/icons/circle-check';
+	import CircleX from '@lucide/svelte/icons/circle-x';
+	import X from '@lucide/svelte/icons/x';
 </script>
 
-{#if toastState.toasts.length > 0}
-	<div class="z-toast fixed bottom-4 right-4 flex flex-col gap-2" aria-live="polite">
-		{#each toastState.toasts as toast (toast.id)}
-			<div
-				class="border border-border-strong bg-surface-raised px-4 py-3 text-sm text-text-primary shadow-md"
+<div class="z-toast fixed right-4 top-4 flex flex-col gap-2" aria-live="polite">
+	{#each toastState.toasts as toast (toast.id)}
+		{@const isSuccess = toast.type === 'success'}
+		{@const isError = toast.type === 'error'}
+		<div
+			class="flex min-w-64 max-w-sm items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg
+				{isSuccess ? 'border-status-submitted-border bg-status-submitted-bg text-status-submitted-text' : ''}
+				{isError   ? 'border-danger-border bg-danger-bg text-danger-500' : ''}
+				{!isSuccess && !isError ? 'border-border-strong bg-surface-raised text-text-primary' : ''}"
+			transition:fly={toastTransition}
+		>
+			{#if isSuccess}
+				<CircleCheck size={16} class="mt-px shrink-0" aria-hidden="true" />
+			{:else if isError}
+				<CircleX size={16} class="mt-px shrink-0" aria-hidden="true" />
+			{/if}
+			<span class="flex-1 leading-snug">{toast.message}</span>
+			<button
+				type="button"
+				class="shrink-0 cursor-pointer opacity-60 transition-opacity duration-100 hover:opacity-100 focus-visible:outline-none"
+				aria-label="Fechar"
+				onclick={() => toastState.dismiss(toast.id)}
 			>
-				{toast.message}
-			</div>
-		{/each}
-	</div>
-{/if}
+				<X size={14} aria-hidden="true" />
+			</button>
+		</div>
+	{/each}
+</div>

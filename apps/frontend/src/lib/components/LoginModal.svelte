@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
+	import { modalTransition } from '$lib/transitions';
 	import X from '@lucide/svelte/icons/x';
 
 	interface Props {
@@ -25,7 +26,7 @@
 		aria-modal="true"
 		aria-label="Login no LinkedIn"
 		tabindex="-1"
-		transition:fly={{ y: -12, duration: 180 }}
+		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>

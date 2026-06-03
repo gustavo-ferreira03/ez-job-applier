@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
+	import { cardTransition } from '$lib/transitions';
 	import type { JobSummary, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -25,6 +27,7 @@
 			? 'animate-pulse-border border-2 border-accent-500'
 			: 'border border-border-subtle transition-colors duration-100 hover:border-border-default'}"
 	onclick={() => onOpen(job, defaultTab)}
+	transition:fly={cardTransition}
 >
 	<!-- Título -->
 	<div class="flex items-center justify-between gap-2">

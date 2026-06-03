@@ -12,7 +12,7 @@
 		try {
 			appState.settings = await api.updateAppSettings(patch);
 		} catch {
-			toastState.show('Falha ao salvar configuração');
+			toastState.show('Falha ao salvar configuração', 'error');
 		}
 	}
 
@@ -26,9 +26,9 @@
 				await api.setDefaultResume(filename);
 				appState.defaultResume = filename;
 			}
-			toastState.show(`Upload realizado: ${filename}`);
+			toastState.show(`Upload realizado: ${filename}`, 'success');
 		} catch {
-			toastState.show('Falha no upload');
+			toastState.show('Falha no upload', 'error');
 		}
 		(e.target as HTMLInputElement).value = '';
 	}
@@ -37,9 +37,9 @@
 		try {
 			await api.setDefaultResume(filename);
 			appState.defaultResume = filename;
-			toastState.show('Currículo padrão atualizado');
+			toastState.show('Currículo padrão atualizado', 'success');
 		} catch {
-			toastState.show('Falha ao definir padrão');
+			toastState.show('Falha ao definir padrão', 'error');
 		}
 	}
 
@@ -48,9 +48,9 @@
 			await api.deleteResume(filename);
 			appState.resumes = appState.resumes.filter((r) => r !== filename);
 			if (appState.defaultResume === filename) appState.defaultResume = null;
-			toastState.show(`${filename} removido`);
+			toastState.show(`${filename} removido`, 'success');
 		} catch {
-			toastState.show('Falha ao remover currículo');
+			toastState.show('Falha ao remover currículo', 'error');
 		}
 	}
 
@@ -63,10 +63,10 @@
 			appState.jobs = [];
 			appState.executions = [];
 			clearConfirming = false;
-			toastState.show('Banco de dados limpo');
+			toastState.show('Banco de dados limpo', 'success');
 		} catch {
 			clearConfirming = false;
-			toastState.show('Falha ao limpar banco de dados');
+			toastState.show('Falha ao limpar banco de dados', 'error');
 		}
 	}
 </script>

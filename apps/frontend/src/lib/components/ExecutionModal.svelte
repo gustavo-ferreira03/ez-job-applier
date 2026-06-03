@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
+	import { modalTransition } from '$lib/transitions';
 	import X from '@lucide/svelte/icons/x';
 	import * as api from '$lib/api';
 	import { appState } from '$lib/state.svelte';
@@ -85,10 +86,10 @@
 			appState.discoverConfig = config;
 			appState.execution = { ...appState.execution, active: true, running: false, paused: false };
 			appState.startExecutionPolling();
-			toastState.show('Execução iniciada');
+			toastState.show('Execução iniciada', 'success');
 			onClose();
 		} catch {
-			toastState.show('Falha ao iniciar execução');
+			toastState.show('Falha ao iniciar execução', 'error');
 		} finally {
 			busy = false;
 		}
@@ -111,7 +112,7 @@
 		aria-modal="true"
 		aria-label="Execução"
 		tabindex="-1"
-		transition:fly={{ y: -12, duration: 180 }}
+		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>

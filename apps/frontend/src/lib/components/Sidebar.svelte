@@ -120,7 +120,7 @@
 		{:else}
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none"
+				class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-accent-500 px-2.5 py-2 text-[13px] font-semibold text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none"
 				onclick={onStartExecution}
 			>
 				<Search size={13} strokeWidth={2.25} aria-hidden="true" />
