@@ -5,7 +5,7 @@ export type ApplicationStatus =
 	| 'APPROVED'
 	| 'EXTERNAL'
 	| 'SUBMITTED'
-	| 'SKIPPED'
+	| 'REJECTED'
 	| 'FAILED';
 
 export type KanbanTab = 'info' | 'actions';
@@ -82,9 +82,10 @@ export interface KanbanColumn {
 	id: string;
 	title: string;
 	statuses: ApplicationStatus[];
-	defaultTab?: KanbanTab;
-	muted?: boolean;
-	alert?: 'yellow' | 'blue' | 'purple';
+	defaultTab: KanbanTab;
+	headerClass: string;
+	canRejectAll?: boolean;
+	columnClass?: string;
 }
 
 export type Page = 'pipeline' | 'tabela' | 'discoveries' | 'configuracoes';

@@ -15,7 +15,7 @@
 		APPROVED: 'Na fila',
 		EXTERNAL: 'Externa',
 		SUBMITTED: 'Enviada',
-		SKIPPED: 'Ignorada',
+		REJECTED: 'Rejeitada',
 		FAILED: 'Falhou'
 	};
 
@@ -26,7 +26,7 @@
 		APPROVED:         'bg-execution-bg text-execution-text',
 		EXTERNAL:         'bg-status-external-bg text-status-external-text',
 		SUBMITTED:        'bg-status-submitted-bg text-status-submitted-text',
-		SKIPPED:          'bg-status-found-bg text-text-faint',
+		REJECTED:         'bg-status-found-bg text-text-faint',
 		FAILED:           'bg-status-failed-bg text-status-failed-text'
 	};
 

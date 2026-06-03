@@ -1,5 +1,5 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { AppSettings, AutoApplyStatus, DiscoverConfig, Execution, JobDetail, JobSummary, ExecutionStatus } from './types';
+import type { AppSettings, ApplicationStatus, AutoApplyStatus, DiscoverConfig, Execution, JobDetail, JobSummary, ExecutionStatus } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -57,8 +57,16 @@ export function applyToJob(jobId: number, answers?: Record<string, string>, resu
 	return post(`/jobs/${jobId}/apply`, { answers, resumeFilename });
 }
 
-export function skipJob(jobId: number): Promise<{ ok: boolean }> {
-	return post(`/jobs/${jobId}/skip`);
+export function rejectJob(jobId: number): Promise<{ ok: boolean }> {
+	return post(`/jobs/${jobId}/reject`);
+}
+
+export function rejectJobsByStatus(statuses: ApplicationStatus[]): Promise<{ rejected: number }> {
+	return post('/jobs/reject', { statuses });
+}
+
+export function reprocessJob(jobId: number): Promise<{ ok: boolean }> {
+	return post(`/jobs/${jobId}/reprocess`);
 }
 
 // Settings

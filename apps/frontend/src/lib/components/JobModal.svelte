@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { fly } from 'svelte/transition';
+	import { fly, fade } from 'svelte/transition';
 	import { onMount, untrack } from 'svelte';
+	import { modalTransition, contentTransition } from '$lib/transitions';
 	import X from '@lucide/svelte/icons/x';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
@@ -14,7 +15,6 @@
 		'FOUND',
 		'NEEDS_INPUT',
 		'READY_FOR_REVIEW',
-		'APPROVED',
 		'EXTERNAL',
 		'FAILED'
 	];
@@ -95,10 +95,10 @@
 		busy = true; notice = 'Abrindo formulário…';
 		try {
 			await api.getQuestions(job.id);
-			toastState.show('Perguntas extraídas');
+			toastState.show('Perguntas extraídas', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao extrair perguntas'); }
+		} catch { notice = ''; toastState.show('Falha ao extrair perguntas', 'error'); }
 		finally { busy = false; }
 	}
 
@@ -112,10 +112,10 @@
 				if (answer) answers[question.label] = answer;
 			}
 			await api.saveAnswers(job.id, answers);
-			toastState.show('Respostas salvas');
+			toastState.show('Respostas salvas', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao salvar respostas'); }
+		} catch { notice = ''; toastState.show('Falha ao salvar respostas', 'error'); }
 		finally { busy = false; }
 	}
 
@@ -124,22 +124,34 @@
 		busy = true; notice = 'Enfileirando candidatura…';
 		try {
 			await api.applyToJob(job.id, collectCurrentAnswers(), selectedResume || undefined);
-			toastState.show('Candidatura enfileirada');
+			toastState.show('Candidatura enfileirada', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao enfileirar candidatura'); }
+		} catch { notice = ''; toastState.show('Falha ao enfileirar candidatura', 'error'); }
 		finally { busy = false; }
 	}
 
-	async function handleSkip() {
+	async function handleReject() {
 		if (busy) return;
 		busy = true;
 		try {
-			await api.skipJob(job.id);
-			toastState.show('Vaga ignorada');
+			await api.rejectJob(job.id);
+			toastState.show('Vaga rejeitada', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { toastState.show('Falha ao ignorar vaga'); }
+		} catch { toastState.show('Falha ao rejeitar vaga', 'error'); }
+		finally { busy = false; }
+	}
+
+	async function handleReprocess() {
+		if (busy) return;
+		busy = true; notice = 'Movendo para Encontradas...';
+		try {
+			await api.reprocessJob(job.id);
+			toastState.show('Vaga movida para Encontradas', 'success');
+			onClose();
+			await appState.refreshJobs();
+		} catch { notice = ''; toastState.show('Falha ao reprocessar vaga', 'error'); }
 		finally { busy = false; }
 	}
 </script>
@@ -160,7 +172,7 @@
 		aria-modal="true"
 		aria-label="Detalhes da vaga"
 		tabindex="-1"
-		transition:fly={{ y: -12, duration: 180 }}
+		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>
@@ -221,200 +233,206 @@
 			<div class="flex items-center justify-center py-16 text-text-faint">
 				<LoaderCircle size={20} class="animate-spin" aria-label="Carregando" />
 			</div>
-		{:else if activeTab === 'info'}
-			{#if detail.errorMessage}
-				<div class="mb-4 rounded-md bg-[#1c0a0a] px-3 py-2 text-[13px] text-[#ef4444]">
-					{detail.errorMessage}
-				</div>
-			{/if}
-
-			{#if detail.applicationUrl}
-				<div class="mb-4">
-					<a
-						href={detail.applicationUrl}
-						target="_blank"
-						rel="noreferrer noopener"
-						class="flex cursor-pointer items-center gap-1.5 text-sm text-accent-500 hover:underline"
-					>
-						<ExternalLink size={12} aria-hidden="true" />
-						Candidatura externa
-					</a>
-				</div>
-			{/if}
-
-			{#if detail.about}
-				<div class="mb-5">
-					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Sobre</h3>
-					<div class="max-h-72 overflow-y-auto text-[13px] leading-relaxed text-text-muted">
-						{detail.about}
-					</div>
-				</div>
-			{/if}
-
-			{#if detail.skills.length > 0}
-				<div class="mb-4">
-					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Skills</h3>
-					<div class="flex flex-wrap gap-1.5">
-						{#each detail.skills as skill (skill)}
-							<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-xs text-text-muted">{skill}</span>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			{#if detail.preferences.length > 0}
-				<div class="mb-4">
-					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Preferências</h3>
-					<div class="flex flex-wrap gap-1.5">
-						{#each detail.preferences as pref (pref)}
-							<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-xs text-text-muted">{pref}</span>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			{#if detail.questions.length > 0}
-				<div>
-					<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Q&A</h3>
-					<div class="space-y-2">
-						{#each questions as item (questionKey(item))}
-							{@const q = item.question}
-							<div class="rounded-md bg-surface-overlay px-3 py-2">
-								<p class="text-xs text-text-faint">{q.label}</p>
-								<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer ?? '—'}</p>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
 		{:else}
-			{#if job.status === 'FOUND'}
-				<p class="mb-3 text-sm text-text-muted">Abra o formulário de candidatura para extrair as perguntas.</p>
-				<p class="text-[13px] text-text-faint">Isso abrirá um browser e pode levar alguns segundos.</p>
+			{#key activeTab}
+				<div in:fade={{ duration: 120 }}>
+					{#if activeTab === 'info'}
+						{#if detail.errorMessage}
+							<div class="mb-4 rounded-md bg-[#1c0a0a] px-3 py-2 text-[13px] text-[#ef4444]">
+								{detail.errorMessage}
+							</div>
+						{/if}
 
-			{:else if job.status === 'NEEDS_INPUT'}
-				{#if unanswered.length > 0}
-					<div class="mb-5 space-y-3">
-						{#each unanswered as item (questionKey(item))}
-							{@const q = item.question}
-							{@const key = inputKey(q, item.index)}
-							<label class="block">
-								<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
-								{#if q.options.length > 0}
-									<select
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
-										bind:value={answerInputs[key]}
-									>
-										<option value="">Selecione…</option>
-										{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
-											<option value={opt}>{opt}</option>
-										{/each}
-									</select>
-								{:else}
-									<input
-										type={q.fieldType ?? 'text'}
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
-										bind:value={answerInputs[key]}
-									/>
-								{/if}
-							</label>
-						{/each}
-					</div>
-				{/if}
-
-				{#if answered.length > 0}
-					<div>
-						<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-faint">Já respondidas</h3>
-						<div class="space-y-1.5">
-							{#each answered as item (questionKey(item))}
-								{@const q = item.question}
-								<div class="rounded-md bg-surface-overlay px-3 py-2">
-									<p class="text-xs text-text-faint">{q.label}</p>
-									<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer}</p>
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/if}
-
-			{:else if job.status === 'READY_FOR_REVIEW'}
-				{#if detail.questions.length > 0}
-					<div class="mb-5 space-y-3">
-					{#each questions as item (questionKey(item))}
-						{@const q = item.question}
-						{@const key = inputKey(q, item.index)}
-						<label class="block">
-								<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
-								{#if q.options.length > 0}
-									<select
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
-									bind:value={answerInputs[key]}
+						{#if detail.applicationUrl}
+							<div class="mb-4">
+								<a
+									href={detail.applicationUrl}
+									target="_blank"
+									rel="noreferrer noopener"
+									class="flex cursor-pointer items-center gap-1.5 text-sm text-accent-500 hover:underline"
 								>
-									<option value="">Selecione…</option>
-									{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
-										<option value={opt}>{opt}</option>
+									<ExternalLink size={12} aria-hidden="true" />
+									Candidatura externa
+								</a>
+							</div>
+						{/if}
+
+						{#if detail.about}
+							<div class="mb-5">
+								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Sobre</h3>
+								<div class="max-h-72 overflow-y-auto text-[13px] leading-relaxed text-text-muted">
+									{detail.about}
+								</div>
+							</div>
+						{/if}
+
+						{#if detail.skills.length > 0}
+							<div class="mb-4">
+								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Skills</h3>
+								<div class="flex flex-wrap gap-1.5">
+									{#each detail.skills as skill (skill)}
+										<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-xs text-text-muted">{skill}</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						{#if detail.preferences.length > 0}
+							<div class="mb-4">
+								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Preferências</h3>
+								<div class="flex flex-wrap gap-1.5">
+									{#each detail.preferences as pref (pref)}
+										<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-xs text-text-muted">{pref}</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						{#if detail.questions.length > 0}
+							<div>
+								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Q&A</h3>
+								<div class="space-y-2">
+									{#each questions as item (questionKey(item))}
+										{@const q = item.question}
+										<div class="rounded-md bg-surface-overlay px-3 py-2">
+											<p class="text-xs text-text-faint">{q.label}</p>
+											<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer ?? '—'}</p>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+					{:else}
+						{#if job.status === 'FOUND'}
+							<p class="mb-3 text-sm text-text-muted">Abra o formulário de candidatura para extrair as perguntas.</p>
+							<p class="text-[13px] text-text-faint">Isso abrirá um browser e pode levar alguns segundos.</p>
+
+						{:else if job.status === 'NEEDS_INPUT'}
+							{#if unanswered.length > 0}
+								<div class="mb-5 space-y-3">
+									{#each unanswered as item (questionKey(item))}
+										{@const q = item.question}
+										{@const key = inputKey(q, item.index)}
+										<label class="block">
+											<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
+											{#if q.options.length > 0}
+												<select
+													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
+												bind:value={answerInputs[key]}
+											>
+												<option value="">Selecione…</option>
+												{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
+													<option value={opt}>{opt}</option>
+												{/each}
+											</select>
+											{:else}
+												<input
+													type={q.fieldType ?? 'text'}
+													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
+													bind:value={answerInputs[key]}
+												/>
+											{/if}
+										</label>
+									{/each}
+								</div>
+							{/if}
+
+							{#if answered.length > 0}
+								<div>
+									<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-faint">Já respondidas</h3>
+									<div class="space-y-1.5">
+										{#each answered as item (questionKey(item))}
+											{@const q = item.question}
+											<div class="rounded-md bg-surface-overlay px-3 py-2">
+												<p class="text-xs text-text-faint">{q.label}</p>
+												<p class="mt-0.5 text-[13px] text-text-secondary">{q.answer}</p>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+
+						{:else if job.status === 'READY_FOR_REVIEW'}
+							{#if detail.questions.length > 0}
+								<div class="mb-5 space-y-3">
+									{#each questions as item (questionKey(item))}
+										{@const q = item.question}
+										{@const key = inputKey(q, item.index)}
+										<label class="block">
+											<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
+											{#if q.options.length > 0}
+												<select
+													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
+												bind:value={answerInputs[key]}
+											>
+												<option value="">Selecione…</option>
+												{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
+													<option value={opt}>{opt}</option>
+												{/each}
+											</select>
+											{:else}
+												<input
+													type={q.fieldType ?? 'text'}
+													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
+													bind:value={answerInputs[key]}
+												/>
+											{/if}
+										</label>
+									{/each}
+								</div>
+							{/if}
+
+							{#if appState.resumes.length > 0}
+								<div>
+									<label class="mb-1 block text-[13px] font-medium text-text-secondary" for="resume-select">
+										Currículo
+									</label>
+									<select
+										id="resume-select"
+										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
+										bind:value={selectedResume}
+									>
+										<option value="">Padrão{appState.defaultResume ? ` (${appState.defaultResume})` : ''}</option>
+										{#each appState.resumes as r (r)}
+											<option value={r}>{r}</option>
 										{/each}
 									</select>
-								{:else}
-									<input
-										type={q.fieldType ?? 'text'}
-										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
-									bind:value={answerInputs[key]}
-								/>
-								{/if}
-							</label>
-						{/each}
-					</div>
-				{/if}
+								</div>
+							{/if}
 
-				{#if appState.resumes.length > 0}
-					<div>
-						<label class="mb-1 block text-[13px] font-medium text-text-secondary" for="resume-select">
-							Currículo
-						</label>
-						<select
-							id="resume-select"
-							class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
-							bind:value={selectedResume}
-						>
-							<option value="">Padrão{appState.defaultResume ? ` (${appState.defaultResume})` : ''}</option>
-							{#each appState.resumes as r (r)}
-								<option value={r}>{r}</option>
-							{/each}
-						</select>
-					</div>
-				{/if}
+						{:else if job.status === 'APPROVED'}
+							<p class="text-sm text-text-muted">Candidatura enfileirada. O bot fará o envio na próxima execução.</p>
 
-			{:else if job.status === 'APPROVED'}
-				<p class="text-sm text-text-muted">Candidatura enfileirada. O bot fará o envio na próxima execução.</p>
+						{:else if job.status === 'EXTERNAL'}
+							{#if detail.applicationUrl}
+								<a
+									href={detail.applicationUrl}
+									target="_blank"
+									rel="noreferrer noopener"
+									class="flex cursor-pointer items-center gap-1.5 text-sm text-status-external-text hover:underline"
+								>
+									<ExternalLink size={12} aria-hidden="true" />
+									Candidatar externamente
+								</a>
+							{:else}
+								<p class="text-sm text-text-faint">Nenhum link externo disponível.</p>
+							{/if}
 
-			{:else if job.status === 'EXTERNAL'}
-				{#if detail.applicationUrl}
-					<a
-						href={detail.applicationUrl}
-						target="_blank"
-						rel="noreferrer noopener"
-						class="flex cursor-pointer items-center gap-1.5 text-sm text-status-external-text hover:underline"
-					>
-						<ExternalLink size={12} aria-hidden="true" />
-						Candidatar externamente
-					</a>
-				{:else}
-					<p class="text-sm text-text-faint">Nenhum link externo disponível.</p>
-				{/if}
+						{:else if job.status === 'FAILED'}
+							{#if detail.errorMessage}
+								<div class="mb-3 rounded-md bg-[#1c0a0a] px-3 py-2 text-[13px] text-[#ef4444]">
+									{detail.errorMessage}
+								</div>
+							{/if}
+							<p class="text-sm text-text-muted">Esta candidatura falhou. Clique em Reprocessar para tentar novamente.</p>
 
-			{:else if job.status === 'FAILED'}
-				{#if detail.errorMessage}
-					<div class="mb-3 rounded-md bg-[#1c0a0a] px-3 py-2 text-[13px] text-[#ef4444]">
-						{detail.errorMessage}
-					</div>
-				{/if}
-				<p class="text-sm text-text-muted">Esta candidatura falhou. Você pode ignorá-la.</p>
-
-			{:else}
-				<p class="text-sm text-text-faint">Nenhuma ação disponível.</p>
-			{/if}
+						{:else}
+							<p class="text-sm text-text-faint">Nenhuma ação disponível.</p>
+						{/if}
+					{/if}
+				</div>
+			{/key}
 		{/if}
 	</div>
 
@@ -426,10 +444,10 @@
 					<button
 						type="button"
 						class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-						disabled={busy}
-						onclick={handleSkip}
+						disabled={busy || job.processing}
+						onclick={handleReject}
 					>
-						Ignorar
+						Rejeitar
 					</button>
 				{/if}
 
@@ -471,8 +489,15 @@
 					>
 						{busy ? 'Enfileirando…' : 'Enviar candidatura'}
 					</button>
-				{:else if job.status === 'APPROVED'}
-					<p class="text-[13px] text-execution-text">Na fila</p>
+				{:else if job.status === 'FAILED'}
+					<button
+						type="button"
+						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+						disabled={busy || job.processing}
+						onclick={handleReprocess}
+					>
+						{busy ? 'Reprocessando...' : 'Reprocessar'}
+					</button>
 				{/if}
 			</div>
 		</div>

@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { fade } from 'svelte/transition';
 	import StatusBadge from './StatusBadge.svelte';
+	import { contentTransition } from '$lib/transitions';
 	import type { ApplicationStatus, JobSummary, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -15,7 +17,7 @@
 
 	const statusLabels: Record<ApplicationStatus, string> = {
 		FOUND: 'Encontrada', NEEDS_INPUT: 'Precisa Resposta', READY_FOR_REVIEW: 'Revisar',
-		APPROVED: 'Na fila', EXTERNAL: 'Externa', SUBMITTED: 'Enviada', SKIPPED: 'Ignorada',
+		APPROVED: 'Na fila', EXTERNAL: 'Externa', SUBMITTED: 'Enviada', REJECTED: 'Rejeitada',
 		FAILED: 'Falhou'
 	};
 
@@ -55,7 +57,7 @@
 	}
 
 	const allStatuses: ApplicationStatus[] = [
-		'FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'APPROVED', 'EXTERNAL', 'SUBMITTED', 'SKIPPED', 'FAILED'
+		'FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'APPROVED', 'EXTERNAL', 'SUBMITTED', 'FAILED', 'REJECTED'
 	];
 
 	const allSelected = $derived(filtered.length > 0 && selected.size === filtered.length);
@@ -113,6 +115,7 @@
 					<tr
 						class="cursor-pointer border-b border-border-subtle/40 transition-colors duration-100 hover:bg-surface-raised"
 						onclick={() => onOpenJob(job, 'info')}
+						in:fade={contentTransition}
 					>
 						<td class="px-3 py-2.5" onclick={(e) => { e.stopPropagation(); toggleSelect(job.id); }}>
 							<button

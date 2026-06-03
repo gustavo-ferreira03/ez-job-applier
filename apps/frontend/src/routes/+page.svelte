@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import KanbanBoard from '$lib/components/kanban/KanbanBoard.svelte';
 	import JobTable from '$lib/components/JobTable.svelte';
@@ -39,18 +40,18 @@
 				await stopAutoApply();
 				appState.autoApply = { ...appState.autoApply, running: false };
 				appState.stopAutoApplyPolling();
-				toastState.show('Auto-apply parado');
+				toastState.show('Auto-apply parado', 'success');
 			} catch {
-				toastState.show('Falha ao parar auto-apply');
+				toastState.show('Falha ao parar auto-apply', 'error');
 			}
 		} else {
 			try {
 				await startAutoApply();
 				appState.autoApply = { running: true, applied: 0, failed: 0 };
 				appState.startAutoApplyPolling();
-				toastState.show('Auto-apply iniciado');
+				toastState.show('Auto-apply iniciado', 'success');
 			} catch {
-				toastState.show('Falha ao iniciar auto-apply');
+				toastState.show('Falha ao iniciar auto-apply', 'error');
 			}
 		}
 	}
@@ -64,9 +65,9 @@
 			await stopExecution();
 			appState.execution = { ...appState.execution, active: false, running: false };
 			appState.stopExecutionPolling();
-			toastState.show('Execução parada');
+			toastState.show('Execução parada', 'success');
 		} catch {
-			toastState.show('Falha ao parar execução');
+			toastState.show('Falha ao parar execução', 'error');
 		}
 	}
 
@@ -74,9 +75,9 @@
 		try {
 			await pauseExecution();
 			appState.execution = { ...appState.execution, paused: true };
-			toastState.show('Execução pausada');
+			toastState.show('Execução pausada', 'success');
 		} catch {
-			toastState.show('Falha ao pausar execução');
+			toastState.show('Falha ao pausar execução', 'error');
 		}
 	}
 
@@ -84,9 +85,9 @@
 		try {
 			await resumeExecution();
 			appState.execution = { ...appState.execution, paused: false };
-			toastState.show('Execução retomada');
+			toastState.show('Execução retomada', 'success');
 		} catch {
-			toastState.show('Falha ao retomar execução');
+			toastState.show('Falha ao retomar execução', 'error');
 		}
 	}
 
@@ -99,7 +100,9 @@
 	};
 
 	const actionCounts = $derived({
-		total: appState.jobs.length,
+		total: appState.jobs.filter((j) =>
+			['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL'].includes(j.status)
+		).length,
 		needsAction: appState.jobs.filter((j) =>
 			['NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL'].includes(j.status)
 		).length
@@ -127,7 +130,7 @@
 			<header class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-3.5">
 				<h1 class="text-[14px] font-semibold text-text-primary">{pageTitles[activePage]}</h1>
 				<p class="text-[11px] text-text-faint">
-					{actionCounts.total} vagas
+					{actionCounts.total} vagas ativas
 					{#if actionCounts.needsAction > 0}
 						· <span class="text-[#ca8a04]">{actionCounts.needsAction} precisam de ação</span>
 					{/if}
@@ -136,15 +139,19 @@
 		{/if}
 
 		<main class="relative flex-1 overflow-hidden">
-			{#if activePage === 'pipeline'}
-				<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
-			{:else if activePage === 'tabela'}
-				<JobTable jobs={appState.jobs} onOpenJob={openJob} />
-			{:else if activePage === 'discoveries'}
-				<DiscoveriesView />
-			{:else if activePage === 'configuracoes'}
-				<SettingsView />
-			{/if}
+			{#key activePage}
+				<div class="h-full" in:fade={{ duration: 120 }}>
+					{#if activePage === 'pipeline'}
+						<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
+					{:else if activePage === 'tabela'}
+						<JobTable jobs={appState.jobs} onOpenJob={openJob} />
+					{:else if activePage === 'discoveries'}
+						<DiscoveriesView />
+					{:else if activePage === 'configuracoes'}
+						<SettingsView />
+					{/if}
+				</div>
+			{/key}
 
 			{#if selectedJob}
 				<JobModal
