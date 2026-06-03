@@ -177,7 +177,11 @@ async function fillCheckboxGroups(
     pending: ApplicationQuestion[],
     collected: ApplicationQuestion[],
 ): Promise<void> {
-    const inputs = modal.locator("input[type=checkbox]");
+    const inputs = modal.locator([
+        "fieldset input[type=checkbox]",
+        ".fb-dash-form-element input[type=checkbox]",
+        "[role='group'] input[type=checkbox]",
+    ].join(", "));
     const total = await inputs.count();
     const seenNames = new Set<string>();
 
@@ -456,7 +460,7 @@ export async function runEasyApply(
         }
         if (!(await easyApplyBtn.count())) {
             return {
-                status: "SKIPPED",
+                status: "FAILED",
                 questions: [],
                 errorMessage: "No Easy Apply button found",
             };
@@ -470,7 +474,7 @@ export async function runEasyApply(
             await modal.waitFor({ timeout: 5000 });
         } catch {
             return {
-                status: "SKIPPED",
+                status: "FAILED",
                 questions: [],
                 errorMessage: "Already applied or modal did not open",
             };

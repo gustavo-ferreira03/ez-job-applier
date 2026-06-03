@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { jobs, applications, applicationQuestions } from "../db/schema";
 import type { IAppRepo, ApplicationRecord } from "../core/ports";
@@ -24,6 +24,7 @@ function toRecord(row: typeof applications.$inferSelect): ApplicationRecord {
     return {
         id: row.id,
         status: row.status as ApplicationStatus,
+        processing: row.processing !== 0,
         resumeFilename: row.resumeFilename ?? null,
         errorMessage: row.errorMessage ?? null,
     };
@@ -141,6 +142,16 @@ export class ApplicationRepository implements IAppRepo {
                     ),
                 );
         }
+    }
+
+    async rejectByStatuses(statuses: ApplicationStatus[]): Promise<number> {
+        if (statuses.length === 0) return 0;
+        const rows = await this.db
+            .update(applications)
+            .set({ status: "REJECTED", errorMessage: null, updatedAt: new Date().toISOString() })
+            .where(and(inArray(applications.status, statuses), eq(applications.processing, 0)))
+            .returning({ id: applications.id });
+        return rows.length;
     }
 
     async listIdsByStatus(status: ApplicationStatus): Promise<number[]> {

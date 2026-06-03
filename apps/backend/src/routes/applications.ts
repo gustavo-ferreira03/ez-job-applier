@@ -3,7 +3,8 @@ import { HTTPException } from "hono/http-exception";
 import { getQuestions } from "../core/applications/get-questions";
 import { saveAnswers } from "../core/applications/answer";
 import { applyToJob } from "../core/applications/apply";
-import { skipJob } from "../core/applications/skip";
+import { rejectJob, rejectJobsByStatus, reprocessJob } from "../core/applications/reject";
+import { APPLICATION_STATUSES } from "../core/types";
 import type { AppContext } from "../core/context";
 
 const JobIdParam = z.object({
@@ -29,6 +30,14 @@ const ApplyBody = z
         resumeFilename: z.string().optional(),
     })
     .openapi("ApplyBody");
+
+const RejectJobsBody = z
+    .object({
+        statuses: z.array(z.enum(APPLICATION_STATUSES)).openapi({
+            example: ["FOUND", "NEEDS_INPUT"],
+        }),
+    })
+    .openapi("RejectJobsBody");
 
 export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
     const router = new OpenAPIHono();
@@ -126,23 +135,77 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
     router.openapi(
         createRoute({
             method: "post",
-            path: "/jobs/{id}/skip",
+            path: "/jobs/reject",
             tags: ["Applications"],
-            summary: "Mark a job as skipped",
+            summary: "Reject jobs by status",
+            request: {
+                body: { content: { "application/json": { schema: RejectJobsBody } }, required: true },
+            },
+            responses: {
+                200: { description: "Jobs rejected" },
+            },
+        }),
+        async (c) => {
+            const { statuses } = c.req.valid("json");
+            const rejected = await rejectJobsByStatus(statuses, ctx);
+            return c.json({ rejected });
+        },
+    );
+
+    router.openapi(
+        createRoute({
+            method: "post",
+            path: "/jobs/{id}/reject",
+            tags: ["Applications"],
+            summary: "Mark a job as rejected",
             request: { params: JobIdParam },
             responses: {
-                200: { description: "Job skipped" },
+                200: { description: "Job rejected" },
+                400: { description: "Job cannot be rejected" },
                 404: { description: "Job not found" },
             },
         }),
         async (c) => {
             const { id } = c.req.valid("param");
             try {
-                await skipJob(id, ctx);
+                await rejectJob(id, ctx);
                 return c.json({ ok: true });
             } catch (err) {
                 if (err instanceof Error && err.message.includes("not found")) {
                     throw new HTTPException(404, { message: err.message });
+                }
+                if (err instanceof Error && (err.message.includes("processing") || err.message.includes("cannot"))) {
+                    throw new HTTPException(400, { message: err.message });
+                }
+                throw err;
+            }
+        },
+    );
+
+    router.openapi(
+        createRoute({
+            method: "post",
+            path: "/jobs/{id}/reprocess",
+            tags: ["Applications"],
+            summary: "Move a failed job back to found",
+            request: { params: JobIdParam },
+            responses: {
+                200: { description: "Job moved back to found" },
+                400: { description: "Job cannot be reprocessed" },
+                404: { description: "Job not found" },
+            },
+        }),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            try {
+                await reprocessJob(id, ctx);
+                return c.json({ ok: true });
+            } catch (err) {
+                if (err instanceof Error && err.message.includes("not found")) {
+                    throw new HTTPException(404, { message: err.message });
+                }
+                if (err instanceof Error && (err.message.includes("processing") || err.message.includes("not failed"))) {
+                    throw new HTTPException(400, { message: err.message });
                 }
                 throw err;
             }

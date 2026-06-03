@@ -4,7 +4,7 @@ export const APPLICATION_STATUSES = [
     "READY_FOR_REVIEW",
     "APPROVED",
     "SUBMITTED",
-    "SKIPPED",
+    "REJECTED",
     "FAILED",
     "EXTERNAL",
 ] as const;
