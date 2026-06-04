@@ -17,6 +17,7 @@ export async function shouldApply(
 
     const system = [
         "You are a job application filter. Decide whether to apply to a job based on the candidate's resume and their filter criteria.",
+        " Always return the reason in English, regardless of the language used in the job description, resume, or filter criteria.",
         resumeText ? `\nResume:\n${resumeText}` : "",
         settings.filterCriteria ? `\nFilter criteria: ${settings.filterCriteria}` : "",
     ].join("");

@@ -1,29 +1,18 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import * as manager from "../core/execution/manager";
 import type { AppContext } from "../core/context";
-import type { DiscoverConfig } from "../core/types";
-
-const StartBody = z.object({
-    provider: z.string().default("linkedin"),
-    keywords: z.string().optional(),
-    location: z.string().optional(),
-    workType: z.string().optional(),
-    experienceLevel: z.array(z.string()).optional(),
-    jobType: z.array(z.string()).optional(),
-    datePosted: z.string().optional(),
-    options: z.record(z.string(), z.unknown()).optional(),
-    cycleMaxMs: z.number().int().positive().optional(),
-    intervalMs: z.number().int().positive().optional(),
-});
+import { getSettings } from "../repositories/settings";
 
 export function createExecutionRouter(ctx: AppContext): OpenAPIHono {
     const router = new OpenAPIHono();
 
     router.get("/execution", async (c) => {
         const ex = await ctx.executionRepo.getActive();
-        if (!ex) return c.json({ active: false, running: false, paused: false, actionNeeded: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
+        if (!ex) {
+            const settings = await getSettings();
+            return c.json({ active: false, running: false, paused: false, actionNeeded: false, nextRunAt: null, cycleMaxMs: settings.advanced.cycleMaxMs, intervalMs: settings.advanced.intervalMs, config: null });
+        }
         return c.json({
             active: true,
             running: ex.status === "running",
@@ -42,17 +31,16 @@ export function createExecutionRouter(ctx: AppContext): OpenAPIHono {
     });
 
     router.post("/execution/start", async (c) => {
-        const body = await c.req.json().catch(() => ({}));
-        const parsed = StartBody.safeParse(body);
-        if (!parsed.success) throw new HTTPException(400, { message: "Invalid config" });
+        const settings = await getSettings();
+        const config = settings.general.execution;
 
-        const { cycleMaxMs, intervalMs, ...rest } = parsed.data;
-        const config: DiscoverConfig = rest;
+        if (!config.keywords?.trim()) throw new HTTPException(400, { message: "Keywords are required" });
+        if (!settings.general.defaultResume) throw new HTTPException(400, { message: "Default resume is required" });
 
         try {
             await manager.startExecution(config, ctx, {
-                cycleMaxMs: cycleMaxMs ?? undefined,
-                intervalMs: intervalMs ?? undefined,
+                cycleMaxMs: settings.advanced.cycleMaxMs,
+                intervalMs: settings.advanced.intervalMs,
             });
         } catch (e) {
             throw new HTTPException(409, { message: e instanceof Error ? e.message : String(e) });

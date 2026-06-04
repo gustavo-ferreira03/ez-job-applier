@@ -68,3 +68,13 @@ export const executions = sqliteTable("executions", {
 });
 
 export type ExecutionRow = typeof executions.$inferSelect;
+
+export const appSettings = sqliteTable("app_settings", {
+    id: integer("id").primaryKey(),
+    general: text("general").notNull(),
+    llm: text("llm").notNull(),
+    advanced: text("advanced").notNull(),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type AppSettingsRow = typeof appSettings.$inferSelect;

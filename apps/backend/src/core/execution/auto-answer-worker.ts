@@ -34,6 +34,7 @@ async function processOne(
 
     const system = `You are filling out a job application form on behalf of a candidate.
 Answer each question concisely and professionally based on the candidate's resume.
+Always write free-text answers in English, regardless of the language used in the form or resume.
 This application was submitted via LinkedIn job search.
 For select/radio fields, your answer must exactly match one of the provided options.
 For checkbox fields, you may select multiple options — return them comma-separated, each exactly matching one of the provided options (e.g. "Option A, Option C").

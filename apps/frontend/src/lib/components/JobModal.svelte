@@ -86,13 +86,15 @@
 	const answered   = $derived(questions.filter(({ question }) => question.answer != null));
 	const canSave    = $derived(unanswered.every(({ question, index }) => hasAnswerValue(answerInputs[inputKey(question, index)])));
 	const canApply   = $derived(
-		detail !== null && questions.every(({ question, index }) => hasAnswerValue(currentAnswer(question, index)))
+		detail !== null && questions.every(({ question, index }) =>
+			!hasAnswerValue(question.answer) || hasAnswerValue(currentAnswer(question, index))
+		)
 	);
 	const hasActions = $derived(ACTION_STATUSES.includes(job.status));
 
 	async function handleSaveAnswers() {
 		if (busy) return;
-		busy = true; notice = 'Salvando…';
+		busy = true; notice = 'Saving...';
 		try {
 			const answers: Record<string, string> = {};
 			for (const { question, index } of unanswered) {
@@ -100,22 +102,22 @@
 				if (answer) answers[question.label] = answer;
 			}
 			await api.saveAnswers(job.id, answers);
-			toastState.show('Respostas salvas', 'success');
+			toastState.show('Answers saved', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao salvar respostas', 'error'); }
+		} catch { notice = ''; toastState.show('Failed to save answers', 'error'); }
 		finally { busy = false; }
 	}
 
 	async function handleApply() {
 		if (busy) return;
-		busy = true; notice = 'Enfileirando candidatura…';
+		busy = true; notice = 'Queueing application...';
 		try {
 			await api.applyToJob(job.id, collectCurrentAnswers(), selectedResume || undefined);
-			toastState.show('Candidatura enfileirada', 'success');
+			toastState.show('Application queued', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao enfileirar candidatura', 'error'); }
+		} catch { notice = ''; toastState.show('Failed to queue application', 'error'); }
 		finally { busy = false; }
 	}
 
@@ -124,22 +126,22 @@
 		busy = true;
 		try {
 			await api.rejectJob(job.id);
-			toastState.show('Vaga rejeitada', 'success');
+			toastState.show('Job rejected', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { toastState.show('Falha ao rejeitar vaga', 'error'); }
+		} catch { toastState.show('Failed to reject job', 'error'); }
 		finally { busy = false; }
 	}
 
 	async function handleReprocess() {
 		if (busy) return;
-		busy = true; notice = 'Movendo para Encontradas...';
+		busy = true; notice = 'Moving to Found...';
 		try {
 			await api.reprocessJob(job.id);
-			toastState.show('Vaga movida para Encontradas', 'success');
+			toastState.show('Job moved to Found', 'success');
 			onClose();
 			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao reprocessar vaga', 'error'); }
+		} catch { notice = ''; toastState.show('Failed to reprocess job', 'error'); }
 		finally { busy = false; }
 	}
 
@@ -160,9 +162,9 @@
 {#snippet questionInput(q: Question, key: string)}
 	{#if q.fieldType === 'checkbox' && q.options.length > 0}
 		{@const selected = parseCheckboxAnswer(answerInputs[key] ?? '', q.options)}
-		<div class="flex flex-col gap-px overflow-hidden rounded-md border border-border-default">
-			{#each q.options as opt, i (`${key}:${opt}`)}
-				<label class="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-sm {i > 0 ? 'border-t border-border-default' : ''} {selected.includes(opt) ? 'bg-accent-500/10 text-text-primary' : 'bg-surface-overlay text-text-secondary hover:bg-surface-hover'}">
+		<div class="flex flex-wrap gap-x-4 gap-y-1.5">
+			{#each q.options as opt (`${key}:${opt}`)}
+				<label class="flex cursor-pointer items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
 					<input
 						type="checkbox"
 						class="accent-accent-500"
@@ -178,7 +180,7 @@
 			class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
 			bind:value={answerInputs[key]}
 		>
-			<option value="">Selecione…</option>
+			<option value="">Select...</option>
 			{#each q.options as opt, i (`${i}:${opt}`)}
 				<option value={opt}>{opt}</option>
 			{/each}
@@ -196,7 +198,7 @@
 	<button
 		class="absolute inset-0 cursor-default"
 		type="button"
-		aria-label="Fechar"
+		aria-label="Close"
 		onclick={onClose}
 	></button>
 
@@ -204,7 +206,7 @@
 		class="relative z-10 mt-12 flex max-h-[calc(100vh-96px)] w-[min(680px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
 		role="dialog"
 		aria-modal="true"
-		aria-label="Detalhes da vaga"
+		aria-label="Job details"
 		tabindex="-1"
 		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
@@ -237,7 +239,7 @@
 				type="button"
 				class="flex h-7 w-7 cursor-pointer flex-shrink-0 items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
 				onclick={onClose}
-				aria-label="Fechar"
+				aria-label="Close"
 			>
 				<X size={14} aria-hidden="true" />
 			</button>
@@ -254,7 +256,7 @@
 							: 'border-transparent text-text-faint hover:text-text-muted'}"
 					onclick={() => { activeTab = tab; }}
 				>
-					{tab === 'info' ? 'Informações' : 'Ações'}
+					{tab === 'info' ? 'Information' : 'Actions'}
 				</button>
 			{/each}
 		</div>
@@ -262,10 +264,10 @@
 
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if loadError}
-			<p class="text-sm text-[#ef4444]">Falha ao carregar detalhes da vaga.</p>
+			<p class="text-sm text-[#ef4444]">Failed to load job details.</p>
 		{:else if !detail}
 			<div class="flex items-center justify-center py-16 text-text-faint">
-				<LoaderCircle size={20} class="animate-spin" aria-label="Carregando" />
+				<LoaderCircle size={20} class="animate-spin" aria-label="Loading" />
 			</div>
 		{:else}
 			{#key activeTab}
@@ -286,14 +288,14 @@
 									class="flex cursor-pointer items-center gap-1.5 text-sm text-accent-500 hover:underline"
 								>
 									<ExternalLink size={12} aria-hidden="true" />
-									Candidatura externa
+									External application
 								</a>
 							</div>
 						{/if}
 
 						{#if detail.about}
 							<div class="mb-5">
-								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Sobre</h3>
+								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">About</h3>
 								<div class="max-h-72 overflow-y-auto text-[13px] leading-relaxed text-text-muted">
 									{detail.about}
 								</div>
@@ -313,7 +315,7 @@
 
 						{#if detail.preferences.length > 0}
 							<div class="mb-4">
-								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Preferências</h3>
+								<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-faint">Preferences</h3>
 								<div class="flex flex-wrap gap-1.5">
 									{#each detail.preferences as pref (pref)}
 										<span class="rounded-sm bg-surface-overlay px-1.5 py-0.5 text-xs text-text-muted">{pref}</span>
@@ -339,8 +341,8 @@
 
 					{:else}
 						{#if job.status === 'FOUND'}
-							<p class="mb-3 text-sm text-text-muted">Abra o formulário de candidatura para extrair as perguntas.</p>
-							<p class="text-[13px] text-text-faint">Isso abrirá um browser e pode levar alguns segundos.</p>
+							<p class="mb-3 text-sm text-text-muted">Open the application form to extract the questions.</p>
+							<p class="text-[13px] text-text-faint">This will open a browser and may take a few seconds.</p>
 
 						{:else if job.status === 'NEEDS_INPUT'}
 							{#if unanswered.length > 0}
@@ -358,7 +360,7 @@
 
 							{#if answered.length > 0}
 								<div>
-									<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-faint">Já respondidas</h3>
+									<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-faint">Already answered</h3>
 									<div class="space-y-1.5">
 										{#each answered as item (questionKey(item))}
 											{@const q = item.question}
@@ -388,14 +390,14 @@
 							{#if appState.resumes.length > 0}
 								<div>
 									<label class="mb-1 block text-[13px] font-medium text-text-secondary" for="resume-select">
-										Currículo
+										Resume
 									</label>
 									<select
 										id="resume-select"
 										class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
 										bind:value={selectedResume}
 									>
-										<option value="">Padrão{appState.defaultResume ? ` (${appState.defaultResume})` : ''}</option>
+										<option value="">Default{appState.defaultResume ? ` (${appState.defaultResume})` : ''}</option>
 										{#each appState.resumes as r (r)}
 											<option value={r}>{r}</option>
 										{/each}
@@ -404,7 +406,7 @@
 							{/if}
 
 						{:else if job.status === 'APPROVED'}
-							<p class="text-sm text-text-muted">Candidatura enfileirada. O bot fará o envio na próxima execução.</p>
+							<p class="text-sm text-text-muted">Application queued. The bot will submit it on the next execution.</p>
 
 						{:else if job.status === 'EXTERNAL'}
 							{#if detail.applicationUrl}
@@ -415,10 +417,10 @@
 									class="flex cursor-pointer items-center gap-1.5 text-sm text-status-external-text hover:underline"
 								>
 									<ExternalLink size={12} aria-hidden="true" />
-									Candidatar externamente
+									Apply externally
 								</a>
 							{:else}
-								<p class="text-sm text-text-faint">Nenhum link externo disponível.</p>
+								<p class="text-sm text-text-faint">No external link available.</p>
 							{/if}
 
 						{:else if job.status === 'FAILED'}
@@ -427,10 +429,10 @@
 									{detail.errorMessage}
 								</div>
 							{/if}
-							<p class="text-sm text-text-muted">Esta candidatura falhou. Clique em Reprocessar para tentar novamente.</p>
+							<p class="text-sm text-text-muted">This application failed. Click Reprocess to try again.</p>
 
 						{:else}
-							<p class="text-sm text-text-faint">Nenhuma ação disponível.</p>
+							<p class="text-sm text-text-faint">No action available.</p>
 						{/if}
 					{/if}
 				</div>
@@ -449,7 +451,7 @@
 						disabled={busy || job.processing}
 						onclick={handleReject}
 					>
-						Rejeitar
+						Reject
 					</button>
 				{/if}
 
@@ -461,7 +463,7 @@
 							disabled={busy || !canSave}
 							onclick={handleSaveAnswers}
 						>
-							Salvar respostas
+							Save answers
 						</button>
 					{:else}
 						<button
@@ -470,7 +472,7 @@
 							disabled={busy || !canApply}
 							onclick={handleApply}
 						>
-							{busy ? 'Enfileirando…' : 'Enviar candidatura'}
+							{busy ? 'Queueing...' : 'Submit application'}
 						</button>
 					{/if}
 				{:else if job.status === 'READY_FOR_REVIEW'}
@@ -480,7 +482,7 @@
 						disabled={busy || !canApply}
 						onclick={handleApply}
 					>
-						{busy ? 'Enfileirando…' : 'Enviar candidatura'}
+						{busy ? 'Queueing...' : 'Submit application'}
 					</button>
 				{:else if job.status === 'FAILED'}
 					<button
@@ -489,7 +491,7 @@
 						disabled={busy || job.processing}
 						onclick={handleReprocess}
 					>
-						{busy ? 'Reprocessando...' : 'Reprocessar'}
+						{busy ? 'Reprocessing...' : 'Reprocess'}
 					</button>
 				{/if}
 			</div>

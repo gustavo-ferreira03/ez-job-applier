@@ -5,12 +5,28 @@ function defaultConfig(): DiscoverConfig {
 	return { provider: 'linkedin', options: { easyApply: true } };
 }
 
+function defaultSettings(): AppSettings {
+	return {
+		general: { execution: defaultConfig(), defaultResume: null, blockedKeywords: [], blockedCompanies: [] },
+		llm: {
+			enabled: false,
+			provider: 'anthropic',
+			model: 'claude-sonnet-4-6',
+			filterJobs: false,
+			autoAnswer: false,
+			externalApply: false,
+			filterCriteria: ''
+		},
+		advanced: { browserVisible: false, searchLocale: 'pt-BR', cycleMaxMs: 3_600_000, intervalMs: 14_400_000 }
+	};
+}
+
 class AppState {
 	jobs = $state<JobSummary[]>([]);
 	executions = $state<Execution[]>([]);
 	autoApply = $state<AutoApplyStatus>({ running: false, applied: 0, failed: 0 });
 	execution = $state<ExecutionStatus>({ active: false, running: false, paused: false, actionNeeded: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
-	settings = $state<AppSettings>({ browserVisible: false, searchLocale: 'pt-BR' });
+	settings = $state<AppSettings>(defaultSettings());
 	resumes = $state<string[]>([]);
 	defaultResume = $state<string | null>(null);
 	discoverConfig = $state<DiscoverConfig>(defaultConfig());

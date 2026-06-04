@@ -1,5 +1,5 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { AppSettings, ApplicationStatus, AutoApplyStatus, DiscoverConfig, Execution, JobDetail, JobSummary, ExecutionStatus, LlmSettings } from './types';
+import type { AppSettings, ApplicationStatus, AutoApplyStatus, Execution, JobDetail, JobSummary, ExecutionStatus, LlmSettings } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -146,8 +146,8 @@ export function getExecutionStatus(): Promise<ExecutionStatus> {
 	return get('/execution');
 }
 
-export function startExecution(config: DiscoverConfig & { cycleMaxMs?: number; intervalMs?: number }): Promise<{ ok: boolean }> {
-	return post('/execution/start', config);
+export function startExecution(): Promise<{ ok: boolean }> {
+	return post('/execution/start');
 }
 
 export function stopExecution(): Promise<{ ok: boolean }> {

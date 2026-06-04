@@ -78,8 +78,19 @@ export interface LlmSettings {
 }
 
 export interface AppSettings {
-	browserVisible: boolean;
-	searchLocale: 'pt-BR' | 'en-US';
+	general: {
+		execution: DiscoverConfig;
+		defaultResume: string | null;
+		blockedKeywords: string[];
+		blockedCompanies: string[];
+	};
+	llm: LlmSettings;
+	advanced: {
+		browserVisible: boolean;
+		searchLocale: 'pt-BR' | 'en-US';
+		cycleMaxMs: number;
+		intervalMs: number;
+	};
 }
 
 export interface AutoApplyStatus {

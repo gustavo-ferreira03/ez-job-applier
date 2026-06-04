@@ -50,6 +50,13 @@
       "when": 1780284698266,
       "tag": "0006_tiny_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1780608180608,
+      "tag": "0007_curious_oracle",
+      "breakpoints": true
     }
   ]
 }

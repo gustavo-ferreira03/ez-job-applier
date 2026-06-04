@@ -24,7 +24,7 @@
 	<button
 		class="absolute inset-0 cursor-default"
 		type="button"
-		aria-label="Cancelar"
+		aria-label="Cancel"
 		onclick={onClose}
 	></button>
 
@@ -32,18 +32,18 @@
 		class="relative z-10 w-[min(420px,100%)] rounded-lg border border-border-default bg-surface-raised p-4 shadow-[var(--shadow-modal)]"
 		role="dialog"
 		aria-modal="true"
-		aria-label="Rejeitar vagas"
+		aria-label="Reject jobs"
 		tabindex="-1"
 		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>
-		<h2 class="text-base font-semibold text-text-primary">Rejeitar todas</h2>
+		<h2 class="text-base font-semibold text-text-primary">Reject all</h2>
 		<p class="mt-2 text-sm text-text-muted">
-			Você vai rejeitar {rejectableCount} {rejectableCount === 1 ? 'vaga' : 'vagas'} em {column.title}.
+			You are about to reject {rejectableCount} {rejectableCount === 1 ? 'job' : 'jobs'} in {column.title}.
 		</p>
 		{#if rejectableCount === 0}
-			<p class="mt-2 text-[13px] text-text-faint">Nenhuma vaga rejeitável nesta coluna no momento.</p>
+			<p class="mt-2 text-[13px] text-text-faint">There are no rejectable jobs in this column right now.</p>
 		{/if}
 		<div class="mt-4 flex justify-end gap-2">
 			<button
@@ -51,7 +51,7 @@
 				class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
 				onclick={onClose}
 			>
-				Cancelar
+				Cancel
 			</button>
 			<button
 				type="button"
@@ -59,7 +59,7 @@
 				disabled={rejecting || rejectableCount === 0}
 				onclick={onConfirm}
 			>
-				{rejecting ? 'Rejeitando...' : `Rejeitar ${rejectableCount} ${rejectableCount === 1 ? 'vaga' : 'vagas'}`}
+				{rejecting ? 'Rejecting...' : `Reject ${rejectableCount} ${rejectableCount === 1 ? 'job' : 'jobs'}`}
 			</button>
 		</div>
 	</div>

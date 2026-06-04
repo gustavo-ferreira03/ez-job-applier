@@ -26,9 +26,9 @@
 
 	const navItems: { page: Page; label: string; icon: typeof LayoutDashboard }[] = [
 		{ page: 'pipeline',      label: 'Pipeline',      icon: LayoutDashboard },
-		{ page: 'tabela',        label: 'Tabela',        icon: List },
-		{ page: 'discoveries',   label: 'Buscas',        icon: Search },
-		{ page: 'configuracoes', label: 'Configurações', icon: Settings }
+		{ page: 'tabela',        label: 'Table',         icon: List },
+		{ page: 'discoveries',   label: 'Searches',      icon: Search },
+		{ page: 'configuracoes', label: 'Settings',      icon: Settings }
 	];
 </script>
 
@@ -41,7 +41,7 @@
 	</div>
 
 	<!-- Nav -->
-	<nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2" aria-label="Navegação principal">
+	<nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2" aria-label="Main navigation">
 		{#each navItems as item (item.page)}
 			<button
 				type="button"
@@ -57,7 +57,7 @@
 		{/each}
 	</nav>
 
-	<!-- Execução -->
+	<!-- Execution -->
 	<div class="flex flex-shrink-0 flex-col gap-1.5 border-t border-border-subtle p-2">
 		{#if execution.active}
 			{#if execution.actionNeeded}
@@ -65,37 +65,37 @@
 					type="button"
 					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none"
 					onclick={onOpenLogin}
-					title="Abrir painel de login"
+					title="Open login panel"
 				>
 					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-input-text"></span>
-					Login necessário
+					Login required
 				</button>
 			{:else if execution.running}
 				<button
 					type="button"
 					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none"
 					onclick={onPauseExecution}
-					title="Pausar"
+					title="Pause"
 				>
 					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-execution-text"></span>
-					Executando
+					Running
 				</button>
 			{:else if execution.paused}
 				<button
 					type="button"
 					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-status-input-bg px-2.5 py-2 text-[13px] font-semibold text-status-input-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none"
 					onclick={onResumeExecution}
-					title="Retomar"
+					title="Resume"
 				>
 					<span class="h-1.5 w-1.5 rounded-full bg-status-input-text"></span>
-					Pausada
+					Paused
 				</button>
 			{:else if execution.nextRunAt}
 				<button
 					type="button"
 					class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-overlay px-2.5 py-2 text-[13px] font-medium text-text-muted transition-colors duration-150 hover:bg-surface-hover focus-visible:outline-none"
 					onclick={onStopExecution}
-					title="Aguardando próximo ciclo"
+					title="Waiting for next cycle"
 				>
 					<span class="h-1.5 w-1.5 rounded-full bg-border-strong"></span>
 					{fmtCountdown(execution.nextRunAt)}
@@ -107,7 +107,7 @@
 					disabled
 				>
 					<span class="h-1.5 w-1.5 rounded-full bg-border-strong"></span>
-					Iniciando…
+					Starting...
 				</button>
 			{/if}
 			<button
@@ -115,7 +115,7 @@
 				class="flex w-full cursor-pointer items-center justify-center rounded-md border border-danger-border bg-danger-bg px-2.5 py-1.5 text-xs font-medium text-danger-500 transition-colors duration-150 hover:bg-danger-500/10 focus-visible:outline-none"
 				onclick={onStopExecution}
 			>
-				Parar execução
+				Stop execution
 			</button>
 		{:else}
 			<button
@@ -124,7 +124,7 @@
 				onclick={onStartExecution}
 			>
 				<Search size={13} strokeWidth={2.25} aria-hidden="true" />
-				Iniciar execução
+				Start execution
 			</button>
 		{/if}
 	</div>

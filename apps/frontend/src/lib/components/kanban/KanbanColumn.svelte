@@ -59,7 +59,7 @@
 					<button
 						type="button"
 						class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
-						aria-label="Ações"
+						aria-label="Actions"
 						onclick={() => { menuOpen ? closeMenu() : openMenu(); }}
 					>
 						<MoreHorizontal size={14} aria-hidden="true" />
@@ -74,7 +74,7 @@
 							class="w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-150 hover:bg-surface-overlay hover:text-text-primary focus-visible:outline-none"
 							onclick={handleRejectAll}
 						>
-							Rejeitar todas
+							Reject all
 						</button>
 					</div>
 				</div>

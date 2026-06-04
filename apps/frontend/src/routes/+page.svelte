@@ -7,7 +7,6 @@
 	import JobModal from '$lib/components/JobModal.svelte';
 	import DiscoveriesView from '$lib/components/DiscoveriesView.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
-	import ExecutionModal from '$lib/components/ExecutionModal.svelte';
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { appState } from '$lib/state.svelte';
@@ -17,7 +16,6 @@
 
 	let activePage = $state<Page>('pipeline');
 	let selectedJob = $state<{ job: JobSummary; tab: KanbanTab } | null>(null);
-	let executionModalOpen = $state(false);
 	let loginModalOpen = $state(false);
 	let wasActionNeeded = $state(false);
 
@@ -40,24 +38,38 @@
 				await stopAutoApply();
 				appState.autoApply = { ...appState.autoApply, running: false };
 				appState.stopAutoApplyPolling();
-				toastState.show('Auto-apply parado', 'success');
+				toastState.show('Auto-apply stopped', 'success');
 			} catch {
-				toastState.show('Falha ao parar auto-apply', 'error');
+				toastState.show('Failed to stop auto-apply', 'error');
 			}
 		} else {
 			try {
 				await startAutoApply();
 				appState.autoApply = { running: true, applied: 0, failed: 0 };
 				appState.startAutoApplyPolling();
-				toastState.show('Auto-apply iniciado', 'success');
+				toastState.show('Auto-apply started', 'success');
 			} catch {
-				toastState.show('Falha ao iniciar auto-apply', 'error');
+				toastState.show('Failed to start auto-apply', 'error');
 			}
 		}
 	}
 
 	async function handleStartExecution() {
-		executionModalOpen = true;
+		const config = appState.settings.general.execution;
+		if (!config.keywords?.trim() || !appState.settings.general.defaultResume) {
+			activePage = 'configuracoes';
+			toastState.show('Configure keywords and a default resume before starting', 'error');
+			return;
+		}
+
+		try {
+			await startExecution();
+			appState.execution = { ...appState.execution, active: true, running: false, paused: false };
+			appState.startExecutionPolling();
+			toastState.show('Execution started', 'success');
+		} catch {
+			toastState.show('Failed to start execution', 'error');
+		}
 	}
 
 	async function handleStopExecution() {
@@ -65,9 +77,9 @@
 			await stopExecution();
 			appState.execution = { ...appState.execution, active: false, running: false };
 			appState.stopExecutionPolling();
-			toastState.show('Execução parada', 'success');
+			toastState.show('Execution stopped', 'success');
 		} catch {
-			toastState.show('Falha ao parar execução', 'error');
+			toastState.show('Failed to stop execution', 'error');
 		}
 	}
 
@@ -75,9 +87,9 @@
 		try {
 			await pauseExecution();
 			appState.execution = { ...appState.execution, paused: true };
-			toastState.show('Execução pausada', 'success');
+			toastState.show('Execution paused', 'success');
 		} catch {
-			toastState.show('Falha ao pausar execução', 'error');
+			toastState.show('Failed to pause execution', 'error');
 		}
 	}
 
@@ -85,18 +97,18 @@
 		try {
 			await resumeExecution();
 			appState.execution = { ...appState.execution, paused: false };
-			toastState.show('Execução retomada', 'success');
+			toastState.show('Execution resumed', 'success');
 		} catch {
-			toastState.show('Falha ao retomar execução', 'error');
+			toastState.show('Failed to resume execution', 'error');
 		}
 	}
 
 
 	const pageTitles: Record<Page, string> = {
 		pipeline: 'Pipeline',
-		tabela: 'Tabela',
-		discoveries: 'Histórico',
-		configuracoes: 'Configurações'
+		tabela: 'Table',
+		discoveries: 'History',
+		configuracoes: 'Settings'
 	};
 
 	const actionCounts = $derived({
@@ -130,9 +142,9 @@
 			<header class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-3.5">
 				<h1 class="text-[14px] font-semibold text-text-primary">{pageTitles[activePage]}</h1>
 				<p class="text-[11px] text-text-faint">
-					{actionCounts.total} vagas ativas
+					{actionCounts.total} active jobs
 					{#if actionCounts.needsAction > 0}
-						· <span class="text-[#ca8a04]">{actionCounts.needsAction} precisam de ação</span>
+						· <span class="text-[#ca8a04]">{actionCounts.needsAction} need action</span>
 					{/if}
 				</p>
 			</header>
@@ -163,10 +175,6 @@
 		</main>
 	</div>
 </div>
-
-{#if executionModalOpen}
-	<ExecutionModal onClose={() => { executionModalOpen = false; }} />
-{/if}
 
 {#if loginModalOpen}
 	<LoginModal onClose={() => { loginModalOpen = false; }} />

@@ -29,7 +29,7 @@
 	const columns: KanbanColumnDef[] = [
 		{
 			id: 'found',
-			title: 'Encontradas',
+			title: 'Found',
 			statuses: ['FOUND'],
 			defaultTab: 'info' as KanbanTab,
 			headerClass: 'text-text-muted',
@@ -37,7 +37,7 @@
 		},
 		{
 			id: 'needs-input',
-			title: 'Precisa Resposta',
+			title: 'Needs Answer',
 			statuses: ['NEEDS_INPUT'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-input-text',
@@ -45,7 +45,7 @@
 		},
 		{
 			id: 'review',
-			title: 'Revisar',
+			title: 'Review',
 			statuses: ['READY_FOR_REVIEW', 'APPROVED'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-review-text',
@@ -53,7 +53,7 @@
 		},
 		{
 			id: 'external',
-			title: 'Externa',
+			title: 'External',
 			statuses: ['EXTERNAL'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-external-text',
@@ -61,14 +61,14 @@
 		},
 		{
 			id: 'submitted',
-			title: 'Enviadas',
+			title: 'Submitted',
 			statuses: ['SUBMITTED'],
 			defaultTab: 'info' as KanbanTab,
 			headerClass: 'text-status-submitted-text'
 		},
 		{
 			id: 'failed',
-			title: 'Falhas',
+			title: 'Failed',
 			statuses: ['FAILED'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-failed-text',
@@ -76,7 +76,7 @@
 		},
 		{
 			id: 'rejected',
-			title: 'Rejeitadas',
+			title: 'Rejected',
 			statuses: ['REJECTED'],
 			defaultTab: 'info' as KanbanTab,
 			headerClass: 'text-text-faint',
@@ -105,11 +105,11 @@
 		rejecting = true;
 		try {
 			const result = await api.rejectJobsByStatus(rejectColumn.statuses);
-			toastState.show(`${result.rejected} ${result.rejected === 1 ? 'vaga rejeitada' : 'vagas rejeitadas'}`, 'success');
+			toastState.show(`${result.rejected} ${result.rejected === 1 ? 'job rejected' : 'jobs rejected'}`, 'success');
 			rejectColumn = null;
 			await appState.refreshJobs();
 		} catch {
-			toastState.show('Falha ao rejeitar vagas', 'error');
+			toastState.show('Failed to reject jobs', 'error');
 		} finally {
 			rejecting = false;
 		}
@@ -118,7 +118,7 @@
 
 <section
 	class="flex h-full gap-4 overflow-x-auto p-4"
-	aria-label="Pipeline de candidaturas"
+	aria-label="Application pipeline"
 >
 	{#each columns as col (col.id)}
 		<KanbanColumn

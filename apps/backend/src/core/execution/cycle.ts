@@ -4,6 +4,7 @@ import type { ApplyResult, DiscoverConfig } from "../types";
 import type { IJobProviderSession } from "../interfaces";
 import { getSettings, type AppSettings } from "../../repositories/settings";
 import { shouldApply } from "../applications/filter";
+import { checkStaticFilter } from "../applications/static-filter";
 
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
 
@@ -87,6 +88,13 @@ async function processQueue(
         if (!job) continue;
         const appRec = await ctx.appRepo.get(job.provider, job.jobId);
         if (!appRec) continue;
+
+        const staticCheck = checkStaticFilter(job, settings.general);
+        if (staticCheck.blocked) {
+            await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED", undefined, staticCheck.reason);
+            console.log(`[execution] static-filtered: ${job.title} — ${staticCheck.reason}`);
+            continue;
+        }
 
         if (settings.llm.filterJobs) {
             const decision = await shouldApply(job, ctx, settings.llm).catch(() => null);

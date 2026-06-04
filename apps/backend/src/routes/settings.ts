@@ -38,7 +38,7 @@ export function createSettingsRouter(ctx: AppContext) {
     router.get("/settings", async (c) => c.json(await getSettings()));
 
     router.patch("/settings", async (c) => {
-        const body = await c.req.json<{ browserVisible?: boolean }>();
+        const body = await c.req.json();
         const updated = await updateSettings(body);
         return c.json(updated);
     });

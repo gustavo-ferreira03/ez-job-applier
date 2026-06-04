@@ -16,9 +16,9 @@
 	let selected = $state<Set<number>>(new Set());
 
 	const statusLabels: Record<ApplicationStatus, string> = {
-		FOUND: 'Encontrada', NEEDS_INPUT: 'Precisa Resposta', READY_FOR_REVIEW: 'Revisar',
-		APPROVED: 'Na fila', EXTERNAL: 'Externa', SUBMITTED: 'Enviada', REJECTED: 'Rejeitada',
-		FAILED: 'Falhou'
+		FOUND: 'Found', NEEDS_INPUT: 'Needs Answer', READY_FOR_REVIEW: 'Review',
+		APPROVED: 'Queued', EXTERNAL: 'External', SUBMITTED: 'Submitted', REJECTED: 'Rejected',
+		FAILED: 'Failed'
 	};
 
 	const filtered = $derived(
@@ -51,7 +51,7 @@
 	function relativeDate(iso: string): string {
 		const diff = Date.now() - new Date(iso).getTime();
 		const days = Math.floor(diff / 86_400_000);
-		if (days === 0) return 'hoje';
+		if (days === 0) return 'today';
 		if (days === 1) return '1d';
 		return `${days}d`;
 	}
@@ -70,7 +70,7 @@
 			class="h-8 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-muted focus:border-border-strong focus:outline-none"
 			bind:value={statusFilter}
 		>
-			<option value="">Todos os status</option>
+			<option value="">All statuses</option>
 			{#each allStatuses as s (s)}
 				<option value={s}>{statusLabels[s]}</option>
 			{/each}
@@ -78,15 +78,15 @@
 
 		<input
 			type="text"
-			placeholder="Buscar vagas..."
+			placeholder="Search jobs..."
 			class="h-8 flex-1 rounded-md border border-border-subtle bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-default focus:outline-none"
 			bind:value={search}
 		/>
 
-		<span class="text-[11px] text-text-faint">{filtered.length} vagas</span>
+		<span class="text-[11px] text-text-faint">{filtered.length} jobs</span>
 	</div>
 
-	<!-- Tabela -->
+	<!-- Table -->
 	<div class="flex-1 overflow-auto">
 		<table class="w-full border-collapse text-[12px]">
 			<thead class="sticky top-0 bg-surface-base">
@@ -96,18 +96,18 @@
 							type="button"
 							class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {allSelected ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
 							onclick={toggleAll}
-							aria-label="Selecionar todos"
+							aria-label="Select all"
 						>
 							{#if allSelected}
 								<span class="text-[8px] text-white">✓</span>
 							{/if}
 						</button>
 					</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Vaga</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Empresa</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Local</th>
+					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Job</th>
+					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Company</th>
+					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Location</th>
 					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Status</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Data</th>
+					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Date</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -121,7 +121,7 @@
 							<button
 								type="button"
 								class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {selected.has(job.id) ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
-								aria-label="Selecionar vaga"
+								aria-label="Select job"
 							>
 								{#if selected.has(job.id)}
 									<span class="text-[8px] text-white">✓</span>
@@ -151,7 +151,7 @@
 				{#if filtered.length === 0}
 					<tr>
 						<td colspan="6" class="py-16 text-center text-[12px] text-text-faint">
-							Nenhuma vaga encontrada
+							No jobs found
 						</td>
 					</tr>
 				{/if}

@@ -47,7 +47,7 @@
 			providers = res.providers;
 			current = res.current;
 		} catch {
-			toastState.show('Falha ao carregar provedores', 'error');
+			toastState.show('Failed to load providers', 'error');
 		}
 	}
 
@@ -81,9 +81,9 @@
 			await api.setProviderApiKey(providerId, apiKeyInput);
 			apiKeyInput = '';
 			await refreshProviders();
-			toastState.show('Chave de API salva', 'success');
+			toastState.show('API key saved', 'success');
 		} catch {
-			toastState.show('Falha ao salvar chave de API', 'error');
+			toastState.show('Failed to save API key', 'error');
 		}
 	}
 
@@ -91,9 +91,9 @@
 		try {
 			await api.removeProviderApiKey(providerId);
 			await refreshProviders();
-			toastState.show('Chave de API removida', 'success');
+			toastState.show('API key removed', 'success');
 		} catch {
-			toastState.show('Falha ao remover chave de API', 'error');
+			toastState.show('Failed to remove API key', 'error');
 		}
 	}
 
@@ -112,7 +112,7 @@
 						stopOAuthPolling();
 						oauthState = { ...oauthState, status: 'done' };
 						await refreshProviders();
-						toastState.show('Autenticação concluída', 'success');
+						toastState.show('Authentication completed', 'success');
 					} else if (poll.status === 'error') {
 						stopOAuthPolling();
 						oauthState = { ...oauthState, status: 'error', error: poll.error };
@@ -132,7 +132,7 @@
 			}, 2000);
 		} catch {
 			oauthState = null;
-			toastState.show('Falha ao iniciar autenticação', 'error');
+			toastState.show('Failed to start authentication', 'error');
 		}
 	}
 
@@ -140,7 +140,7 @@
 		try {
 			current = await api.updateLlmSettings({ provider: providerId, model });
 		} catch {
-			toastState.show('Falha ao atualizar modelo', 'error');
+			toastState.show('Failed to update model', 'error');
 		}
 	}
 
@@ -166,25 +166,25 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="fixed inset-0 z-modal flex items-start justify-center bg-black/70 p-4">
-	<button class="absolute inset-0 cursor-default" type="button" aria-label="Fechar" onclick={onClose}></button>
+	<button class="absolute inset-0 cursor-default" type="button" aria-label="Close" onclick={onClose}></button>
 
 	<div
 		class="relative z-10 mt-12 flex max-h-[calc(100vh-96px)] w-[min(520px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
 		role="dialog"
 		aria-modal="true"
-		aria-label="Provedores de IA"
+		aria-label="AI providers"
 		tabindex="-1"
 		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>
 		<div class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4">
-			<h2 class="text-[13px] font-semibold text-text-primary">Provedores de IA</h2>
+			<h2 class="text-[13px] font-semibold text-text-primary">AI providers</h2>
 			<button
 				type="button"
 				class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
 				onclick={onClose}
-				aria-label="Fechar"
+				aria-label="Close"
 			>
 				<X size={14} />
 			</button>
@@ -192,11 +192,11 @@
 
 		<div class="flex-1 overflow-y-auto p-5">
 			<div class="mb-4">
-				<label for="provider-search" class="sr-only">Buscar provedor</label>
+				<label for="provider-search" class="sr-only">Search provider</label>
 				<input
 					id="provider-search"
 					type="text"
-					placeholder="Buscar provedor..."
+					placeholder="Search provider..."
 					bind:value={search}
 					class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-3 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
 				/>
@@ -213,10 +213,10 @@
 							<span class="min-w-0 flex-1 text-[12px] font-medium text-text-primary">{provider.name}</span>
 							<div class="flex flex-shrink-0 items-center gap-2">
 								{#if provider.authMethods.includes('oauth')}
-									<span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-surface-overlay text-text-faint">Assinatura</span>
+									<span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-surface-overlay text-text-faint">Subscription</span>
 								{/if}
 								{#if provider.configured}
-									<span class="text-[10px] font-bold text-[#22c55e]">CONFIGURADO</span>
+									<span class="text-[10px] font-bold text-[#22c55e]">CONFIGURED</span>
 								{/if}
 								{#if expandedProvider === provider.id}
 									<ChevronDown size={13} class="text-text-faint" aria-hidden="true" />
@@ -231,7 +231,7 @@
 								{#if provider.authMethods.includes('oauth')}
 									<div>
 										<div class="flex overflow-hidden rounded-md border border-border-default mb-3">
-											{#each [{ id: 'api_key', label: 'API Key' }, { id: 'oauth', label: 'Assinatura' }] as tab (tab.id)}
+											{#each [{ id: 'api_key', label: 'API Key' }, { id: 'oauth', label: 'Subscription' }] as tab (tab.id)}
 												<button
 													type="button"
 													class="flex-1 cursor-pointer px-3 py-1.5 text-[11px] font-medium transition-colors duration-100 focus-visible:outline-none
@@ -247,7 +247,7 @@
 
 										{#if authTab === 'api_key'}
 											<div class="space-y-2">
-												<label for="pk-{provider.id}" class="block text-[11px] font-medium text-text-secondary">Chave de API</label>
+										<label for="pk-{provider.id}" class="block text-[11px] font-medium text-text-secondary">API key</label>
 												<div class="flex items-center gap-2">
 													<input
 														id="pk-{provider.id}"
@@ -261,7 +261,7 @@
 														class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-[11px] font-medium text-text-secondary transition-colors hover:border-accent-500 hover:text-accent-500 focus-visible:outline-none"
 														onclick={() => handleSaveApiKey(provider.id)}
 													>
-														Salvar
+												Save
 													</button>
 												</div>
 												{#if provider.configured}
@@ -272,7 +272,7 @@
 															class="cursor-pointer text-[10px] font-medium text-[#ef4444] transition-colors hover:text-[#dc2626] focus-visible:outline-none"
 															onclick={() => handleRemoveApiKey(provider.id)}
 														>
-															Remover
+												Remove
 														</button>
 													</div>
 												{/if}
@@ -285,15 +285,15 @@
 														class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-[11px] font-medium text-text-secondary transition-colors hover:border-accent-500 hover:text-accent-500 focus-visible:outline-none"
 														onclick={() => handleStartOAuth(provider.id)}
 													>
-														Conectar
+												Connect
 													</button>
 													{#if oauthState?.status === 'error'}
-														<p class="text-[11px] text-[#ef4444]">{oauthState.error ?? 'Erro na autenticação'}</p>
+												<p class="text-[11px] text-[#ef4444]">{oauthState.error ?? 'Authentication error'}</p>
 													{/if}
 												{:else if oauthState.status === 'done'}
-													<span class="text-[10px] font-bold text-[#22c55e]">CONECTADA</span>
+											<span class="text-[10px] font-bold text-[#22c55e]">CONNECTED</span>
 												{:else if oauthState.type === 'browser'}
-													<p class="text-[11px] text-text-faint">Aguardando autorização no navegador…</p>
+											<p class="text-[11px] text-text-faint">Waiting for browser authorization...</p>
 													{#if oauthState.url}
 														<a
 															href={oauthState.url}
@@ -301,7 +301,7 @@
 															rel="noopener noreferrer"
 															class="text-[11px] font-medium text-accent-500 hover:underline"
 														>
-															Abrir no navegador
+												Open in browser
 														</a>
 													{/if}
 												{:else if oauthState.type === 'device_code'}
@@ -318,16 +318,16 @@
 															{oauthState.verificationUri}
 														</a>
 													{/if}
-													<p class="text-[11px] text-text-faint">Acesse o link e insira o código</p>
+											<p class="text-[11px] text-text-faint">Open the link and enter the code</p>
 												{:else}
-													<p class="text-[11px] text-text-faint">Aguardando…</p>
+											<p class="text-[11px] text-text-faint">Waiting...</p>
 												{/if}
 											</div>
 										{/if}
 									</div>
 								{:else}
 									<div class="space-y-2">
-										<label for="pk-{provider.id}" class="block text-[11px] font-medium text-text-secondary">Chave de API</label>
+										<label for="pk-{provider.id}" class="block text-[11px] font-medium text-text-secondary">API key</label>
 										<div class="flex items-center gap-2">
 											<input
 												id="pk-{provider.id}"
@@ -341,18 +341,18 @@
 												class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-[11px] font-medium text-text-secondary transition-colors hover:border-accent-500 hover:text-accent-500 focus-visible:outline-none"
 												onclick={() => handleSaveApiKey(provider.id)}
 											>
-												Salvar
+												Save
 											</button>
 										</div>
 										{#if provider.configured}
 											<div class="flex items-center justify-between">
-												<span class="text-[10px] font-bold text-[#22c55e]">CONFIGURADA</span>
+											<span class="text-[10px] font-bold text-[#22c55e]">CONFIGURED</span>
 												<button
 													type="button"
 													class="cursor-pointer text-[10px] font-medium text-[#ef4444] transition-colors hover:text-[#dc2626] focus-visible:outline-none"
 													onclick={() => handleRemoveApiKey(provider.id)}
 												>
-													Remover
+												Remove
 												</button>
 											</div>
 										{/if}
@@ -361,7 +361,7 @@
 
 								{#if provider.configured}
 									<div>
-										<label for="model-{provider.id}" class="mb-1.5 block text-[11px] font-medium text-text-secondary">Modelo padrão</label>
+						<label for="model-{provider.id}" class="mb-1.5 block text-[11px] font-medium text-text-secondary">Default model</label>
 										<select
 											id="model-{provider.id}"
 											class="w-full rounded-md border border-border-default bg-surface-overlay px-3 py-1.5 text-[12px] text-text-primary focus:border-accent-500 focus:outline-none"
@@ -380,7 +380,7 @@
 				{/each}
 
 				{#if filteredProviders.length === 0}
-					<p class="text-center text-[11px] text-text-faint py-6">Nenhum provedor encontrado</p>
+					<p class="text-center text-[11px] text-text-faint py-6">No providers found</p>
 				{/if}
 			</div>
 		</div>

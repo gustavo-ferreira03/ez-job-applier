@@ -14,7 +14,7 @@
 	function relativeDate(iso: string): string {
 		const diff = Date.now() - new Date(iso).getTime();
 		const days = Math.floor(diff / 86_400_000);
-		if (days === 0) return 'hoje';
+		if (days === 0) return 'today';
 		if (days === 1) return '1d';
 		return `${days}d`;
 	}
@@ -29,7 +29,7 @@
 	onclick={() => onOpen(job, defaultTab)}
 	transition:fly={cardTransition}
 >
-	<!-- Título -->
+	<!-- Title -->
 	<div class="flex items-center justify-between gap-2">
 		<p class="min-w-0 truncate text-sm font-medium text-text-primary">{job.title}</p>
 		{#if job.processing}
@@ -40,7 +40,7 @@
 		{/if}
 	</div>
 
-	<!-- Empresa · Local -->
+	<!-- Company · Location -->
 	<p class="mt-0.5 truncate text-[13px] text-text-muted">
 		{job.company}
 		{#if job.location}<span class="text-text-muted opacity-75"> · {job.location}</span>{/if}
@@ -62,11 +62,11 @@
 		<div class="flex items-center gap-1.5">
 			{#if job.unansweredCount > 0}
 				<span class="rounded-sm bg-[#431407] px-1.5 py-0.5 text-xs font-medium text-[#f97316]">
-					{job.unansweredCount} sem resp.
+					{job.unansweredCount} unanswered
 				</span>
 			{:else if job.status === 'APPROVED'}
 				<span class="rounded-sm bg-execution-bg px-1.5 py-0.5 text-xs font-medium text-execution-text">
-					Na fila
+					Queued
 				</span>
 			{/if}
 		</div>

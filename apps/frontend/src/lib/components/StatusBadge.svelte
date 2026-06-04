@@ -9,14 +9,14 @@
 	let { status, size = 'md' }: Props = $props();
 
 	const labels: Record<ApplicationStatus, string> = {
-		FOUND: 'Encontrada',
-		NEEDS_INPUT: 'Precisa Resposta',
-		READY_FOR_REVIEW: 'Revisar',
-		APPROVED: 'Na fila',
-		EXTERNAL: 'Externa',
-		SUBMITTED: 'Enviada',
-		REJECTED: 'Rejeitada',
-		FAILED: 'Falhou'
+		FOUND: 'Found',
+		NEEDS_INPUT: 'Needs Answer',
+		READY_FOR_REVIEW: 'Review',
+		APPROVED: 'Queued',
+		EXTERNAL: 'External',
+		SUBMITTED: 'Submitted',
+		REJECTED: 'Rejected',
+		FAILED: 'Failed'
 	};
 
 	const styles: Record<ApplicationStatus, string> = {

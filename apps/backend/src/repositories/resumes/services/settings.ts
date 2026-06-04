@@ -1,27 +1,18 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-
-const SETTINGS_FILE = path.resolve("storage/settings.json");
+import { getSettings, updateSettings } from "../../settings";
 
 export interface Settings {
     default_resume?: string | null;
 }
 
 export async function readSettings(): Promise<Settings> {
-    try {
-        return JSON.parse(await fs.readFile(SETTINGS_FILE, "utf-8"));
-    } catch {
-        return {};
-    }
+    const settings = await getSettings();
+    return { default_resume: settings.general.defaultResume };
 }
 
 export async function writeSettings(patch: Partial<Settings>): Promise<void> {
-    const current = await readSettings();
-    await fs.writeFile(
-        SETTINGS_FILE,
-        JSON.stringify({ ...current, ...patch }, null, 2),
-        "utf-8",
-    );
+    if ("default_resume" in patch) {
+        await updateSettings({ general: { defaultResume: patch.default_resume ?? null } });
+    }
 }
 
 export async function getDefaultResume(): Promise<string | null> {
