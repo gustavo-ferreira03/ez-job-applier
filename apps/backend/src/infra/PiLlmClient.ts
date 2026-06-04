@@ -8,25 +8,17 @@ import { getSettings } from "../repositories/settings";
 export class PiLlmClient implements ILlmClient {
     constructor(private readonly modelRegistry: ModelRegistry) {}
 
-    async generate<S extends ZodType>(params: {
-        system: string;
-        prompt: string;
-        schema: S;
-    }): Promise<z.infer<S>> {
-        return this.doGenerate(params, false);
-    }
-
-    private async doGenerate<S extends ZodType>(
+    async generate<S extends ZodType>(
         params: { system: string; prompt: string; schema: S },
-        isRetry: boolean,
+        retryReason?: "tool_not_called" | "schema_invalid",
     ): Promise<z.infer<S>> {
         const settings = await getSettings();
-        const found = this.modelRegistry.find(settings.llm.provider, settings.llm.model);
-        if (!found) {
+        const model = this.modelRegistry.find(settings.llm.provider, settings.llm.model);
+        if (!model) {
             throw new Error("LLM model not configured or provider not authenticated");
         }
 
-        const auth = await this.modelRegistry.getApiKeyAndHeaders(found);
+        const auth = await this.modelRegistry.getApiKeyAndHeaders(model);
         if (!auth.ok) {
             throw new Error(auth.error);
         }
@@ -37,9 +29,14 @@ export class PiLlmClient implements ILlmClient {
             parameters: Type.Unsafe(params.schema.toJSONSchema() as any),
         };
 
-        const userText = isRetry
-            ? `Previous extraction failed validation. Please try again.\n\n${params.system}\n\n${params.prompt}`
-            : `${params.system}\n\n${params.prompt}`;
+        const retryPrefix =
+            retryReason === "tool_not_called"
+                ? "You MUST call the 'extract' tool. Use empty string for any field you cannot determine. Do not respond with plain text.\n\n"
+                : retryReason === "schema_invalid"
+                ? "Previous attempt had invalid output. Please call the 'extract' tool again with correct values.\n\n"
+                : "";
+
+        const userText = `${retryPrefix}${params.system}\n\n${params.prompt}`;
 
         const ctx: Context = {
             messages: [
@@ -52,7 +49,7 @@ export class PiLlmClient implements ILlmClient {
             tools: [extractTool],
         };
 
-        const result = await complete(found, ctx, {
+        const result = await complete(model, ctx, {
             apiKey: auth.apiKey,
             headers: auth.headers ?? {},
             tool_choice: { type: "tool", name: "extract" },
@@ -63,17 +60,13 @@ export class PiLlmClient implements ILlmClient {
         );
 
         if (!toolCall) {
-            if (!isRetry) {
-                return this.doGenerate(params, true);
-            }
+            if (!retryReason) return this.generate(params, "tool_not_called");
             throw new Error("LLM did not call the extract tool after retry");
         }
 
         const parsed = params.schema.safeParse(toolCall.arguments);
         if (!parsed.success) {
-            if (!isRetry) {
-                return this.doGenerate(params, true);
-            }
+            if (!retryReason) return this.generate(params, "schema_invalid");
             throw new Error(`LLM extraction schema validation failed: ${parsed.error.message}`);
         }
 

@@ -65,10 +65,6 @@ export function getExecution(id: string): Promise<Execution> {
 
 
 // Applications
-export function getQuestions(jobId: number): Promise<unknown> {
-	return post(`/jobs/${jobId}/questions`);
-}
-
 export function saveAnswers(jobId: number, answers: Record<string, string>): Promise<{ ok: boolean }> {
 	return post(`/jobs/${jobId}/answers`, { answers });
 }

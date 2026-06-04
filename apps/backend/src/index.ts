@@ -22,12 +22,15 @@ import { createExecutionRouter } from "./routes/execution";
 import resumesRouter from "./routes/resumes";
 import { createSettingsRouter } from "./routes/settings";
 import databaseRouter from "./routes/database";
-import { startExecution } from "./core/execution/manager";
+import { startExecution, registerWorker } from "./core/execution/manager";
+import { createAutoAnswerWorker } from "./core/execution/auto-answer-worker";
 import { VNC_PORT } from "./core/login/vnc";
 import type { AppContext } from "./core/context";
 
 const providerRegistry = new ProviderRegistry();
 providerRegistry.register(linkedinProvider);
+
+registerWorker(createAutoAnswerWorker);
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(moduleDir, "..");

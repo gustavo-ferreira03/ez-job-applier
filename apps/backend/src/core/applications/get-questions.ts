@@ -1,8 +1,6 @@
 import path from "node:path";
 import type { AppContext } from "../context";
 import type { ApplyResult } from "../types";
-import { getSettings } from "../../repositories/settings";
-import { autoAnswer } from "./auto-answer";
 
 export async function getQuestions(jobId: number, ctx: AppContext): Promise<ApplyResult> {
     const job = await ctx.jobRepo.getById(jobId);
@@ -25,11 +23,6 @@ export async function getQuestions(jobId: number, ctx: AppContext): Promise<Appl
             result.errorMessage,
         );
         await ctx.appRepo.replaceQuestions(application.id, result.questions);
-
-        const settings = await getSettings();
-        if (settings.llm.autoAnswer) {
-            await autoAnswer(application.id, result.status, ctx);
-        }
 
         return result;
     } finally {

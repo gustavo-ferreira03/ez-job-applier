@@ -5,12 +5,21 @@ import type { IJobProviderSession } from "../interfaces";
 import { runCycle } from "./cycle";
 import { startVncStack, stopVncStack, openLoginBrowser, waitForLogin } from "../login/vnc";
 
+export type WorkerFactory = (ctx: AppContext, shouldStop: () => boolean) => { run(): Promise<void>; wake(): void };
+
+const _workerFactories: WorkerFactory[] = [];
+
+export function registerWorker(factory: WorkerFactory): void {
+    _workerFactories.push(factory);
+}
+
 const DEFAULT_CYCLE_MAX_MS = 3_600_000;
 const DEFAULT_INTERVAL_MS  = 14_400_000;
 
 let _stopFlag = false;
 let _wake: (() => void) | null = null;
 let _activeSession: IJobProviderSession | null = null;
+let _activeWorkers: { wake(): void }[] = [];
 
 function wakeUp(): void { _wake?.(); _wake = null; }
 
@@ -45,12 +54,19 @@ export async function startExecution(
     runForever(id, config, cycleMaxMs, intervalMs, ctx).catch((e) =>
         console.error("[execution] crashed:", e),
     );
+    _activeWorkers = _workerFactories.map((factory) => {
+        const worker = factory(ctx, () => _stopFlag);
+        worker.run().catch((e) => console.error("[worker] crashed:", e));
+        return worker;
+    });
 }
 
 export async function stopExecution(ctx: AppContext): Promise<void> {
     const active = await ctx.executionRepo.getActive();
     _stopFlag = true;
     wakeUp();
+    for (const w of _activeWorkers) w.wake();
+    _activeWorkers = [];
     if (_activeSession) {
         await _activeSession.close().catch(console.error);
         _activeSession = null;

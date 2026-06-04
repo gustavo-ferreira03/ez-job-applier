@@ -1,6 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
-import { getQuestions } from "../core/applications/get-questions";
 import { saveAnswers } from "../core/applications/answer";
 import { applyToJob } from "../core/applications/apply";
 import { rejectJob, rejectJobsByStatus, reprocessJob } from "../core/applications/reject";
@@ -41,32 +40,6 @@ const RejectJobsBody = z
 
 export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
     const router = new OpenAPIHono();
-
-    router.openapi(
-        createRoute({
-            method: "post",
-            path: "/jobs/{id}/questions",
-            tags: ["Applications"],
-            summary: "Open the application form and extract questions",
-            request: { params: JobIdParam },
-            responses: {
-                200: { description: "Questions extracted" },
-                404: { description: "Job not found" },
-            },
-        }),
-        async (c) => {
-            const { id } = c.req.valid("param");
-            try {
-                const result = await getQuestions(id, ctx);
-                return c.json(result);
-            } catch (err) {
-                if (err instanceof Error && err.message.includes("not found")) {
-                    throw new HTTPException(404, { message: err.message });
-                }
-                throw err;
-            }
-        },
-    );
 
     router.openapi(
         createRoute({

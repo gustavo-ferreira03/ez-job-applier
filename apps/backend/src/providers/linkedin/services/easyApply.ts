@@ -7,6 +7,14 @@ const MAX_STEPS = 20;
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
 const EASY_APPLY_LIMIT_RE = /reached today.?s Easy Apply limit/i;
 
+function toPlainNumber(value: string): string {
+    const stripped = value.replace(/[^\d.,]/g, "");
+    if (/^\d{1,3}(?:\.\d{3})+,\d+$/.test(stripped)) {
+        return stripped.replace(/\./g, "").replace(",", ".");
+    }
+    return stripped.replace(",", ".");
+}
+
 function cleanLabel(raw: string): string {
     const lines = raw.trim().split("\n").map((l) => l.trim()).filter(Boolean);
     const deduped = lines
@@ -280,6 +288,25 @@ async function isRequired(el: Locator): Promise<boolean> {
     return false;
 }
 
+async function probeNumericValidation(field: Locator, modal: Locator): Promise<boolean> {
+    const original = await field.inputValue();
+    await field.fill("a");
+    await field.dispatchEvent("input");
+    await field.dispatchEvent("blur");
+    await field.page().waitForTimeout(300);
+
+    const errorEls = modal.locator("[role='alert'], [aria-live='polite'], [aria-live='assertive']");
+    let detected = false;
+    const n = await errorEls.count();
+    for (let j = 0; j < n; j++) {
+        const text = (await errorEls.nth(j).textContent()) ?? "";
+        if (/decimal|number|número|numéric/i.test(text)) { detected = true; break; }
+    }
+
+    await field.fill(original);
+    return detected;
+}
+
 async function fillTextFields(
     modal: Locator,
     answers: Record<string, string>,
@@ -295,14 +322,20 @@ async function fillTextFields(
         if (!(await field.isVisible()) || !(await field.isEnabled())) continue;
 
         const label = await fieldLabel(field, `text field ${i + 1}`);
-        const fieldType = ((await field.getAttribute("type")) ?? "text") as ApplicationQuestion["fieldType"];
-        const current = await field.inputValue();
         const answer = answers[label];
+        const rawType = (await field.getAttribute("type")) ?? "text";
+        const inputMode = await field.getAttribute("inputmode");
+        const hasMin = (await field.getAttribute("min")) !== null;
+        const alreadyNumeric = rawType === "number" || inputMode === "decimal" || inputMode === "numeric" || hasMin;
+        const isNumeric = alreadyNumeric || (!answer && rawType === "text" && await probeNumericValidation(field, modal));
+        const fieldType: ApplicationQuestion["fieldType"] = isNumeric ? "number" : (rawType as ApplicationQuestion["fieldType"]);
+        const current = await field.inputValue();
 
         if (answer) {
-            if (current !== answer) await field.fill(answer);
+            const fillValue = fieldType === "number" ? toPlainNumber(answer) : answer;
+            if (current !== fillValue) await field.fill(fillValue);
             await selectFirstAutocomplete(field);
-            collected.push({ label, answer, fieldType });
+            collected.push({ label, answer: fillValue, fieldType });
         } else if (current) {
             collected.push({ label, answer: current, fieldType });
         } else if (await isRequired(field)) {

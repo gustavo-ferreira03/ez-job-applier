@@ -4,7 +4,6 @@ import type { ApplyResult, DiscoverConfig } from "../types";
 import type { IJobProviderSession } from "../interfaces";
 import { getSettings, type AppSettings } from "../../repositories/settings";
 import { shouldApply } from "../applications/filter";
-import { autoAnswer } from "../applications/auto-answer";
 
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
 
@@ -107,9 +106,6 @@ async function processQueue(
             await ctx.appRepo.setProcessing(updated.id, false);
             if (!isEasyApplyLimited(result) || result.questions.length > 0) {
                 await ctx.appRepo.replaceQuestions(updated.id, result.questions);
-                if (settings.llm.autoAnswer && !isEasyApplyLimited(result)) {
-                    await autoAnswer(updated.id, result.status, ctx).catch(() => null);
-                }
             }
             if (isEasyApplyLimited(result)) {
                 easyApplyLimited = true;

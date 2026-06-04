@@ -39,7 +39,7 @@ export interface DiscoverConfig {
 export interface ApplicationQuestion {
     label: string;
     answer?: string;
-    fieldType?: "text" | "select" | "checkbox" | "radio" | "file" | "date";
+    fieldType?: "text" | "number" | "select" | "checkbox" | "radio" | "file" | "date";
     options?: string[];
 }
 

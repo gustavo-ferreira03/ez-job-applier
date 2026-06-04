@@ -90,18 +90,6 @@
 	);
 	const hasActions = $derived(ACTION_STATUSES.includes(job.status));
 
-	async function handleGetQuestions() {
-		if (busy) return;
-		busy = true; notice = 'Abrindo formulário…';
-		try {
-			await api.getQuestions(job.id);
-			toastState.show('Perguntas extraídas', 'success');
-			onClose();
-			await appState.refreshJobs();
-		} catch { notice = ''; toastState.show('Falha ao extrair perguntas', 'error'); }
-		finally { busy = false; }
-	}
-
 	async function handleSaveAnswers() {
 		if (busy) return;
 		busy = true; notice = 'Salvando…';
@@ -451,16 +439,7 @@
 					</button>
 				{/if}
 
-				{#if job.status === 'FOUND'}
-					<button
-						type="button"
-						class="h-8 cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-						disabled={busy}
-						onclick={handleGetQuestions}
-					>
-						{busy ? 'Abrindo…' : 'Abrir formulário'}
-					</button>
-				{:else if job.status === 'NEEDS_INPUT'}
+				{#if job.status === 'NEEDS_INPUT'}
 					{#if unanswered.length > 0}
 						<button
 							type="button"
