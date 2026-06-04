@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
+import { PDFParse } from "pdf-parse";
 import type { IResumeRepo } from "../core/ports";
 
 const SETTINGS_FILE = path.resolve("storage/settings.json");
@@ -15,6 +16,14 @@ export class ResumeRepository implements IResumeRepo {
         } catch {
             return undefined;
         }
+    }
+
+    async getDefaultResumeText(): Promise<string | undefined> {
+        const filePath = await this.getDefaultResumePath();
+        if (!filePath) return undefined;
+        const buffer = await fs.readFile(filePath);
+        const result = await new PDFParse({ data: buffer }).getText();
+        return result.text;
     }
 
     async getResumePath(filename: string): Promise<string> {

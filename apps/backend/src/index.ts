@@ -3,7 +3,10 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
 import net from "node:net";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
+import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { db } from "./db/client";
 import { linkedinProvider } from "./providers/linkedin/index";
 import { JobRepository } from "./infra/JobRepository";
@@ -11,6 +14,7 @@ import { ApplicationRepository } from "./infra/ApplicationRepository";
 import { ExecutionRepository } from "./infra/ExecutionRepository";
 import { ResumeRepository } from "./infra/ResumeRepository";
 import { ProviderRegistry } from "./infra/ProviderRegistry";
+import { PiLlmClient } from "./infra/PiLlmClient";
 import { createJobsRouter } from "./routes/jobs";
 import { createApplicationsRouter } from "./routes/applications";
 import { createAutoApplyRouter } from "./routes/auto-apply";
@@ -25,12 +29,20 @@ import type { AppContext } from "./core/context";
 const providerRegistry = new ProviderRegistry();
 providerRegistry.register(linkedinProvider);
 
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const backendRoot = path.resolve(moduleDir, "..");
+const llmAuth = AuthStorage.create(path.join(backendRoot, "storage", "pi-auth.json"));
+const modelRegistry = ModelRegistry.create(llmAuth);
+
 const ctx: AppContext = {
     jobRepo: new JobRepository(db),
     appRepo: new ApplicationRepository(db),
     executionRepo: new ExecutionRepository(db),
     resumeRepo: new ResumeRepository(),
     providerRegistry,
+    llmAuth,
+    modelRegistry,
+    llm: new PiLlmClient(modelRegistry),
 };
 const activeExecution = await ctx.executionRepo.getActive();
 if (activeExecution) {

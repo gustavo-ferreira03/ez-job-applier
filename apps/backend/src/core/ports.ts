@@ -51,6 +51,7 @@ export interface IExecutionRepo {
 
 export interface IResumeRepo {
     getDefaultResumePath(): Promise<string | undefined>;
+    getDefaultResumeText(): Promise<string | undefined>;
     getResumePath(filename: string): Promise<string>;
 }
 

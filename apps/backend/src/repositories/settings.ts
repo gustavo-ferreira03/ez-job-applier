@@ -2,12 +2,27 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+export interface LlmSettings {
+    enabled: boolean;
+    provider: string;
+    model: string;
+    filterJobs: boolean;
+    autoAnswer: boolean;
+    externalApply: boolean;
+    filterCriteria: string;
+}
+
 export interface AppSettings {
     browserVisible: boolean;
     searchLocale: "pt-BR" | "en-US";
+    llm: LlmSettings;
 }
 
-const defaults: AppSettings = { browserVisible: false, searchLocale: "pt-BR" };
+const defaults: AppSettings = {
+    browserVisible: false,
+    searchLocale: "pt-BR",
+    llm: { enabled: false, provider: "anthropic", model: "claude-sonnet-4-6", filterJobs: false, autoAnswer: false, externalApply: false, filterCriteria: "" },
+};
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(moduleDir, "..", "..");
@@ -16,7 +31,8 @@ const settingsPath = path.join(backendRoot, "storage", "settings.json");
 export async function getSettings(): Promise<AppSettings> {
     try {
         const raw = await fs.readFile(settingsPath, "utf-8");
-        return { ...defaults, ...(JSON.parse(raw) as Partial<AppSettings>) };
+        const saved = JSON.parse(raw) as Partial<AppSettings>;
+        return { ...defaults, ...saved, llm: { ...defaults.llm, ...(saved.llm ?? {}) } };
     } catch {
         return { ...defaults };
     }
