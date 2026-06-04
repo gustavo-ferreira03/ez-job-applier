@@ -2,6 +2,8 @@ import path from "node:path";
 import type { AppContext } from "../context";
 import type { ApplyResult, DiscoverConfig } from "../types";
 import type { IJobProviderSession } from "../interfaces";
+import { getSettings, type AppSettings } from "../../repositories/settings";
+import { shouldApply } from "../applications/filter";
 
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
 
@@ -27,9 +29,10 @@ export async function runCycle(
     const skipIds = await ctx.jobRepo.listSkipIds(config.provider);
     const deferredJobIds = new Set<number>();
     let easyApplyLimited = false;
+    const settings = await getSettings();
 
     async function processPendingQueue(session: IJobProviderSession): Promise<void> {
-        const result = await processQueue(session, resumePath, ctx, shouldStop, deferredJobIds);
+        const result = await processQueue(session, resumePath, ctx, shouldStop, deferredJobIds, settings);
         easyApplyLimited ||= result.easyApplyLimited;
     }
 
@@ -71,6 +74,7 @@ async function processQueue(
     ctx: AppContext,
     shouldStop: () => boolean,
     deferredJobIds: Set<number>,
+    settings: AppSettings,
 ): Promise<CycleResult> {
     const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
     let easyApplyLimited = false;
@@ -83,6 +87,15 @@ async function processQueue(
         if (!job) continue;
         const appRec = await ctx.appRepo.get(job.provider, job.jobId);
         if (!appRec) continue;
+
+        if (settings.llm.filterJobs) {
+            const decision = await shouldApply(job, ctx, settings.llm).catch(() => null);
+            if (decision && !decision.apply) {
+                await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED", undefined, decision.reason);
+                console.log(`[execution] filtered: ${job.title} — ${decision.reason}`);
+                continue;
+            }
+        }
 
         await ctx.appRepo.setProcessing(appRec.id, true);
         try {
