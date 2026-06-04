@@ -221,7 +221,7 @@ async function fillCheckboxGroups(
 
         const answer = answers[label];
         if (answer) {
-            const targets = answer.split(",").map((a) => a.trim());
+            const targets = options.filter((o) => answer.includes(o));
             let matched = false;
             for (let j = 0; j < count; j++) {
                 const cb = cbs.nth(j);

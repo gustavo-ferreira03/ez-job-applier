@@ -142,9 +142,55 @@
 		} catch { notice = ''; toastState.show('Falha ao reprocessar vaga', 'error'); }
 		finally { busy = false; }
 	}
+
+	function parseCheckboxAnswer(answer: string, options: string[]): string[] {
+		return options.filter(opt => answer.includes(opt));
+	}
+
+	function toggleCheckbox(key: string, opt: string, options: string[]) {
+		const current = parseCheckboxAnswer(answerInputs[key] ?? '', options);
+		const idx = current.indexOf(opt);
+		if (idx >= 0) current.splice(idx, 1); else current.push(opt);
+		answerInputs[key] = current.join(', ');
+	}
 </script>
 
 <svelte:window onkeydown={onKeydown} />
+
+{#snippet questionInput(q: Question, key: string)}
+	{#if q.fieldType === 'checkbox' && q.options.length > 0}
+		{@const selected = parseCheckboxAnswer(answerInputs[key] ?? '', q.options)}
+		<div class="flex flex-col gap-px overflow-hidden rounded-md border border-border-default">
+			{#each q.options as opt, i (`${key}:${opt}`)}
+				<label class="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-sm {i > 0 ? 'border-t border-border-default' : ''} {selected.includes(opt) ? 'bg-accent-500/10 text-text-primary' : 'bg-surface-overlay text-text-secondary hover:bg-surface-hover'}">
+					<input
+						type="checkbox"
+						class="accent-accent-500"
+						checked={selected.includes(opt)}
+						onchange={() => toggleCheckbox(key, opt, q.options)}
+					/>
+					{opt}
+				</label>
+			{/each}
+		</div>
+	{:else if q.options.length > 0}
+		<select
+			class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
+			bind:value={answerInputs[key]}
+		>
+			<option value="">Selecione…</option>
+			{#each q.options as opt, i (`${i}:${opt}`)}
+				<option value={opt}>{opt}</option>
+			{/each}
+		</select>
+	{:else}
+		<input
+			type={q.fieldType ?? 'text'}
+			class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
+			bind:value={answerInputs[key]}
+		/>
+	{/if}
+{/snippet}
 
 <div class="fixed inset-0 z-modal flex items-start justify-center bg-black/70 p-4">
 	<button
@@ -302,26 +348,10 @@
 									{#each unanswered as item (questionKey(item))}
 										{@const q = item.question}
 										{@const key = inputKey(q, item.index)}
-										<label class="block">
+										<div class="block">
 											<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
-											{#if q.options.length > 0}
-												<select
-													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
-												bind:value={answerInputs[key]}
-											>
-												<option value="">Selecione…</option>
-												{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
-													<option value={opt}>{opt}</option>
-												{/each}
-											</select>
-											{:else}
-												<input
-													type={q.fieldType ?? 'text'}
-													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
-													bind:value={answerInputs[key]}
-												/>
-											{/if}
-										</label>
+											{@render questionInput(q, key)}
+										</div>
 									{/each}
 								</div>
 							{/if}
@@ -347,26 +377,10 @@
 									{#each questions as item (questionKey(item))}
 										{@const q = item.question}
 										{@const key = inputKey(q, item.index)}
-										<label class="block">
+										<div class="block">
 											<span class="mb-1 block text-[13px] font-medium text-text-secondary">{q.label}</span>
-											{#if q.options.length > 0}
-												<select
-													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary focus:border-border-strong focus:outline-none"
-												bind:value={answerInputs[key]}
-											>
-												<option value="">Selecione…</option>
-												{#each q.options as opt, optIndex (`${optIndex}:${opt}`)}
-													<option value={opt}>{opt}</option>
-												{/each}
-											</select>
-											{:else}
-												<input
-													type={q.fieldType ?? 'text'}
-													class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
-													bind:value={answerInputs[key]}
-												/>
-											{/if}
-										</label>
+											{@render questionInput(q, key)}
+										</div>
 									{/each}
 								</div>
 							{/if}
