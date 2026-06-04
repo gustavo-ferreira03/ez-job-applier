@@ -4,9 +4,56 @@
 	import FileText from '@lucide/svelte/icons/file-text';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Upload from '@lucide/svelte/icons/upload';
+	import { onMount } from 'svelte';
 	import * as api from '$lib/api';
+	import type { ProviderInfo } from '$lib/api';
+	import type { LlmSettings } from '$lib/types';
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
+	import ProvidersModal from './ProvidersModal.svelte';
+
+	let llm = $state<LlmSettings>({
+		enabled: false,
+		provider: 'anthropic',
+		model: '',
+		filterJobs: false,
+		autoAnswer: false,
+		externalApply: false,
+		filterCriteria: ''
+	});
+	let configuredProviders = $state<ProviderInfo[]>([]);
+	let providersModalOpen = $state(false);
+
+	async function refreshLlmSettings() {
+		try {
+			const res = await api.getLlmSettings();
+			llm = res.current;
+			configuredProviders = res.providers.filter((p) => p.configured);
+		} catch {
+			toastState.show('Falha ao carregar configurações de IA', 'error');
+		}
+	}
+
+	onMount(() => {
+		refreshLlmSettings();
+	});
+
+	async function handleLlmSetting(update: Partial<LlmSettings>) {
+		try {
+			llm = await api.updateLlmSettings(update);
+		} catch {
+			toastState.show('Falha ao salvar configuração de IA', 'error');
+		}
+	}
+
+	let filterCriteriaDebounce: ReturnType<typeof setTimeout> | null = null;
+
+	function handleFilterCriteriaInput(value: string) {
+		if (filterCriteriaDebounce !== null) clearTimeout(filterCriteriaDebounce);
+		filterCriteriaDebounce = setTimeout(() => {
+			handleLlmSetting({ filterCriteria: value });
+		}, 600);
+	}
 
 	async function handleSetting(patch: Partial<typeof appState.settings>) {
 		try {
@@ -126,6 +173,100 @@
 			{/each}
 		</div>
 	</section>
+
+	<section class="mb-6">
+		<h3 class="mb-3 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Inteligência Artificial</h3>
+
+		<div class="mb-3 space-y-1.5">
+			{#each configuredProviders as p (p.id)}
+				<div class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2.5">
+					<span class="min-w-0 flex-1 text-[12px] text-text-primary">{p.name}</span>
+					<span class="text-[10px] font-bold text-[#22c55e]">CONFIGURADO</span>
+				</div>
+			{/each}
+			{#if configuredProviders.length === 0}
+				<p class="text-[11px] text-text-faint">Nenhum provedor configurado</p>
+			{/if}
+		</div>
+
+		<button
+			type="button"
+			class="mb-4 h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3.5 text-[12px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
+			onclick={() => (providersModalOpen = true)}
+		>
+			Gerenciar provedores
+		</button>
+
+		<button
+			type="button"
+			class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
+			onclick={() => handleLlmSetting({ enabled: !llm.enabled })}
+		>
+			<div>
+				<p class="text-[12px] font-medium text-text-primary">Ativar IA</p>
+				<p class="text-[11px] text-text-faint">
+					{llm.enabled ? 'IA ativada' : 'IA desativada'}
+				</p>
+			</div>
+			<div
+				class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150
+					{llm.enabled ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}"
+			>
+				<span
+					class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150
+						{llm.enabled ? 'left-[18px]' : 'left-[3px]'}"
+				></span>
+			</div>
+		</button>
+
+		<div class="mt-2 {llm.enabled ? '' : 'opacity-50'} space-y-2 transition-opacity duration-150">
+			{#each [
+				{ key: 'filterJobs' as const, label: 'Filtrar vagas', desc: 'Descarta automaticamente vagas que não correspondem ao seu perfil' },
+				{ key: 'autoAnswer' as const, label: 'Auto-responder perguntas', desc: 'Preenche automaticamente as respostas das perguntas da vaga' },
+				{ key: 'externalApply' as const, label: 'Aplicar em vagas externas', desc: 'Usa um agente para preencher formulários de ATS externos' }
+			] as feat (feat.key)}
+				<button
+					type="button"
+					class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
+					onclick={() => handleLlmSetting({ [feat.key]: !llm[feat.key] })}
+				>
+					<div>
+						<p class="text-[12px] font-medium text-text-primary">{feat.label}</p>
+						<p class="text-[11px] text-text-faint">{feat.desc}</p>
+					</div>
+					<div
+						class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150
+							{llm[feat.key] ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}"
+					>
+						<span
+							class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150
+								{llm[feat.key] ? 'left-[18px]' : 'left-[3px]'}"
+						></span>
+					</div>
+				</button>
+			{/each}
+
+			{#if llm.filterJobs}
+				<div class="mt-2">
+					<label for="llm-filter-criteria" class="mb-1 block text-[11px] font-medium text-text-secondary">
+						Critérios de filtro
+					</label>
+					<textarea
+						id="llm-filter-criteria"
+						rows="3"
+						placeholder="Ex: Apenas vagas remotas para desenvolvedores sênior com foco em TypeScript"
+						value={llm.filterCriteria}
+						oninput={(e) => handleFilterCriteriaInput((e.target as HTMLTextAreaElement).value)}
+						class="w-full rounded-md border border-border-default bg-surface-overlay px-3 py-2 text-[12px] text-text-primary placeholder:text-text-faint focus:border-accent-500 focus:outline-none resize-none"
+					></textarea>
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	{#if providersModalOpen}
+		<ProvidersModal onClose={() => { providersModalOpen = false; refreshLlmSettings(); }} />
+	{/if}
 
 	<!-- Currículos -->
 	<section class="mb-6">

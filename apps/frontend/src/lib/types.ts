@@ -67,6 +67,16 @@ export interface Execution {
 	errorMessage: string | null;
 }
 
+export interface LlmSettings {
+	enabled: boolean;
+	provider: string;
+	model: string;
+	filterJobs: boolean;
+	autoAnswer: boolean;
+	externalApply: boolean;
+	filterCriteria: string;
+}
+
 export interface AppSettings {
 	browserVisible: boolean;
 	searchLocale: 'pt-BR' | 'en-US';

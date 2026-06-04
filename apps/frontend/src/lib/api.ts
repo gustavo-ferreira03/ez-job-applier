@@ -1,5 +1,5 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { AppSettings, ApplicationStatus, AutoApplyStatus, DiscoverConfig, Execution, JobDetail, JobSummary, ExecutionStatus } from './types';
+import type { AppSettings, ApplicationStatus, AutoApplyStatus, DiscoverConfig, Execution, JobDetail, JobSummary, ExecutionStatus, LlmSettings } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -22,6 +22,26 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 async function del<T>(path: string): Promise<T> {
 	const res = await fetch(`${BASE}${path}`, { method: 'DELETE' });
 	if (!res.ok) throw new Error(`${res.status} DELETE ${path}`);
+	return res.json() as Promise<T>;
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+	const res = await fetch(`${BASE}${path}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) throw new Error(`${res.status} PUT ${path}`);
+	return res.json() as Promise<T>;
+}
+
+async function patch<T>(path: string, body: unknown): Promise<T> {
+	const res = await fetch(`${BASE}${path}`, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) throw new Error(`${res.status} PATCH ${path}`);
 	return res.json() as Promise<T>;
 }
 
@@ -144,4 +164,41 @@ export function pauseExecution(): Promise<{ ok: boolean }> {
 
 export function resumeExecution(): Promise<{ ok: boolean }> {
 	return post('/execution/resume');
+}
+
+export type ProviderInfo = {
+	id: string;
+	name: string;
+	configured: boolean;
+	authMethods: ('oauth' | 'api_key')[];
+	models: { id: string; label: string }[];
+};
+
+export type LlmSettingsResponse = {
+	providers: ProviderInfo[];
+	current: LlmSettings;
+};
+
+export function getLlmSettings(): Promise<LlmSettingsResponse> {
+	return get('/settings/llm');
+}
+
+export function setProviderApiKey(provider: string, apiKey: string): Promise<{ ok: boolean }> {
+	return put(`/settings/llm/providers/${encodeURIComponent(provider)}`, { apiKey });
+}
+
+export function removeProviderApiKey(provider: string): Promise<{ ok: boolean }> {
+	return del(`/settings/llm/providers/${encodeURIComponent(provider)}`);
+}
+
+export function updateLlmSettings(update: Partial<LlmSettings>): Promise<LlmSettings> {
+	return patch('/settings/llm', update);
+}
+
+export function startOAuth(provider: string): Promise<{ sessionId: string; type: 'browser' | 'device_code' }> {
+	return post(`/settings/llm/providers/${encodeURIComponent(provider)}/oauth/start`);
+}
+
+export function pollOAuth(provider: string, sessionId: string): Promise<{ status: string; url?: string; userCode?: string; verificationUri?: string; error?: string }> {
+	return get(`/settings/llm/providers/${encodeURIComponent(provider)}/oauth/poll?sessionId=${encodeURIComponent(sessionId)}`);
 }

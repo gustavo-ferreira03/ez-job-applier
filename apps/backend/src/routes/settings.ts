@@ -1,5 +1,12 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { loginAnthropic, loginOpenAICodexDeviceCode, type OAuthCredentials, type OAuthDeviceCodeInfo } from "@earendil-works/pi-ai/oauth";
+import {
+    loginAnthropic,
+    loginOpenAICodexDeviceCode,
+    loginGitHubCopilot,
+    getOAuthProviders,
+    type OAuthCredentials,
+    type OAuthDeviceCodeInfo,
+} from "@earendil-works/pi-ai/oauth";
 import { getSettings, updateSettings, type LlmSettings } from "../repositories/settings";
 import type { AppContext } from "../core/context";
 
@@ -11,13 +18,18 @@ type OAuthState = {
     error?: string;
 };
 
+type ProviderInfo = {
+    id: string;
+    name: string;
+    configured: boolean;
+    authMethods: ("oauth" | "api_key")[];
+    models: { id: string; label: string }[];
+};
+
 const oauthSessions = new Map<string, OAuthState>();
 
-const KNOWN_PROVIDERS = ["anthropic", "openai-codex"] as const;
-type KnownProvider = (typeof KNOWN_PROVIDERS)[number];
-
-function isKnownProvider(p: string): p is KnownProvider {
-    return (KNOWN_PROVIDERS as readonly string[]).includes(p);
+function formatProviderName(id: string): string {
+    return id.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
 export function createSettingsRouter(ctx: AppContext) {
@@ -34,26 +46,44 @@ export function createSettingsRouter(ctx: AppContext) {
     router.get("/settings/llm", async (c) => {
         const settings = await getSettings();
 
-        const providers: Record<string, { configured: boolean }> = {};
-        for (const p of KNOWN_PROVIDERS) {
-            providers[p] = { configured: ctx.llmAuth.hasAuth(p) };
+        const oauthProviders = getOAuthProviders();
+        const oauthIds = new Set(oauthProviders.map((p) => p.id));
+        const oauthNames = new Map(oauthProviders.map((p) => [p.id, p.name]));
+
+        const allModels = ctx.modelRegistry.getAll();
+        const modelsByProvider = new Map<string, { id: string; label: string }[]>();
+        for (const m of allModels) {
+            if (!modelsByProvider.has(m.provider)) modelsByProvider.set(m.provider, []);
+            modelsByProvider.get(m.provider)!.push({ id: m.id, label: m.name ?? m.id });
         }
 
-        const available = ctx.modelRegistry.getAvailable().map((m) => ({
-            provider: m.provider,
-            id: m.id,
-            label: m.name ?? m.id,
-        }));
+        const providers: ProviderInfo[] = [...modelsByProvider.entries()]
+            .map(([id, models]) => ({
+                id,
+                name: oauthNames.get(id) ?? formatProviderName(id),
+                configured: ctx.llmAuth.hasAuth(id),
+                authMethods: oauthIds.has(id)
+                    ? (["oauth", "api_key"] as ("oauth" | "api_key")[])
+                    : (["api_key"] as ("oauth" | "api_key")[]),
+                models,
+            }))
+            .sort((a, b) => {
+                if (a.configured !== b.configured) return a.configured ? -1 : 1;
+                const aOAuth = a.authMethods.includes("oauth" as "oauth" | "api_key");
+                const bOAuth = b.authMethods.includes("oauth" as "oauth" | "api_key");
+                if (aOAuth !== bOAuth) return aOAuth ? -1 : 1;
+                return a.name.localeCompare(b.name);
+            });
 
-        return c.json({ providers, available, current: settings.llm });
+        return c.json({ providers, current: settings.llm });
     });
 
     router.put("/settings/llm/providers/:provider", async (c) => {
         const provider = c.req.param("provider");
-        if (!isKnownProvider(provider)) {
-            return c.json({ error: "Unknown provider" }, 400);
-        }
         const body = await c.req.json<{ apiKey: string }>();
+        if (!body.apiKey) {
+            return c.json({ error: "apiKey is required" }, 400);
+        }
         ctx.llmAuth.set(provider, { type: "api_key", key: body.apiKey });
         ctx.llmAuth.setRuntimeApiKey(provider, body.apiKey);
         return c.json({ ok: true });
@@ -74,9 +104,6 @@ export function createSettingsRouter(ctx: AppContext) {
 
     router.post("/settings/llm/providers/:provider/oauth/start", async (c) => {
         const provider = c.req.param("provider");
-        if (!isKnownProvider(provider)) {
-            return c.json({ error: "Unknown provider" }, 400);
-        }
 
         const id = crypto.randomUUID();
         oauthSessions.set(id, { status: "pending" });
@@ -89,7 +116,7 @@ export function createSettingsRouter(ctx: AppContext) {
                 onPrompt: async () => "",
             })
                 .then((credentials: OAuthCredentials) => {
-                    ctx.llmAuth.set("anthropic", { type: "oauth", ...credentials });
+                    ctx.llmAuth.set(provider, { type: "oauth", ...credentials });
                     oauthSessions.set(id, { status: "done" });
                 })
                 .catch((e: Error) => {
@@ -98,19 +125,41 @@ export function createSettingsRouter(ctx: AppContext) {
             return c.json({ sessionId: id, type: "browser" });
         }
 
-        loginOpenAICodexDeviceCode({
-            onDeviceCode: ({ userCode, verificationUri }: OAuthDeviceCodeInfo) => {
-                oauthSessions.set(id, { status: "pending", userCode, verificationUri });
-            },
-        })
-            .then((credentials: OAuthCredentials) => {
-                ctx.llmAuth.set("openai-codex", { type: "oauth", ...credentials });
-                oauthSessions.set(id, { status: "done" });
+        if (provider === "openai-codex") {
+            loginOpenAICodexDeviceCode({
+                onDeviceCode: ({ userCode, verificationUri }: OAuthDeviceCodeInfo) => {
+                    oauthSessions.set(id, { status: "pending", userCode, verificationUri });
+                },
             })
-            .catch((e: Error) => {
-                oauthSessions.set(id, { status: "error", error: e.message });
-            });
-        return c.json({ sessionId: id, type: "device_code" });
+                .then((credentials: OAuthCredentials) => {
+                    ctx.llmAuth.set(provider, { type: "oauth", ...credentials });
+                    oauthSessions.set(id, { status: "done" });
+                })
+                .catch((e: Error) => {
+                    oauthSessions.set(id, { status: "error", error: e.message });
+                });
+            return c.json({ sessionId: id, type: "device_code" });
+        }
+
+        if (provider === "github-copilot") {
+            loginGitHubCopilot({
+                onDeviceCode: ({ userCode, verificationUri }: OAuthDeviceCodeInfo) => {
+                    oauthSessions.set(id, { status: "pending", userCode, verificationUri });
+                },
+                onPrompt: async () => "",
+            })
+                .then((credentials: OAuthCredentials) => {
+                    ctx.llmAuth.set(provider, { type: "oauth", ...credentials });
+                    oauthSessions.set(id, { status: "done" });
+                })
+                .catch((e: Error) => {
+                    oauthSessions.set(id, { status: "error", error: e.message });
+                });
+            return c.json({ sessionId: id, type: "device_code" });
+        }
+
+        oauthSessions.delete(id);
+        return c.json({ error: "OAuth not supported for this provider" }, 400);
     });
 
     router.get("/settings/llm/providers/:provider/oauth/poll", async (c) => {

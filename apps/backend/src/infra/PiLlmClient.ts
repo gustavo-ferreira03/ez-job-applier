@@ -8,15 +8,15 @@ import { getSettings } from "../repositories/settings";
 export class PiLlmClient implements ILlmClient {
     constructor(private readonly modelRegistry: ModelRegistry) {}
 
-    async extract<S extends ZodType>(params: {
+    async generate<S extends ZodType>(params: {
         system: string;
         prompt: string;
         schema: S;
     }): Promise<z.infer<S>> {
-        return this.doExtract(params, false);
+        return this.doGenerate(params, false);
     }
 
-    private async doExtract<S extends ZodType>(
+    private async doGenerate<S extends ZodType>(
         params: { system: string; prompt: string; schema: S },
         isRetry: boolean,
     ): Promise<z.infer<S>> {
@@ -64,7 +64,7 @@ export class PiLlmClient implements ILlmClient {
 
         if (!toolCall) {
             if (!isRetry) {
-                return this.doExtract(params, true);
+                return this.doGenerate(params, true);
             }
             throw new Error("LLM did not call the extract tool after retry");
         }
@@ -72,7 +72,7 @@ export class PiLlmClient implements ILlmClient {
         const parsed = params.schema.safeParse(toolCall.arguments);
         if (!parsed.success) {
             if (!isRetry) {
-                return this.doExtract(params, true);
+                return this.doGenerate(params, true);
             }
             throw new Error(`LLM extraction schema validation failed: ${parsed.error.message}`);
         }
