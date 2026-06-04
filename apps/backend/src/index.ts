@@ -20,7 +20,7 @@ import { createApplicationsRouter } from "./routes/applications";
 import { createAutoApplyRouter } from "./routes/auto-apply";
 import { createExecutionRouter } from "./routes/execution";
 import resumesRouter from "./routes/resumes";
-import settingsRouter from "./routes/settings";
+import { createSettingsRouter } from "./routes/settings";
 import databaseRouter from "./routes/database";
 import { startExecution } from "./core/execution/manager";
 import { VNC_PORT } from "./core/login/vnc";
@@ -76,7 +76,7 @@ app.route("/", createApplicationsRouter(ctx));
 app.route("/", createAutoApplyRouter(ctx));
 app.route("/", createExecutionRouter(ctx));
 app.route("/", resumesRouter);
-app.route("/", settingsRouter);
+app.route("/", createSettingsRouter(ctx));
 app.route("/", databaseRouter);
 
 app.doc("/openapi", {
