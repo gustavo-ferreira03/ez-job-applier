@@ -10,9 +10,10 @@
 		jobs: JobSummary[];
 		onOpenJob: (job: JobSummary, tab: KanbanTab) => void;
 		onRejectAll?: (column: KanbanColumnDef) => void;
+		onSubmitAll?: () => void;
 	}
 
-	let { column, jobs, onOpenJob, onRejectAll }: Props = $props();
+	let { column, jobs, onOpenJob, onRejectAll, onSubmitAll }: Props = $props();
 	let menuOpen = $state(false);
 	let menuClosing = $state(false);
 	let menuRef = $state<HTMLElement | null>(null);
@@ -36,6 +37,11 @@
 	function handleRejectAll() {
 		closeMenu();
 		onRejectAll?.(column);
+	}
+
+	function handleSubmitAll() {
+		closeMenu();
+		onSubmitAll?.();
 	}
 
 	function handleWindowClick(e: MouseEvent) {
@@ -69,6 +75,15 @@
 						class:is-open={menuOpen}
 						class:is-closing={menuClosing}
 					>
+						{#if column.canSubmitAll}
+							<button
+								type="button"
+								class="w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-150 hover:bg-surface-overlay hover:text-text-primary focus-visible:outline-none"
+								onclick={handleSubmitAll}
+							>
+								Submit all
+							</button>
+						{/if}
 						<button
 							type="button"
 							class="w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-150 hover:bg-surface-overlay hover:text-text-primary focus-visible:outline-none"

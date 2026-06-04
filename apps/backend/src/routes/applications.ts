@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { saveAnswers } from "../core/applications/answer";
 import { applyToJob } from "../core/applications/apply";
 import { rejectJob, rejectJobsByStatus, reprocessJob } from "../core/applications/reject";
+import { wakeExecution } from "../core/execution/manager";
 import { APPLICATION_STATUSES } from "../core/types";
 import type { AppContext } from "../core/context";
 
@@ -102,6 +103,21 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
                 }
                 throw err;
             }
+        },
+    );
+
+    router.openapi(
+        createRoute({
+            method: "post",
+            path: "/jobs/approve",
+            tags: ["Applications"],
+            summary: "Approve all ready-for-review jobs",
+            responses: { 200: { description: "Jobs approved" } },
+        }),
+        async (c) => {
+            const approved = await ctx.appRepo.approveByStatuses(["READY_FOR_REVIEW"]);
+            if (approved > 0) wakeExecution();
+            return c.json({ approved });
         },
     );
 

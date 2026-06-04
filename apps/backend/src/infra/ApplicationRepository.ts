@@ -144,6 +144,16 @@ export class ApplicationRepository implements IAppRepo {
         }
     }
 
+    async approveByStatuses(statuses: ApplicationStatus[]): Promise<number> {
+        if (statuses.length === 0) return 0;
+        const rows = await this.db
+            .update(applications)
+            .set({ status: "APPROVED", errorMessage: null, updatedAt: new Date().toISOString() })
+            .where(and(inArray(applications.status, statuses), eq(applications.processing, 0)))
+            .returning({ id: applications.id });
+        return rows.length;
+    }
+
     async rejectByStatuses(statuses: ApplicationStatus[]): Promise<number> {
         if (statuses.length === 0) return 0;
         const rows = await this.db

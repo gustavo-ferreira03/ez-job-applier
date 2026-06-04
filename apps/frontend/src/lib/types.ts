@@ -106,6 +106,7 @@ export interface KanbanColumn {
 	defaultTab: KanbanTab;
 	headerClass: string;
 	canRejectAll?: boolean;
+	canSubmitAll?: boolean;
 	columnClass?: string;
 }
 

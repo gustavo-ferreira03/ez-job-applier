@@ -81,6 +81,10 @@ export function rejectJobsByStatus(statuses: ApplicationStatus[]): Promise<{ rej
 	return post('/jobs/reject', { statuses });
 }
 
+export function approveAllReadyForReview(): Promise<{ approved: number }> {
+	return post('/jobs/approve');
+}
+
 export function reprocessJob(jobId: number): Promise<{ ok: boolean }> {
 	return post(`/jobs/${jobId}/reprocess`);
 }

@@ -7,6 +7,7 @@
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
 	import type { ApplicationStatus, JobSummary, KanbanColumn as KanbanColumnDef, KanbanTab } from '$lib/types';
+	import SubmitAllModal from '$lib/components/SubmitAllModal.svelte';
 
 	interface Props {
 		jobs: JobSummary[];
@@ -25,6 +26,8 @@
 
 	let rejectColumn = $state<KanbanColumnDef | null>(null);
 	let rejecting = $state(false);
+	let submitAllOpen = $state(false);
+	let submittingAll = $state(false);
 
 	const columns: KanbanColumnDef[] = [
 		{
@@ -49,7 +52,8 @@
 			statuses: ['READY_FOR_REVIEW', 'APPROVED'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-review-text',
-			canRejectAll: true
+			canRejectAll: true,
+			canSubmitAll: true
 		},
 		{
 			id: 'external',
@@ -100,6 +104,21 @@
 		return jobs.filter((job) => column.statuses.includes(job.status) && isRejectable(job)).length;
 	}
 
+	async function confirmSubmitAll() {
+		if (submittingAll) return;
+		submittingAll = true;
+		try {
+			const result = await api.approveAllReadyForReview();
+			toastState.show(`${result.approved} ${result.approved === 1 ? 'job queued' : 'jobs queued'} for submission`, 'success');
+			submitAllOpen = false;
+			await appState.refreshJobs();
+		} catch {
+			toastState.show('Failed to queue jobs', 'error');
+		} finally {
+			submittingAll = false;
+		}
+	}
+
 	async function confirmRejectAll() {
 		if (!rejectColumn || rejecting || rejectableCount === 0) return;
 		rejecting = true;
@@ -126,9 +145,19 @@
 			jobs={jobsForColumn(col)}
 			onOpenJob={onOpenJob}
 			onRejectAll={(column) => { rejectColumn = column; }}
+			onSubmitAll={() => { submitAllOpen = true; }}
 		/>
 	{/each}
 </section>
+
+{#if submitAllOpen}
+	<SubmitAllModal
+		{submittingAll}
+		reviewCount={jobs.filter((j) => j.status === 'READY_FOR_REVIEW' && !j.processing).length}
+		onConfirm={confirmSubmitAll}
+		onClose={() => { submitAllOpen = false; }}
+	/>
+{/if}
 
 {#if rejectColumn}
 	<RejectAllModal
