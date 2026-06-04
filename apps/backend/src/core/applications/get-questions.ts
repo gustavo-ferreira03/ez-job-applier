@@ -28,7 +28,7 @@ export async function getQuestions(jobId: number, ctx: AppContext): Promise<Appl
 
         const settings = await getSettings();
         if (settings.llm.autoAnswer) {
-            await autoAnswer(application.id, result.status, ctx).catch(() => null);
+            await autoAnswer(application.id, result.status, ctx);
         }
 
         return result;
