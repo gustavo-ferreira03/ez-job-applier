@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
 	import KanbanCard from './KanbanCard.svelte';
+	import Inbox from '@lucide/svelte/icons/inbox';
 	import MoreHorizontal from '@lucide/svelte/icons/ellipsis';
-	import { menuTransition } from '$lib/transitions';
 	import type { JobSummary, KanbanColumn as KanbanColumnDef, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -16,13 +15,27 @@
 	let { column, jobs, onOpenJob, onRejectAll, onSubmitAll }: Props = $props();
 	let menuOpen = $state(false);
 	let menuClosing = $state(false);
+	let menuStyle = $state('');
+	let menuButtonRef = $state<HTMLButtonElement | null>(null);
 	let menuRef = $state<HTMLElement | null>(null);
 	let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const CLOSE_MS = 130;
 
+	function positionMenu() {
+		if (!menuButtonRef) return;
+		const rect = menuButtonRef.getBoundingClientRect();
+		const right = Math.max(8, window.innerWidth - rect.right);
+		const top = Math.min(rect.bottom + 4, window.innerHeight - 96);
+		menuStyle = `top: ${top}px; right: ${right}px;`;
+	}
+
 	function openMenu() {
-		if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+		if (closeTimer) {
+			clearTimeout(closeTimer);
+			closeTimer = null;
+		}
+		positionMenu();
 		menuClosing = false;
 		menuOpen = true;
 	}
@@ -31,7 +44,9 @@
 		if (!menuOpen) return;
 		menuOpen = false;
 		menuClosing = true;
-		closeTimer = setTimeout(() => { menuClosing = false; }, CLOSE_MS);
+		closeTimer = setTimeout(() => {
+			menuClosing = false;
+		}, CLOSE_MS);
 	}
 
 	function handleRejectAll() {
@@ -53,9 +68,12 @@
 
 <svelte:window onclick={handleWindowClick} />
 
-<div class="flex h-full min-h-0 w-65 flex-col shrink-0 rounded-lg border border-border-subtle bg-surface-overlay/30 {column.columnClass ?? ''}">
-	<div class="flex items-center justify-between shrink-0 px-2 pb-2 pt-2">
-		<span class="text-xs font-semibold uppercase tracking-wide {column.headerClass}">
+<div
+	class="flex h-full min-h-0 w-65 shrink-0 flex-col rounded-lg border border-border-subtle bg-surface-overlay/30 {column.columnClass ??
+		''}"
+>
+	<div class="flex shrink-0 items-center justify-between px-2 pt-2 pb-2">
+		<span class="text-xs font-semibold tracking-wide uppercase {column.headerClass}">
 			{column.title}
 		</span>
 		<div class="flex items-center gap-1.5">
@@ -63,15 +81,20 @@
 			{#if column.canRejectAll}
 				<div class="relative" bind:this={menuRef}>
 					<button
+						bind:this={menuButtonRef}
 						type="button"
 						class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
 						aria-label="Actions"
-						onclick={() => { menuOpen ? closeMenu() : openMenu(); }}
+						onclick={() => {
+							if (menuOpen) closeMenu();
+							else openMenu();
+						}}
 					>
 						<MoreHorizontal size={14} aria-hidden="true" />
 					</button>
 					<div
-						class="t-dropdown absolute right-0 z-20 mt-1 w-40 rounded-md border border-border-default bg-surface-raised p-1 shadow-[var(--shadow-modal)]"
+						class="t-dropdown z-modal fixed w-40 rounded-md border border-border-default bg-surface-raised p-1 shadow-[var(--shadow-modal)]"
+						style={menuStyle}
 						class:is-open={menuOpen}
 						class:is-closing={menuClosing}
 					>
@@ -101,5 +124,15 @@
 		{#each jobs as job (job.id)}
 			<KanbanCard {job} defaultTab={column.defaultTab} onOpen={onOpenJob} />
 		{/each}
+
+		{#if jobs.length === 0}
+			<div
+				class="t-empty-state mt-4 flex min-h-16 flex-col items-center justify-center gap-2 px-3 text-text-faint/80 select-none"
+				aria-label={`${column.title} has no jobs`}
+			>
+				<Inbox size={16} aria-hidden="true" />
+				<span class="text-[12px] font-medium whitespace-nowrap">No jobs found</span>
+			</div>
+		{/if}
 	</div>
 </div>

@@ -7,14 +7,16 @@
 	import X from '@lucide/svelte/icons/x';
 </script>
 
-<div class="z-toast fixed right-4 top-4 flex flex-col gap-2" aria-live="polite">
+<div class="z-toast fixed top-4 right-4 flex flex-col gap-2" aria-live="polite">
 	{#each toastState.toasts as toast (toast.id)}
 		{@const isSuccess = toast.type === 'success'}
 		{@const isError = toast.type === 'error'}
 		<div
-			class="flex min-w-64 max-w-sm items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg
-				{isSuccess ? 'border-status-submitted-border bg-status-submitted-bg text-status-submitted-text' : ''}
-				{isError   ? 'border-danger-border bg-danger-bg text-danger-500' : ''}
+			class="flex max-w-sm min-w-64 items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg
+				{isSuccess
+				? 'border-status-submitted-border bg-status-submitted-bg text-status-submitted-text'
+				: ''}
+				{isError ? 'border-danger-border bg-danger-bg text-danger-500' : ''}
 				{!isSuccess && !isError ? 'border-border-strong bg-surface-raised text-text-primary' : ''}"
 			transition:fly={toastTransition}
 		>

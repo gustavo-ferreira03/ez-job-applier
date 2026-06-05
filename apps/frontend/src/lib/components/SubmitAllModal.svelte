@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { modalTransition } from '$lib/transitions';
+	import { trapFocus } from '$lib/focusTrap';
 
 	interface Props {
 		reviewCount: number;
@@ -18,7 +19,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="fixed inset-0 z-modal flex items-center justify-center bg-black/70 p-4">
+<div class="z-modal fixed inset-0 flex items-center justify-center bg-black/70 p-4">
 	<button
 		class="absolute inset-0 cursor-default"
 		type="button"
@@ -32,6 +33,7 @@
 		aria-modal="true"
 		aria-label="Submit all jobs"
 		tabindex="-1"
+		use:trapFocus={{ onEscape: onClose }}
 		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
@@ -39,7 +41,8 @@
 		<h2 class="text-base font-semibold text-text-primary">Submit all</h2>
 		<p class="mt-2 text-sm text-text-muted">
 			{#if reviewCount > 0}
-				{reviewCount} {reviewCount === 1 ? 'job' : 'jobs'} will be queued for submission on the next execution cycle.
+				{reviewCount}
+				{reviewCount === 1 ? 'job' : 'jobs'} will be queued for submission on the next execution cycle.
 			{:else}
 				There are no ready-for-review jobs to submit right now.
 			{/if}
@@ -58,7 +61,9 @@
 				disabled={submittingAll || reviewCount === 0}
 				onclick={onConfirm}
 			>
-				{submittingAll ? 'Queueing...' : `Submit ${reviewCount} ${reviewCount === 1 ? 'job' : 'jobs'}`}
+				{submittingAll
+					? 'Queueing...'
+					: `Submit ${reviewCount} ${reviewCount === 1 ? 'job' : 'jobs'}`}
 			</button>
 		</div>
 	</div>

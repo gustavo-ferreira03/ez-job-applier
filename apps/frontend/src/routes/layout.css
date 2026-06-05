@@ -1,137 +1,197 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	--font-sans:
+		ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* ─── Fundos ──────────────────────────────────────────────── */
-  --color-surface-base:    #0d0d0f;
-  --color-surface-raised:  #111113;
-  --color-surface-overlay: #18181b;
-  --color-surface-sidebar: #0a0a0c;
-  --color-surface-hover:   #1c1c20;
+	/* ─── Fundos ──────────────────────────────────────────────── */
+	--color-surface-base: #0d0d0f;
+	--color-surface-raised: #111113;
+	--color-surface-overlay: #18181b;
+	--color-surface-sidebar: #0a0a0c;
+	--color-surface-hover: #1c1c20;
 
-  /* ─── Bordas ──────────────────────────────────────────────── */
-  --color-border-subtle:  #1c1c20;
-  --color-border-default: #27272a;
-  --color-border-strong:  #3f3f46;
+	/* ─── Bordas ──────────────────────────────────────────────── */
+	--color-border-subtle: #1c1c20;
+	--color-border-default: #27272a;
+	--color-border-strong: #3f3f46;
 
-  /* ─── Texto ───────────────────────────────────────────────── */
-  --color-text-primary:     #f1f5f9;
-  --color-text-secondary:   #cbd5e1;
-  --color-text-muted:       #94a3b8;
-  --color-text-faint:       #64748b;
-  --color-text-placeholder: #3f3f46;
+	/* ─── Texto ───────────────────────────────────────────────── */
+	--color-text-primary: #f1f5f9;
+	--color-text-secondary: #cbd5e1;
+	--color-text-muted: #94a3b8;
+	--color-text-faint: #8492a6;
+	--color-text-placeholder: #8492a6;
 
-  /* ─── Acento (sky blue) ───────────────────────────────────── */
-  --color-accent-500:  #38bdf8;
-  --color-accent-600:  #0ea5e9;
-  --color-accent-text: #04243a;
+	/* ─── Acento (sky blue) ───────────────────────────────────── */
+	--color-accent-500: #38bdf8;
+	--color-accent-600: #0ea5e9;
+	--color-accent-text: #04243a;
 
-  /* ─── Status ──────────────────────────────────────────────── */
-  --color-status-found-bg:      #1e293b;
-  --color-status-found-text:    #64748b;
-  --color-status-input-bg:      #2d2508;
-  --color-status-input-text:    #fbbf24;
-  --color-status-input-border:  #2a2208;
-  --color-status-review-bg:     #0c2540;
-  --color-status-review-text:   #38bdf8;
-  --color-status-review-border: #0a1e30;
-  --color-status-external-bg:   #2e1065;
-  --color-status-external-text: #a855f7;
-  --color-status-external-border: #2a1040;
-  --color-status-submitted-bg:   #052e16;
-  --color-status-submitted-text: #4ade80;
-  --color-status-submitted-border: #0a3d1c;
-  --color-status-failed-bg:    #1c0a0a;
-  --color-status-failed-text:  #f87171;
+	/* ─── Status ──────────────────────────────────────────────── */
+	--color-status-found-bg: #1e293b;
+	--color-status-found-text: #94a3b8;
+	--color-status-input-bg: #2d2508;
+	--color-status-input-text: #fbbf24;
+	--color-status-input-border: #2a2208;
+	--color-status-review-bg: #0c2540;
+	--color-status-review-text: #38bdf8;
+	--color-status-review-border: #0a1e30;
+	--color-status-external-bg: #2e1065;
+	--color-status-external-text: #d8b4fe;
+	--color-status-external-border: #2a1040;
+	--color-status-submitted-bg: #052e16;
+	--color-status-submitted-text: #4ade80;
+	--color-status-submitted-border: #0a3d1c;
+	--color-status-failed-bg: #1c0a0a;
+	--color-status-failed-text: #f87171;
+	--color-status-unanswered-bg: #431407;
+	--color-status-unanswered-text: #fb923c;
 
-  /* ─── Auto-apply ──────────────────────────────────────────── */
-  --color-autoapply-bg:   #14532d;
-  --color-autoapply-text: #86efac;
+	/* ─── Auto-apply ──────────────────────────────────────────── */
+	--color-autoapply-bg: #14532d;
+	--color-autoapply-text: #86efac;
 
-  /* ─── Danger ──────────────────────────────────────────────── */
-  --color-danger-500: #f87171;
-  --color-danger-600: #ef4444;
-  --color-danger-bg:  #1c0a0a;
-  --color-danger-border: #7f1d1d;
+	/* ─── Danger ──────────────────────────────────────────────── */
+	--color-danger-500: #f87171;
+	--color-danger-600: #ef4444;
+	--color-danger-700: #dc2626;
+	--color-danger-action: #b91c1c;
+	--color-danger-action-hover: #991b1b;
+	--color-danger-bg: #1c0a0a;
+	--color-danger-border: #7f1d1d;
 
-  /* ─── Execution running ───────────────────────────────────── */
-  --color-execution-bg:   #0c2d4a;
-  --color-execution-text: #38bdf8;
+	/* ─── Execution running ───────────────────────────────────── */
+	--color-execution-bg: #0c2d4a;
+	--color-execution-text: #38bdf8;
 
-  /* ─── Success ─────────────────────────────────────────────── */
-  --color-success-500: #4ade80;
+	/* ─── Success ─────────────────────────────────────────────── */
+	--color-success-500: #4ade80;
 
-  /* ─── Z-index ─────────────────────────────────────────────── */
-  --z-drawer: 50;
-  --z-modal:  100;
-  --z-toast:  200;
+	/* ─── Z-index ─────────────────────────────────────────────── */
+	--z-drawer: 50;
+	--z-modal: 100;
+	--z-toast: 200;
 
-  /* ─── Shadows ─────────────────────────────────────────────── */
-  --shadow-drawer: -12px 0 32px rgb(0 0 0 / 0.6);
-  --shadow-modal:  0 24px 56px rgb(0 0 0 / 0.7);
+	/* ─── Shadows ─────────────────────────────────────────────── */
+	--shadow-drawer: -12px 0 32px rgb(0 0 0 / 0.6);
+	--shadow-modal: 0 24px 56px rgb(0 0 0 / 0.7);
 }
 
 /* ── Dropdown transition ────────────────────────────────────── */
 :root {
-  --dropdown-open-dur: 200ms;
-  --dropdown-close-dur: 130ms;
-  --dropdown-pre-scale: 0.97;
-  --dropdown-closing-scale: 0.99;
-  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	--dropdown-open-dur: 200ms;
+	--dropdown-close-dur: 130ms;
+	--dropdown-pre-scale: 0.97;
+	--dropdown-closing-scale: 0.99;
+	--dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:where(button, a, input, select, textarea):focus-visible {
+	outline: 2px solid var(--color-accent-500) !important;
+	outline-offset: 2px;
 }
 
 .t-dropdown {
-  transform-origin: top right;
-  transform: scale(var(--dropdown-pre-scale));
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    transform var(--dropdown-open-dur) var(--dropdown-ease),
-    opacity   var(--dropdown-open-dur) var(--dropdown-ease);
-  will-change: transform, opacity;
+	transform-origin: top right;
+	transform: scale(var(--dropdown-pre-scale));
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		transform var(--dropdown-open-dur) var(--dropdown-ease),
+		opacity var(--dropdown-open-dur) var(--dropdown-ease);
+	will-change: transform, opacity;
 }
 .t-dropdown.is-open {
-  transform: scale(1);
-  opacity: 1;
-  pointer-events: auto;
+	transform: scale(1);
+	opacity: 1;
+	pointer-events: auto;
 }
 .t-dropdown.is-closing {
-  transform: scale(var(--dropdown-closing-scale));
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    transform var(--dropdown-close-dur) var(--dropdown-ease),
-    opacity   var(--dropdown-close-dur) var(--dropdown-ease);
+	transform: scale(var(--dropdown-closing-scale));
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		transform var(--dropdown-close-dur) var(--dropdown-ease),
+		opacity var(--dropdown-close-dur) var(--dropdown-ease);
 }
+
+/* ── Empty state transition ─────────────────────────────────── */
+@keyframes empty-state-enter {
+	from {
+		transform: translateY(3px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+.t-empty-state {
+	animation: empty-state-enter 160ms var(--dropdown-ease) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .t-dropdown { transition: none !important; }
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+	}
+
+	.t-dropdown {
+		transition: none !important;
+	}
+	.animate-pulse-border,
+	.animate-spin,
+	.animate-pulse {
+		animation: none !important;
+	}
+}
+
+@media (pointer: coarse) {
+	:where(button, [role='button'], input, select, textarea) {
+		min-height: 44px;
+	}
+
+	:where(button, [role='button']) {
+		min-width: 44px;
+	}
+
+	:where(input[type='checkbox'], input[type='radio']) {
+		min-height: 20px;
+		min-width: 20px;
+	}
 }
 
 /* ── Processing card ────────────────────────────────────────── */
 @keyframes pulse-border {
-  50% { border-color: rgb(56 189 248 / 0.2); }
+	50% {
+		border-color: rgb(56 189 248 / 0.2);
+	}
 }
 .animate-pulse-border {
-  animation: pulse-border 1.4s ease-in-out infinite;
+	animation: pulse-border 1.4s ease-in-out infinite;
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────── */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: #27272a transparent;
+	scrollbar-width: thin;
+	scrollbar-color: #27272a transparent;
 }
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+	width: 4px;
+	height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+	background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 99px;
+	background: #27272a;
+	border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+	background: #3f3f46;
 }

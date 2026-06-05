@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { modalTransition } from '$lib/transitions';
+	import { trapFocus } from '$lib/focusTrap';
 	import type { KanbanColumn } from '$lib/types';
 
 	interface Props {
@@ -20,7 +21,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="fixed inset-0 z-modal flex items-center justify-center bg-black/70 p-4">
+<div class="z-modal fixed inset-0 flex items-center justify-center bg-black/70 p-4">
 	<button
 		class="absolute inset-0 cursor-default"
 		type="button"
@@ -34,16 +35,20 @@
 		aria-modal="true"
 		aria-label="Reject jobs"
 		tabindex="-1"
+		use:trapFocus={{ onEscape: onClose }}
 		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>
 		<h2 class="text-base font-semibold text-text-primary">Reject all</h2>
 		<p class="mt-2 text-sm text-text-muted">
-			You are about to reject {rejectableCount} {rejectableCount === 1 ? 'job' : 'jobs'} in {column.title}.
+			You are about to reject {rejectableCount}
+			{rejectableCount === 1 ? 'job' : 'jobs'} in {column.title}.
 		</p>
 		{#if rejectableCount === 0}
-			<p class="mt-2 text-[13px] text-text-faint">There are no rejectable jobs in this column right now.</p>
+			<p class="mt-2 text-[13px] text-text-faint">
+				There are no rejectable jobs in this column right now.
+			</p>
 		{/if}
 		<div class="mt-4 flex justify-end gap-2">
 			<button
@@ -55,11 +60,13 @@
 			</button>
 			<button
 				type="button"
-				class="h-8 cursor-pointer rounded-md bg-[#b91c1c] px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#991b1b] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+				class="h-8 cursor-pointer rounded-md bg-danger-action px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-danger-action-hover focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
 				disabled={rejecting || rejectableCount === 0}
 				onclick={onConfirm}
 			>
-				{rejecting ? 'Rejecting...' : `Reject ${rejectableCount} ${rejectableCount === 1 ? 'job' : 'jobs'}`}
+				{rejecting
+					? 'Rejecting...'
+					: `Reject ${rejectableCount} ${rejectableCount === 1 ? 'job' : 'jobs'}`}
 			</button>
 		</div>
 	</div>

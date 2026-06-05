@@ -14,7 +14,9 @@
 
 	type Tab = 'geral' | 'ia' | 'avancado';
 	type SettingsPatch = Partial<{
-		general: Omit<Partial<AppSettings['general']>, 'execution'> & { execution?: Partial<DiscoverConfig> };
+		general: Omit<Partial<AppSettings['general']>, 'execution'> & {
+			execution?: Partial<DiscoverConfig>;
+		};
 		advanced: Partial<AppSettings['advanced']>;
 	}>;
 
@@ -48,10 +50,10 @@
 		{ value: 'volunteer', label: 'Volunteer' }
 	];
 
-	const tabs: { id: Tab; label: string; description: string }[] = [
-		{ id: 'geral', label: 'General', description: 'Search and resume' },
-		{ id: 'ia', label: 'AI', description: 'Model and automation' },
-		{ id: 'avancado', label: 'Advanced', description: 'System and data' }
+	const tabs: { id: Tab; label: string }[] = [
+		{ id: 'geral', label: 'General' },
+		{ id: 'ia', label: 'AI' },
+		{ id: 'avancado', label: 'Advanced' }
 	];
 
 	let activeTab = $state<Tab>('geral');
@@ -154,7 +156,10 @@
 	}
 
 	function handleFilterCriteriaInput(value: string) {
-		appState.settings = { ...appState.settings, llm: { ...appState.settings.llm, filterCriteria: value } };
+		appState.settings = {
+			...appState.settings,
+			llm: { ...appState.settings.llm, filterCriteria: value }
+		};
 		if (filterCriteriaDebounce !== null) clearTimeout(filterCriteriaDebounce);
 		filterCriteriaDebounce = setTimeout(() => {
 			handleLlmSetting({ filterCriteria: value });
@@ -170,24 +175,34 @@
 		const val = blockedKeywordInput.trim();
 		if (!val) return;
 		const list = appState.settings.general.blockedKeywords ?? [];
-		if (!list.includes(val)) scheduleSettingsPatch({ general: { blockedKeywords: [...list, val] } });
+		if (!list.includes(val))
+			scheduleSettingsPatch({ general: { blockedKeywords: [...list, val] } });
 		blockedKeywordInput = '';
 	}
 
 	function removeBlockedKeyword(kw: string) {
-		scheduleSettingsPatch({ general: { blockedKeywords: (appState.settings.general.blockedKeywords ?? []).filter((k) => k !== kw) } });
+		scheduleSettingsPatch({
+			general: {
+				blockedKeywords: (appState.settings.general.blockedKeywords ?? []).filter((k) => k !== kw)
+			}
+		});
 	}
 
 	function addBlockedCompany() {
 		const val = blockedCompanyInput.trim();
 		if (!val) return;
 		const list = appState.settings.general.blockedCompanies ?? [];
-		if (!list.includes(val)) scheduleSettingsPatch({ general: { blockedCompanies: [...list, val] } });
+		if (!list.includes(val))
+			scheduleSettingsPatch({ general: { blockedCompanies: [...list, val] } });
 		blockedCompanyInput = '';
 	}
 
 	function removeBlockedCompany(co: string) {
-		scheduleSettingsPatch({ general: { blockedCompanies: (appState.settings.general.blockedCompanies ?? []).filter((c) => c !== co) } });
+		scheduleSettingsPatch({
+			general: {
+				blockedCompanies: (appState.settings.general.blockedCompanies ?? []).filter((c) => c !== co)
+			}
+		});
 	}
 
 	function setExecution(patch: Partial<DiscoverConfig>) {
@@ -222,7 +237,9 @@
 		try {
 			await api.setDefaultResume(filename);
 			appState.defaultResume = filename;
-			appState.settings = mergeSettings(appState.settings, { general: { defaultResume: filename } });
+			appState.settings = mergeSettings(appState.settings, {
+				general: { defaultResume: filename }
+			});
 			toastState.show('Default resume updated', 'success');
 		} catch {
 			toastState.show('Failed to set default', 'error');
@@ -261,22 +278,32 @@
 	}
 </script>
 
-	<div class="h-full overflow-y-auto">
-	<div class="mx-auto max-w-xl p-6">
+<div class="h-full overflow-y-auto">
+	<div class="mx-auto max-w-2xl p-4 md:p-6">
 		<div class="mb-6">
 			<div>
-				<h2 class="text-[15px] font-semibold text-text-primary">Settings</h2>
-				<p class="mt-1 text-[11px] text-text-faint">Define the profile used by automatic execution.</p>
+				<h2 class="text-base leading-tight font-semibold text-text-primary">Settings</h2>
 			</div>
 
-			<div class="mt-4 grid grid-cols-3 overflow-hidden rounded-lg border border-border-default bg-surface-overlay">
+			<div
+				class="mt-4 flex gap-1 rounded-lg border border-border-subtle bg-surface-sidebar p-1"
+				role="tablist"
+				aria-label="Settings sections"
+			>
 				{#each tabs as tab (tab.id)}
 					<button
 						type="button"
-						class="cursor-pointer px-3 py-2 text-center transition-colors duration-150 focus-visible:outline-none {activeTab === tab.id ? 'bg-accent-500 text-accent-text' : 'text-text-muted hover:bg-surface-hover hover:text-text-secondary'}"
-						onclick={() => { activeTab = tab.id; }}
+						role="tab"
+						aria-selected={activeTab === tab.id}
+						class="min-w-0 flex-1 cursor-pointer rounded-md px-3 py-2 text-center transition-colors duration-150 focus-visible:outline-none {activeTab ===
+						tab.id
+							? 'bg-surface-hover text-text-primary shadow-[inset_0_0_0_1px_var(--color-border-default)]'
+							: 'text-text-muted hover:bg-surface-overlay hover:text-text-secondary'}"
+						onclick={() => {
+							activeTab = tab.id;
+						}}
 					>
-						<span class="block text-[12px] font-semibold">{tab.label}</span>
+						<span class="block truncate text-[12px] font-semibold">{tab.label}</span>
 					</button>
 				{/each}
 			</div>
@@ -286,38 +313,51 @@
 			<div>
 				<section class="mb-6">
 					<div class="mb-4">
-						<h3 class="text-[10px] font-semibold uppercase tracking-wide text-text-faint">Execution profile</h3>
-						<p class="mt-1 text-[11px] text-text-faint">These filters are used directly by the “Start execution” button.</p>
+						<h3 class="text-[13px] font-semibold text-text-primary">Execution profile</h3>
+						<p class="mt-1 text-[11px] text-text-faint">
+							These filters are used directly by the “Start execution” button.
+						</p>
 					</div>
 
 					<div class="space-y-4">
 						<div>
-							<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="settings-keywords">Keywords</label>
+							<label
+								class="mb-1.5 block text-[11px] font-medium text-text-secondary"
+								for="settings-keywords">Keywords</label
+							>
 							<textarea
 								id="settings-keywords"
 								class="min-h-19 w-full resize-none rounded-md border border-border-default bg-surface-overlay px-3 py-2 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
 								placeholder="Software Engineer&#10;Python Developer"
 								value={appState.settings.general.execution.keywords ?? ''}
-								oninput={(e) => setExecution({ keywords: (e.target as HTMLTextAreaElement).value || undefined })}
+								oninput={(e) =>
+									setExecution({ keywords: (e.target as HTMLTextAreaElement).value || undefined })}
 							></textarea>
 							<p class="mt-1 text-[10px] text-text-faint">Required. One keyword per line.</p>
 						</div>
 
 						<div class="grid gap-3 sm:grid-cols-2">
 							<div>
-								<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="settings-location">Location</label>
+								<label
+									class="mb-1.5 block text-[11px] font-medium text-text-secondary"
+									for="settings-location">Location</label
+								>
 								<input
 									id="settings-location"
 									type="text"
 									class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
 									placeholder="Brasil"
 									value={appState.settings.general.execution.location ?? ''}
-									oninput={(e) => setExecution({ location: (e.target as HTMLInputElement).value || undefined })}
+									oninput={(e) =>
+										setExecution({ location: (e.target as HTMLInputElement).value || undefined })}
 								/>
 							</div>
 
 							<div>
-								<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="settings-max-jobs">Max jobs</label>
+								<label
+									class="mb-1.5 block text-[11px] font-medium text-text-secondary"
+									for="settings-max-jobs">Max jobs</label
+								>
 								<input
 									id="settings-max-jobs"
 									type="number"
@@ -335,26 +375,39 @@
 
 						<div class="grid gap-3 sm:grid-cols-2">
 							<div>
-								<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="settings-work-type">Work model</label>
+								<label
+									class="mb-1.5 block text-[11px] font-medium text-text-secondary"
+									for="settings-work-type">Work model</label
+								>
 								<select
 									id="settings-work-type"
 									class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
 									value={appState.settings.general.execution.workType ?? ''}
-									onchange={(e) => setExecution({ workType: (e.target as HTMLSelectElement).value || undefined })}
+									onchange={(e) =>
+										setExecution({ workType: (e.target as HTMLSelectElement).value || undefined })}
 								>
-									{#each WORK_TYPES as opt (opt.value)}<option value={opt.value}>{opt.label}</option>{/each}
+									{#each WORK_TYPES as opt (opt.value)}<option value={opt.value}>{opt.label}</option
+										>{/each}
 								</select>
 							</div>
 
 							<div>
-								<label class="mb-1.5 block text-[11px] font-medium text-text-secondary" for="settings-date-posted">Posted</label>
+								<label
+									class="mb-1.5 block text-[11px] font-medium text-text-secondary"
+									for="settings-date-posted">Posted</label
+								>
 								<select
 									id="settings-date-posted"
 									class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
 									value={appState.settings.general.execution.datePosted ?? ''}
-									onchange={(e) => setExecution({ datePosted: (e.target as HTMLSelectElement).value || undefined })}
+									onchange={(e) =>
+										setExecution({
+											datePosted: (e.target as HTMLSelectElement).value || undefined
+										})}
 								>
-									{#each DATE_POSTED as opt (opt.value)}<option value={opt.value}>{opt.label}</option>{/each}
+									{#each DATE_POSTED as opt (opt.value)}<option value={opt.value}
+											>{opt.label}</option
+										>{/each}
 								</select>
 							</div>
 						</div>
@@ -367,8 +420,16 @@
 										<input
 											type="checkbox"
 											class="accent-accent-500"
-											checked={(appState.settings.general.execution.experienceLevel ?? []).includes(level.value)}
-											onchange={() => setExecution({ experienceLevel: toggle(appState.settings.general.execution.experienceLevel, level.value) })}
+											checked={(appState.settings.general.execution.experienceLevel ?? []).includes(
+												level.value
+											)}
+											onchange={() =>
+												setExecution({
+													experienceLevel: toggle(
+														appState.settings.general.execution.experienceLevel,
+														level.value
+													)
+												})}
 										/>
 										<span class="text-[12px] text-text-muted">{level.label}</span>
 									</label>
@@ -384,8 +445,13 @@
 										<input
 											type="checkbox"
 											class="accent-accent-500"
-											checked={(appState.settings.general.execution.jobType ?? []).includes(jtype.value)}
-											onchange={() => setExecution({ jobType: toggle(appState.settings.general.execution.jobType, jtype.value) })}
+											checked={(appState.settings.general.execution.jobType ?? []).includes(
+												jtype.value
+											)}
+											onchange={() =>
+												setExecution({
+													jobType: toggle(appState.settings.general.execution.jobType, jtype.value)
+												})}
 										/>
 										<span class="text-[12px] text-text-muted">{jtype.label}</span>
 									</label>
@@ -394,22 +460,32 @@
 						</div>
 
 						<div class="space-y-2">
-							{#each [
-								{ key: 'easyApply', label: 'Easy Apply only', desc: 'Only jobs with simplified applications' },
-								{ key: 'under10Applicants', label: 'Under 10 applicants', desc: 'Only jobs with lower competition' },
-								{ key: 'inMyNetwork', label: 'In my network', desc: 'Only jobs at companies in your network' }
-							] as opt (opt.key)}
+							{#each [{ key: 'easyApply', label: 'Easy Apply only', desc: 'Only jobs with simplified applications' }, { key: 'under10Applicants', label: 'Under 10 applicants', desc: 'Only jobs with lower competition' }, { key: 'inMyNetwork', label: 'In my network', desc: 'Only jobs at companies in your network' }] as opt (opt.key)}
 								<button
 									type="button"
 									class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
-									onclick={() => setExecutionOption(opt.key, !(appState.settings.general.execution.options?.[opt.key] as boolean))}
+									onclick={() =>
+										setExecutionOption(
+											opt.key,
+											!(appState.settings.general.execution.options?.[opt.key] as boolean)
+										)}
 								>
 									<div>
 										<p class="text-[12px] font-medium text-text-primary">{opt.label}</p>
 										<p class="text-[10px] text-text-faint">{opt.desc}</p>
 									</div>
-									<div class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {(appState.settings.general.execution.options?.[opt.key] as boolean) ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}">
-										<span class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {(appState.settings.general.execution.options?.[opt.key] as boolean) ? 'left-[18px]' : 'left-[3px]'}"></span>
+									<div
+										class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {(appState
+											.settings.general.execution.options?.[opt.key] as boolean)
+											? 'bg-accent-500'
+											: 'border border-border-default bg-surface-overlay'}"
+									>
+										<span
+											class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {(appState
+												.settings.general.execution.options?.[opt.key] as boolean)
+												? 'left-[18px]'
+												: 'left-[3px]'}"
+										></span>
 									</div>
 								</button>
 							{/each}
@@ -419,21 +495,39 @@
 
 				<section class="mb-6">
 					<div class="mb-4">
-						<h3 class="text-[10px] font-semibold uppercase tracking-wide text-text-faint">Static filters</h3>
-						<p class="mt-1 text-[11px] text-text-faint">Jobs matching these are automatically rejected, regardless of AI settings.</p>
+						<h3 class="text-[13px] font-semibold text-text-primary">Static filters</h3>
+						<p class="mt-1 text-[11px] text-text-faint">
+							Jobs matching these are automatically rejected, regardless of AI settings.
+						</p>
 					</div>
 
 					<div class="space-y-4">
-						{#snippet tagInput(label: string, desc: string, tags: string[], inputVal: string, onInput: (v: string) => void, onAdd: () => void, onRemove: (v: string) => void, onKeydown: (e: KeyboardEvent) => void)}
+						{#snippet tagInput(
+							label: string,
+							desc: string,
+							tags: string[],
+							inputVal: string,
+							onInput: (v: string) => void,
+							onAdd: () => void,
+							onRemove: (v: string) => void,
+							onKeydown: (e: KeyboardEvent) => void
+						)}
 							<div>
 								<p class="mb-1 text-[11px] font-medium text-text-secondary">{label}</p>
 								<p class="mb-2 text-[10px] text-text-faint">{desc}</p>
 								{#if tags.length > 0}
 									<div class="mb-2 flex flex-wrap gap-1.5">
 										{#each tags as tag (tag)}
-											<span class="flex items-center gap-1 rounded-md border border-border-default bg-surface-overlay px-2 py-0.5 text-[11px] text-text-secondary">
+											<span
+												class="flex items-center gap-1 rounded-md border border-border-default bg-surface-overlay px-2 py-0.5 text-[11px] text-text-secondary"
+											>
 												{tag}
-												<button type="button" class="cursor-pointer text-text-faint transition-colors duration-100 hover:text-text-primary focus-visible:outline-none" onclick={() => onRemove(tag)} aria-label="Remove {tag}">×</button>
+												<button
+													type="button"
+													class="cursor-pointer text-text-faint transition-colors duration-100 hover:text-text-primary focus-visible:outline-none"
+													onclick={() => onRemove(tag)}
+													aria-label="Remove {tag}">×</button
+												>
 											</span>
 										{/each}
 									</div>
@@ -446,7 +540,11 @@
 										oninput={(e) => onInput((e.target as HTMLInputElement).value)}
 										onkeydown={onKeydown}
 									/>
-									<button type="button" class="h-7 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-[11px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none" onclick={onAdd}>Add</button>
+									<button
+										type="button"
+										class="h-7 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-[11px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
+										onclick={onAdd}>Add</button
+									>
 								</div>
 							</div>
 						{/snippet}
@@ -456,10 +554,17 @@
 							'Matches job title, description, and skills (whole word, case-insensitive).',
 							appState.settings.general.blockedKeywords ?? [],
 							blockedKeywordInput,
-							(v) => { blockedKeywordInput = v; },
+							(v) => {
+								blockedKeywordInput = v;
+							},
 							addBlockedKeyword,
 							removeBlockedKeyword,
-							(e) => { if (e.key === 'Enter') { e.preventDefault(); addBlockedKeyword(); } }
+							(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									addBlockedKeyword();
+								}
+							}
 						)}
 
 						{@render tagInput(
@@ -467,10 +572,17 @@
 							'Matches the company name that posted the job.',
 							appState.settings.general.blockedCompanies ?? [],
 							blockedCompanyInput,
-							(v) => { blockedCompanyInput = v; },
+							(v) => {
+								blockedCompanyInput = v;
+							},
 							addBlockedCompany,
 							removeBlockedCompany,
-							(e) => { if (e.key === 'Enter') { e.preventDefault(); addBlockedCompany(); } }
+							(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									addBlockedCompany();
+								}
+							}
 						)}
 					</div>
 				</section>
@@ -478,10 +590,12 @@
 				<section class="mb-6">
 					<div class="mb-3 flex items-center justify-between">
 						<div>
-							<h3 class="text-[10px] font-semibold uppercase tracking-wide text-text-faint">Resumes</h3>
+							<h3 class="text-[13px] font-semibold text-text-primary">Resumes</h3>
 							<p class="mt-1 text-[11px] text-text-faint">Required to start execution.</p>
 						</div>
-						<label class="flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary">
+						<label
+							class="flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary"
+						>
 							<Upload size={11} aria-hidden="true" />
 							Upload
 							<input type="file" class="sr-only" accept=".pdf" onchange={handleUpload} />
@@ -489,25 +603,44 @@
 					</div>
 
 					{#if appState.resumes.length === 0}
-						<div class="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle py-10 text-center">
+						<div
+							class="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle py-10 text-center"
+						>
 							<FileText size={24} strokeWidth={1.5} class="text-text-faint" aria-hidden="true" />
 							<p class="text-[11px] text-text-faint">No resumes uploaded</p>
 						</div>
 					{:else}
 						<div class="space-y-1.5">
 							{#each appState.resumes as filename (filename)}
-								<div class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-3 py-2.5">
+								<div
+									class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-3 py-2.5"
+								>
 									<div class="flex min-w-0 flex-1 items-center gap-2">
-										<FileText size={13} strokeWidth={1.75} class="flex-shrink-0 text-text-faint" aria-hidden="true" />
-										<span class="min-w-0 flex-1 truncate text-[12px] text-text-primary">{filename}</span>
+										<FileText
+											size={13}
+											strokeWidth={1.75}
+											class="flex-shrink-0 text-text-faint"
+											aria-hidden="true"
+										/>
+										<span class="min-w-0 flex-1 truncate text-[12px] text-text-primary"
+											>{filename}</span
+										>
 									</div>
 									<div class="flex flex-shrink-0 items-center gap-3">
 										{#if appState.defaultResume === filename}
-											<span class="text-[10px] font-bold text-[#22c55e]">DEFAULT</span>
+											<span class="text-[10px] font-bold text-success-500">DEFAULT</span>
 										{:else}
-											<button type="button" class="cursor-pointer text-[10px] font-medium text-text-faint transition-colors duration-150 hover:text-text-muted focus-visible:outline-none" onclick={() => handleSetDefault(filename)}>Set default</button>
+											<button
+												type="button"
+												class="cursor-pointer text-[10px] font-medium text-text-faint transition-colors duration-150 hover:text-text-muted focus-visible:outline-none"
+												onclick={() => handleSetDefault(filename)}>Set default</button
+											>
 										{/if}
-										<button type="button" class="cursor-pointer text-[10px] font-medium text-[#ef4444] transition-colors duration-150 hover:text-[#dc2626] focus-visible:outline-none" onclick={() => handleDelete(filename)}>Remove</button>
+										<button
+											type="button"
+											class="cursor-pointer text-[10px] font-medium text-danger-600 transition-colors duration-150 hover:text-danger-700 focus-visible:outline-none"
+											onclick={() => handleDelete(filename)}>Remove</button
+										>
 									</div>
 								</div>
 							{/each}
@@ -519,17 +652,25 @@
 			<section class="mb-6">
 				<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div>
-						<h3 class="text-[10px] font-semibold uppercase tracking-wide text-text-faint">Artificial Intelligence</h3>
-						<p class="mt-1 text-[11px] text-text-faint">Control provider, model, and automated behaviors.</p>
+						<h3 class="text-[13px] font-semibold text-text-primary">Artificial Intelligence</h3>
+						<p class="mt-1 text-[11px] text-text-faint">
+							Control provider, model, and automated behaviors.
+						</p>
 					</div>
-					<button type="button" class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3.5 text-[12px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none" onclick={() => (providersModalOpen = true)}>Manage providers</button>
+					<button
+						type="button"
+						class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3.5 text-[12px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
+						onclick={() => (providersModalOpen = true)}>Manage providers</button
+					>
 				</div>
 
 				<div class="mb-4 space-y-1.5">
 					{#each configuredProviders as p (p.id)}
-						<div class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-3 py-2.5">
+						<div
+							class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-3 py-2.5"
+						>
 							<span class="min-w-0 flex-1 text-[12px] text-text-primary">{p.name}</span>
-							<span class="text-[10px] font-bold text-[#22c55e]">CONFIGURED</span>
+							<span class="text-[10px] font-bold text-success-500">CONFIGURED</span>
 						</div>
 					{/each}
 					{#if configuredProviders.length === 0}
@@ -537,37 +678,78 @@
 					{/if}
 				</div>
 
-				<button type="button" class="mb-2 flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none" onclick={() => handleLlmSetting({ enabled: !appState.settings.llm.enabled })}>
+				<button
+					type="button"
+					class="mb-2 flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
+					onclick={() => handleLlmSetting({ enabled: !appState.settings.llm.enabled })}
+				>
 					<div>
 						<p class="text-[12px] font-medium text-text-primary">Enable AI</p>
-						<p class="text-[11px] text-text-faint">{appState.settings.llm.enabled ? 'AI enabled' : 'AI disabled'}</p>
+						<p class="text-[11px] text-text-faint">
+							{appState.settings.llm.enabled ? 'AI enabled' : 'AI disabled'}
+						</p>
 					</div>
-					<div class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {appState.settings.llm.enabled ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}">
-						<span class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {appState.settings.llm.enabled ? 'left-[18px]' : 'left-[3px]'}"></span>
+					<div
+						class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {appState
+							.settings.llm.enabled
+							? 'bg-accent-500'
+							: 'border border-border-default bg-surface-overlay'}"
+					>
+						<span
+							class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {appState
+								.settings.llm.enabled
+								? 'left-[18px]'
+								: 'left-[3px]'}"
+						></span>
 					</div>
 				</button>
 
-				<div class="space-y-2 {appState.settings.llm.enabled ? '' : 'opacity-50'} transition-opacity duration-150">
-					{#each [
-						{ key: 'filterJobs' as const, label: 'Filter jobs', desc: 'Automatically rejects jobs outside your profile' },
-						{ key: 'autoAnswer' as const, label: 'Auto-answer questions', desc: 'Automatically fills application questions' },
-						{ key: 'externalApply' as const, label: 'Apply to external jobs', desc: 'Uses an agent to fill external ATS forms' }
-					] as feat (feat.key)}
-						<button type="button" class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none" onclick={() => handleLlmSetting({ [feat.key]: !appState.settings.llm[feat.key] })}>
+				<div
+					class="space-y-2 {appState.settings.llm.enabled
+						? ''
+						: 'opacity-50'} transition-opacity duration-150"
+				>
+					{#each [{ key: 'filterJobs' as const, label: 'Filter jobs', desc: 'Automatically rejects jobs outside your profile' }, { key: 'autoAnswer' as const, label: 'Auto-answer questions', desc: 'Automatically fills application questions' }, { key: 'externalApply' as const, label: 'Apply to external jobs', desc: 'Uses an agent to fill external ATS forms' }] as feat (feat.key)}
+						<button
+							type="button"
+							class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
+							onclick={() => handleLlmSetting({ [feat.key]: !appState.settings.llm[feat.key] })}
+						>
 							<div>
 								<p class="text-[12px] font-medium text-text-primary">{feat.label}</p>
 								<p class="text-[11px] text-text-faint">{feat.desc}</p>
 							</div>
-							<div class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {appState.settings.llm[feat.key] ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}">
-								<span class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {appState.settings.llm[feat.key] ? 'left-[18px]' : 'left-[3px]'}"></span>
+							<div
+								class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {appState
+									.settings.llm[feat.key]
+									? 'bg-accent-500'
+									: 'border border-border-default bg-surface-overlay'}"
+							>
+								<span
+									class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {appState
+										.settings.llm[feat.key]
+										? 'left-[18px]'
+										: 'left-[3px]'}"
+								></span>
 							</div>
 						</button>
 					{/each}
 
 					{#if appState.settings.llm.filterJobs}
 						<div class="pt-2">
-							<label for="llm-filter-criteria" class="mb-1 block text-[11px] font-medium text-text-secondary">Filter criteria</label>
-							<textarea id="llm-filter-criteria" rows="3" placeholder="Example: Remote senior TypeScript roles only" value={appState.settings.llm.filterCriteria} oninput={(e) => handleFilterCriteriaInput((e.target as HTMLTextAreaElement).value)} class="w-full resize-none rounded-md border border-border-default bg-surface-overlay px-3 py-2 text-[12px] text-text-primary placeholder:text-text-faint focus:border-accent-500 focus:outline-none"></textarea>
+							<label
+								for="llm-filter-criteria"
+								class="mb-1 block text-[11px] font-medium text-text-secondary"
+								>Filter criteria</label
+							>
+							<textarea
+								id="llm-filter-criteria"
+								rows="3"
+								placeholder="Example: Remote senior TypeScript roles only"
+								value={appState.settings.llm.filterCriteria}
+								oninput={(e) => handleFilterCriteriaInput((e.target as HTMLTextAreaElement).value)}
+								class="w-full resize-none rounded-md border border-border-default bg-surface-overlay px-3 py-2 text-[12px] text-text-primary placeholder:text-text-faint focus:border-accent-500 focus:outline-none"
+							></textarea>
 						</div>
 					{/if}
 				</div>
@@ -575,21 +757,54 @@
 		{:else}
 			<div class="space-y-6">
 				<section>
-					<h3 class="mb-3 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Automation</h3>
-					<button type="button" class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none" onclick={() => saveSettingsPatch({ advanced: { browserVisible: !appState.settings.advanced.browserVisible } })}>
+					<h3 class="mb-3 text-[13px] font-semibold text-text-primary">Automation</h3>
+					<button
+						type="button"
+						class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
+						onclick={() =>
+							saveSettingsPatch({
+								advanced: { browserVisible: !appState.settings.advanced.browserVisible }
+							})}
+					>
 						<div class="flex items-center gap-3">
 							{#if appState.settings.advanced.browserVisible}
-								<Eye size={15} strokeWidth={1.75} class="flex-shrink-0 text-accent-500" aria-hidden="true" />
+								<Eye
+									size={15}
+									strokeWidth={1.75}
+									class="flex-shrink-0 text-accent-500"
+									aria-hidden="true"
+								/>
 							{:else}
-								<EyeOff size={15} strokeWidth={1.75} class="flex-shrink-0 text-text-faint" aria-hidden="true" />
+								<EyeOff
+									size={15}
+									strokeWidth={1.75}
+									class="flex-shrink-0 text-text-faint"
+									aria-hidden="true"
+								/>
 							{/if}
 							<div>
-								<p class="text-[12px] font-medium text-text-primary">Show browser during automation</p>
-								<p class="text-[11px] text-text-faint">{appState.settings.advanced.browserVisible ? 'Window visible' : 'Browser runs in the background'}</p>
+								<p class="text-[12px] font-medium text-text-primary">
+									Show browser during automation
+								</p>
+								<p class="text-[11px] text-text-faint">
+									{appState.settings.advanced.browserVisible
+										? 'Window visible'
+										: 'Browser runs in the background'}
+								</p>
 							</div>
 						</div>
-						<div class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {appState.settings.advanced.browserVisible ? 'bg-accent-500' : 'bg-surface-overlay border border-border-default'}">
-							<span class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {appState.settings.advanced.browserVisible ? 'left-[18px]' : 'left-[3px]'}"></span>
+						<div
+							class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {appState
+								.settings.advanced.browserVisible
+								? 'bg-accent-500'
+								: 'border border-border-default bg-surface-overlay'}"
+						>
+							<span
+								class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {appState
+									.settings.advanced.browserVisible
+									? 'left-[18px]'
+									: 'left-[3px]'}"
+							></span>
 						</div>
 					</button>
 
@@ -598,31 +813,73 @@
 							<h4 class="mb-1 text-[12px] font-medium text-text-primary">Search language</h4>
 							<div class="flex overflow-hidden rounded-lg border border-border-default">
 								{#each [{ value: 'pt-BR', label: 'PT-BR' }, { value: 'en-US', label: 'EN-US' }] as opt (opt.value)}
-									<button type="button" class="flex-1 cursor-pointer px-3 py-2 text-[12px] font-medium transition-colors duration-100 focus-visible:outline-none {appState.settings.advanced.searchLocale === opt.value ? 'bg-accent-500 text-surface-base' : 'bg-surface-overlay text-text-muted hover:bg-surface-hover'}" onclick={() => saveSettingsPatch({ advanced: { searchLocale: opt.value as 'pt-BR' | 'en-US' } })}>{opt.label}</button>
+									<button
+										type="button"
+										class="flex-1 cursor-pointer px-3 py-2 text-[12px] font-medium transition-colors duration-100 focus-visible:outline-none {appState
+											.settings.advanced.searchLocale === opt.value
+											? 'bg-accent-500 text-surface-base'
+											: 'bg-surface-overlay text-text-muted hover:bg-surface-hover'}"
+										onclick={() =>
+											saveSettingsPatch({
+												advanced: { searchLocale: opt.value as 'pt-BR' | 'en-US' }
+											})}>{opt.label}</button
+									>
 								{/each}
 							</div>
 						</div>
 
 						<div>
-							<label class="mb-1 block text-[12px] font-medium text-text-primary" for="cycle-max">Max cycle (min)</label>
-							<input id="cycle-max" type="number" min="1" class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none" value={Math.round(appState.settings.advanced.cycleMaxMs / 60_000)} oninput={(e) => setAdvancedNumber('cycleMaxMs', (e.target as HTMLInputElement).value)} />
+							<label class="mb-1 block text-[12px] font-medium text-text-primary" for="cycle-max"
+								>Max cycle (min)</label
+							>
+							<input
+								id="cycle-max"
+								type="number"
+								min="1"
+								class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+								value={Math.round(appState.settings.advanced.cycleMaxMs / 60_000)}
+								oninput={(e) =>
+									setAdvancedNumber('cycleMaxMs', (e.target as HTMLInputElement).value)}
+							/>
 						</div>
 
 						<div>
-							<label class="mb-1 block text-[12px] font-medium text-text-primary" for="interval-ms">Interval (min)</label>
-							<input id="interval-ms" type="number" min="1" class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none" value={Math.round(appState.settings.advanced.intervalMs / 60_000)} oninput={(e) => setAdvancedNumber('intervalMs', (e.target as HTMLInputElement).value)} />
+							<label class="mb-1 block text-[12px] font-medium text-text-primary" for="interval-ms"
+								>Interval (min)</label
+							>
+							<input
+								id="interval-ms"
+								type="number"
+								min="1"
+								class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+								value={Math.round(appState.settings.advanced.intervalMs / 60_000)}
+								oninput={(e) =>
+									setAdvancedNumber('intervalMs', (e.target as HTMLInputElement).value)}
+							/>
 						</div>
 					</div>
 				</section>
 
 				<section>
-					<h3 class="mb-3 text-[10px] font-semibold uppercase tracking-wide text-text-faint">Danger zone</h3>
-					<div class="flex items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3">
+					<h3 class="mb-3 text-[13px] font-semibold text-text-primary">Danger zone</h3>
+					<div
+						class="flex items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3"
+					>
 						<div>
-							<p class="text-[12px] font-medium text-text-primary">Clear all jobs and applications</p>
-							<p class="text-[11px] text-text-faint">Resumes, settings, and execution history are kept.</p>
+							<p class="text-[12px] font-medium text-text-primary">
+								Clear all jobs and applications
+							</p>
+							<p class="text-[11px] text-text-faint">
+								Resumes, settings, and execution history are kept.
+							</p>
 						</div>
-						<button type="button" class="h-8 cursor-pointer flex-shrink-0 rounded-md border px-3 text-[12px] font-medium transition-colors focus-visible:outline-none {clearConfirming ? 'border-[#ef4444] bg-[#1c0a0a] text-[#ef4444] hover:bg-[#2a0f0f]' : 'border-border-default bg-surface-overlay text-[#ef4444] hover:border-[#ef4444]'}" onclick={handleClearDatabase}>
+						<button
+							type="button"
+							class="h-8 flex-shrink-0 cursor-pointer rounded-md border px-3 text-[12px] font-medium transition-colors focus-visible:outline-none {clearConfirming
+								? 'border-danger-600 bg-danger-bg text-danger-600 hover:bg-danger-bg'
+								: 'border-border-default bg-surface-overlay text-danger-600 hover:border-danger-600'}"
+							onclick={handleClearDatabase}
+						>
 							<Trash2 size={13} class="mr-1.5 inline-block" aria-hidden="true" />
 							{clearConfirming ? 'Confirm?' : 'Clear'}
 						</button>
@@ -630,9 +887,14 @@
 				</section>
 			</div>
 		{/if}
-</div>
+	</div>
 </div>
 
 {#if providersModalOpen}
-	<ProvidersModal onClose={() => { providersModalOpen = false; refreshLlmSettings(); }} />
+	<ProvidersModal
+		onClose={() => {
+			providersModalOpen = false;
+			refreshLlmSettings();
+		}}
+	/>
 {/if}

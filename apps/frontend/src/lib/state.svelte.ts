@@ -1,5 +1,19 @@
-import { getResumes, listJobs, getAutoApplyStatus, getAppSettings, listExecutions, getExecutionStatus } from './api';
-import type { AppSettings, AutoApplyStatus, DiscoverConfig, Execution, JobSummary, ExecutionStatus } from './types';
+import {
+	getResumes,
+	listJobs,
+	getAutoApplyStatus,
+	getAppSettings,
+	listExecutions,
+	getExecutionStatus
+} from './api';
+import type {
+	AppSettings,
+	AutoApplyStatus,
+	DiscoverConfig,
+	Execution,
+	JobSummary,
+	ExecutionStatus
+} from './types';
 
 function defaultConfig(): DiscoverConfig {
 	return { provider: 'linkedin', options: { easyApply: true } };
@@ -7,7 +21,12 @@ function defaultConfig(): DiscoverConfig {
 
 function defaultSettings(): AppSettings {
 	return {
-		general: { execution: defaultConfig(), defaultResume: null, blockedKeywords: [], blockedCompanies: [] },
+		general: {
+			execution: defaultConfig(),
+			defaultResume: null,
+			blockedKeywords: [],
+			blockedCompanies: []
+		},
 		llm: {
 			enabled: false,
 			provider: 'anthropic',
@@ -17,7 +36,12 @@ function defaultSettings(): AppSettings {
 			externalApply: false,
 			filterCriteria: ''
 		},
-		advanced: { browserVisible: false, searchLocale: 'pt-BR', cycleMaxMs: 3_600_000, intervalMs: 14_400_000 }
+		advanced: {
+			browserVisible: false,
+			searchLocale: 'pt-BR',
+			cycleMaxMs: 3_600_000,
+			intervalMs: 14_400_000
+		}
 	};
 }
 
@@ -25,7 +49,16 @@ class AppState {
 	jobs = $state<JobSummary[]>([]);
 	executions = $state<Execution[]>([]);
 	autoApply = $state<AutoApplyStatus>({ running: false, applied: 0, failed: 0 });
-	execution = $state<ExecutionStatus>({ active: false, running: false, paused: false, actionNeeded: false, nextRunAt: null, cycleMaxMs: 3_600_000, intervalMs: 14_400_000, config: null });
+	execution = $state<ExecutionStatus>({
+		active: false,
+		running: false,
+		paused: false,
+		actionNeeded: false,
+		nextRunAt: null,
+		cycleMaxMs: 3_600_000,
+		intervalMs: 14_400_000,
+		config: null
+	});
 	settings = $state<AppSettings>(defaultSettings());
 	resumes = $state<string[]>([]);
 	defaultResume = $state<string | null>(null);
@@ -37,14 +70,15 @@ class AppState {
 
 	async init() {
 		try {
-			const [jobsRes, resumesRes, autoApplyRes, settingsRes, executionsRes, execRes] = await Promise.all([
-				listJobs(),
-				getResumes(),
-				getAutoApplyStatus(),
-				getAppSettings(),
-				listExecutions(),
-				getExecutionStatus()
-			]);
+			const [jobsRes, resumesRes, autoApplyRes, settingsRes, executionsRes, execRes] =
+				await Promise.all([
+					listJobs(),
+					getResumes(),
+					getAutoApplyStatus(),
+					getAppSettings(),
+					listExecutions(),
+					getExecutionStatus()
+				]);
 			this.jobs = jobsRes.jobs;
 			this.resumes = resumesRes.resumes;
 			this.defaultResume = resumesRes.default;

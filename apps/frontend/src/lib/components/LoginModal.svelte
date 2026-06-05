@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { modalTransition } from '$lib/transitions';
+	import { trapFocus } from '$lib/focusTrap';
 	import X from '@lucide/svelte/icons/x';
 
 	interface Props {
@@ -16,24 +17,30 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="fixed inset-0 z-modal flex items-start justify-center bg-black/70 p-4">
-	<button class="absolute inset-0 cursor-default" type="button" aria-label="Close" onclick={onClose}></button>
+<div class="z-modal fixed inset-0 flex items-start justify-center bg-black/70 p-4">
+	<button class="absolute inset-0 cursor-default" type="button" aria-label="Close" onclick={onClose}
+	></button>
 
 	<div
-		class="relative z-10 mt-8 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)] pb-1"
+		class="relative z-10 mt-8 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised pb-1 shadow-[var(--shadow-modal)]"
 		style="max-height: calc(100vh - 80px)"
 		role="dialog"
 		aria-modal="true"
 		aria-label="LinkedIn login"
 		tabindex="-1"
+		use:trapFocus={{ onEscape: onClose }}
 		transition:fly={modalTransition}
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={(e) => e.stopPropagation()}
 	>
-		<div class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4">
+		<div
+			class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4"
+		>
 			<div>
 				<h2 class="text-[13px] font-semibold text-text-primary">LinkedIn login required</h2>
-				<p class="text-[11px] text-text-muted">Log in in the window below. The system will resume automatically.</p>
+				<p class="text-[11px] text-text-muted">
+					Log in in the window below. The system will resume automatically.
+				</p>
 			</div>
 			<button
 				type="button"
@@ -46,11 +53,7 @@
 		</div>
 
 		<div class="w-full overflow-hidden bg-black" style="aspect-ratio: 1280/800;">
-			<iframe
-				class="h-full w-full border-0"
-				src="/vnc"
-				title="Server browser"
-			></iframe>
+			<iframe class="h-full w-full border-0" src="/vnc" title="Server browser"></iframe>
 		</div>
 	</div>
 </div>

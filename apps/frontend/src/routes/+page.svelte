@@ -10,7 +10,7 @@
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { appState } from '$lib/state.svelte';
-	import { startAutoApply, stopAutoApply, startExecution, stopExecution, pauseExecution, resumeExecution } from '$lib/api';
+	import { startExecution, stopExecution, pauseExecution, resumeExecution } from '$lib/api';
 	import { toastState } from '$lib/toast.svelte';
 	import type { JobSummary, KanbanTab, Page } from '$lib/types';
 
@@ -30,28 +30,6 @@
 
 	function openJob(job: JobSummary, tab: KanbanTab) {
 		selectedJob = { job, tab };
-	}
-
-	async function handleToggleAutoApply() {
-		if (appState.autoApply.running) {
-			try {
-				await stopAutoApply();
-				appState.autoApply = { ...appState.autoApply, running: false };
-				appState.stopAutoApplyPolling();
-				toastState.show('Auto-apply stopped', 'success');
-			} catch {
-				toastState.show('Failed to stop auto-apply', 'error');
-			}
-		} else {
-			try {
-				await startAutoApply();
-				appState.autoApply = { running: true, applied: 0, failed: 0 };
-				appState.startAutoApplyPolling();
-				toastState.show('Auto-apply started', 'success');
-			} catch {
-				toastState.show('Failed to start auto-apply', 'error');
-			}
-		}
 	}
 
 	async function handleStartExecution() {
@@ -103,12 +81,18 @@
 		}
 	}
 
-
 	const pageTitles: Record<Page, string> = {
 		pipeline: 'Pipeline',
 		tabela: 'Table',
 		discoveries: 'History',
 		configuracoes: 'Settings'
+	};
+
+	const pageDescriptions: Record<Page, string> = {
+		pipeline: 'Move each application through review, questions, submission, or rejection.',
+		tabela: 'Search and compare every discovered job in one dense list.',
+		discoveries: 'Audit past executions and search inputs.',
+		configuracoes: 'Define the profile used by automatic execution.'
 	};
 
 	const actionCounts = $derived({
@@ -117,7 +101,8 @@
 		).length,
 		needsAction: appState.jobs.filter((j) =>
 			['NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL'].includes(j.status)
-		).length
+		).length,
+		review: appState.jobs.filter((j) => j.status === 'READY_FOR_REVIEW').length
 	});
 </script>
 
@@ -125,32 +110,63 @@
 	<title>EZJobApplier</title>
 </svelte:head>
 
-<div class="flex h-screen overflow-hidden bg-surface-base font-sans text-text-primary">
+<div
+	class="flex h-dvh flex-col overflow-hidden bg-surface-base font-sans text-text-primary md:flex-row"
+>
 	<Sidebar
 		{activePage}
 		execution={appState.execution}
-		onNavigate={(p) => { activePage = p; }}
+		onNavigate={(p) => {
+			activePage = p;
+		}}
 		onStartExecution={handleStartExecution}
 		onStopExecution={handleStopExecution}
 		onPauseExecution={handlePauseExecution}
 		onResumeExecution={handleResumeExecution}
-		onOpenLogin={() => { loginModalOpen = true; }}
+		onOpenLogin={() => {
+			loginModalOpen = true;
+		}}
 	/>
 
-	<div class="flex flex-1 flex-col overflow-hidden">
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		{#if activePage !== 'configuracoes' && activePage !== 'discoveries'}
-			<header class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-3.5">
-				<h1 class="text-[14px] font-semibold text-text-primary">{pageTitles[activePage]}</h1>
-				<p class="text-[11px] text-text-faint">
-					{actionCounts.total} active jobs
-					{#if actionCounts.needsAction > 0}
-						· <span class="text-[#ca8a04]">{actionCounts.needsAction} need action</span>
+			<header
+				class="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-base/95 px-4 py-3 md:px-5 md:py-4"
+			>
+				<div class="min-w-0">
+					<h1 class="text-base leading-tight font-semibold text-text-primary">
+						{pageTitles[activePage]}
+					</h1>
+					<p class="mt-0.5 max-w-[38rem] text-[12px] leading-snug text-text-faint">
+						{pageDescriptions[activePage]}
+					</p>
+				</div>
+
+				<div class="flex flex-wrap items-center gap-2 text-[11px]">
+					<span
+						class="rounded-full border border-border-default px-2.5 py-1 font-medium text-text-secondary"
+					>
+						{actionCounts.total} active jobs
+					</span>
+					{#if actionCounts.review > 0}
+						<span
+							class="rounded-full bg-status-review-bg px-2.5 py-1 font-medium text-status-review-text"
+						>
+							{actionCounts.review} for review
+						</span>
 					{/if}
-				</p>
+					{#if actionCounts.needsAction > 0}
+						<span
+							class="rounded-full bg-status-input-bg px-2.5 py-1 font-medium text-status-input-text"
+						>
+							{actionCounts.needsAction} need action
+						</span>
+					{/if}
+				</div>
 			</header>
 		{/if}
 
-		<main class="relative flex-1 overflow-hidden">
+		<main class="relative min-h-0 flex-1 overflow-hidden">
 			{#key activePage}
 				<div class="h-full" in:fade={{ duration: 120 }}>
 					{#if activePage === 'pipeline'}
@@ -169,7 +185,9 @@
 				<JobModal
 					job={selectedJob.job}
 					initialTab={selectedJob.tab}
-					onClose={() => { selectedJob = null; }}
+					onClose={() => {
+						selectedJob = null;
+					}}
 				/>
 			{/if}
 		</main>
@@ -177,7 +195,11 @@
 </div>
 
 {#if loginModalOpen}
-	<LoginModal onClose={() => { loginModalOpen = false; }} />
+	<LoginModal
+		onClose={() => {
+			loginModalOpen = false;
+		}}
+	/>
 {/if}
 
 <Toast />

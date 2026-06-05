@@ -1,5 +1,14 @@
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { AppSettings, ApplicationStatus, AutoApplyStatus, Execution, JobDetail, JobSummary, ExecutionStatus, LlmSettings } from './types';
+import type {
+	AppSettings,
+	ApplicationStatus,
+	AutoApplyStatus,
+	Execution,
+	JobDetail,
+	JobSummary,
+	ExecutionStatus,
+	LlmSettings
+} from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -63,13 +72,19 @@ export function getExecution(id: string): Promise<Execution> {
 	return get(`/executions/${id}`);
 }
 
-
 // Applications
-export function saveAnswers(jobId: number, answers: Record<string, string>): Promise<{ ok: boolean }> {
+export function saveAnswers(
+	jobId: number,
+	answers: Record<string, string>
+): Promise<{ ok: boolean }> {
 	return post(`/jobs/${jobId}/answers`, { answers });
 }
 
-export function applyToJob(jobId: number, answers?: Record<string, string>, resumeFilename?: string): Promise<unknown> {
+export function applyToJob(
+	jobId: number,
+	answers?: Record<string, string>,
+	resumeFilename?: string
+): Promise<unknown> {
 	return post(`/jobs/${jobId}/apply`, { answers, resumeFilename });
 }
 
@@ -195,10 +210,23 @@ export function updateLlmSettings(update: Partial<LlmSettings>): Promise<LlmSett
 	return patch('/settings/llm', update);
 }
 
-export function startOAuth(provider: string): Promise<{ sessionId: string; type: 'browser' | 'device_code' }> {
+export function startOAuth(
+	provider: string
+): Promise<{ sessionId: string; type: 'browser' | 'device_code' }> {
 	return post(`/settings/llm/providers/${encodeURIComponent(provider)}/oauth/start`);
 }
 
-export function pollOAuth(provider: string, sessionId: string): Promise<{ status: string; url?: string; userCode?: string; verificationUri?: string; error?: string }> {
-	return get(`/settings/llm/providers/${encodeURIComponent(provider)}/oauth/poll?sessionId=${encodeURIComponent(sessionId)}`);
+export function pollOAuth(
+	provider: string,
+	sessionId: string
+): Promise<{
+	status: string;
+	url?: string;
+	userCode?: string;
+	verificationUri?: string;
+	error?: string;
+}> {
+	return get(
+		`/settings/llm/providers/${encodeURIComponent(provider)}/oauth/poll?sessionId=${encodeURIComponent(sessionId)}`
+	);
 }

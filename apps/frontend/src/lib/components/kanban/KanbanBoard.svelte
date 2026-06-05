@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { fly, fade } from 'svelte/transition';
 	import KanbanColumn from './KanbanColumn.svelte';
 	import RejectAllModal from '$lib/components/RejectAllModal.svelte';
-	import { modalTransition, placeholderTransition } from '$lib/transitions';
 	import * as api from '$lib/api';
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
-	import type { ApplicationStatus, JobSummary, KanbanColumn as KanbanColumnDef, KanbanTab } from '$lib/types';
+	import type {
+		ApplicationStatus,
+		JobSummary,
+		KanbanColumn as KanbanColumnDef,
+		KanbanTab
+	} from '$lib/types';
 	import SubmitAllModal from '$lib/components/SubmitAllModal.svelte';
 
 	interface Props {
@@ -88,9 +91,7 @@
 		}
 	];
 
-	const rejectableCount = $derived(
-		rejectColumn ? countRejectableJobs(rejectColumn) : 0
-	);
+	const rejectableCount = $derived(rejectColumn ? countRejectableJobs(rejectColumn) : 0);
 
 	function jobsForColumn(col: KanbanColumnDef) {
 		return jobs.filter((j) => col.statuses.includes(j.status));
@@ -109,7 +110,10 @@
 		submittingAll = true;
 		try {
 			const result = await api.approveAllReadyForReview();
-			toastState.show(`${result.approved} ${result.approved === 1 ? 'job queued' : 'jobs queued'} for submission`, 'success');
+			toastState.show(
+				`${result.approved} ${result.approved === 1 ? 'job queued' : 'jobs queued'} for submission`,
+				'success'
+			);
 			submitAllOpen = false;
 			await appState.refreshJobs();
 		} catch {
@@ -124,7 +128,10 @@
 		rejecting = true;
 		try {
 			const result = await api.rejectJobsByStatus(rejectColumn.statuses);
-			toastState.show(`${result.rejected} ${result.rejected === 1 ? 'job rejected' : 'jobs rejected'}`, 'success');
+			toastState.show(
+				`${result.rejected} ${result.rejected === 1 ? 'job rejected' : 'jobs rejected'}`,
+				'success'
+			);
 			rejectColumn = null;
 			await appState.refreshJobs();
 		} catch {
@@ -135,17 +142,18 @@
 	}
 </script>
 
-<section
-	class="flex h-full gap-4 overflow-x-auto p-4"
-	aria-label="Application pipeline"
->
+<section class="flex h-full gap-4 overflow-x-auto p-4" aria-label="Application pipeline">
 	{#each columns as col (col.id)}
 		<KanbanColumn
 			column={col}
 			jobs={jobsForColumn(col)}
-			onOpenJob={onOpenJob}
-			onRejectAll={(column) => { rejectColumn = column; }}
-			onSubmitAll={() => { submitAllOpen = true; }}
+			{onOpenJob}
+			onRejectAll={(column) => {
+				rejectColumn = column;
+			}}
+			onSubmitAll={() => {
+				submitAllOpen = true;
+			}}
 		/>
 	{/each}
 </section>
@@ -155,7 +163,9 @@
 		{submittingAll}
 		reviewCount={jobs.filter((j) => j.status === 'READY_FOR_REVIEW' && !j.processing).length}
 		onConfirm={confirmSubmitAll}
-		onClose={() => { submitAllOpen = false; }}
+		onClose={() => {
+			submitAllOpen = false;
+		}}
 	/>
 {/if}
 
@@ -165,6 +175,8 @@
 		{rejectableCount}
 		{rejecting}
 		onConfirm={confirmRejectAll}
-		onClose={() => { rejectColumn = null; }}
+		onClose={() => {
+			rejectColumn = null;
+		}}
 	/>
 {/if}

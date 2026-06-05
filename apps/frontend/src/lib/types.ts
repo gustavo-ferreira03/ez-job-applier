@@ -113,12 +113,12 @@ export interface KanbanColumn {
 export type Page = 'pipeline' | 'tabela' | 'discoveries' | 'configuracoes';
 
 export interface ExecutionStatus {
-    active: boolean;
-    running: boolean;
-    paused: boolean;
-    actionNeeded: boolean;
-    nextRunAt: string | null;
-    cycleMaxMs: number;
-    intervalMs: number;
-    config: DiscoverConfig | null;
+	active: boolean;
+	running: boolean;
+	paused: boolean;
+	actionNeeded: boolean;
+	nextRunAt: string | null;
+	cycleMaxMs: number;
+	intervalMs: number;
+	config: DiscoverConfig | null;
 }

@@ -3,7 +3,12 @@
 	import type { Execution } from '$lib/types';
 
 	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleDateString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+		return new Date(iso).toLocaleDateString('en-US', {
+			day: '2-digit',
+			month: 'short',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 	}
 
 	function formatDuration(start: string, end: string | null): string {
@@ -39,8 +44,10 @@
 			const map: Record<string, string> = { remote: 'Remote', hybrid: 'Hybrid', onsite: 'On-site' };
 			parts.push(map[cfg.workType] ?? cfg.workType);
 		}
-		if (cfg.experienceLevel?.length) parts.push(cfg.experienceLevel.map((level) => experienceMap[level] ?? level).join(', '));
-		if (cfg.jobType?.length) parts.push(cfg.jobType.map((type) => jobTypeMap[type] ?? type).join(', '));
+		if (cfg.experienceLevel?.length)
+			parts.push(cfg.experienceLevel.map((level) => experienceMap[level] ?? level).join(', '));
+		if (cfg.jobType?.length)
+			parts.push(cfg.jobType.map((type) => jobTypeMap[type] ?? type).join(', '));
 		if (cfg.options?.easyApply) parts.push('Easy Apply');
 		if (cfg.options?.under10Applicants) parts.push('< 10 applicants');
 		if (cfg.options?.inMyNetwork) parts.push('In my network');
@@ -67,33 +74,56 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3">
+	<div
+		class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-4 py-4 md:px-5"
+	>
 		<div>
-			<h2 class="text-sm font-semibold text-text-primary">Execution history</h2>
-			<p class="text-[13px] text-text-muted">{appState.executions.length} executions</p>
+			<h2 class="text-base leading-tight font-semibold text-text-primary">Execution history</h2>
+			<p class="mt-0.5 text-[12px] text-text-faint">
+				Review past runs, filters, duration, and outcomes.
+			</p>
 		</div>
+		<span
+			class="rounded-full border border-border-default px-2.5 py-1 text-[11px] font-medium text-text-secondary"
+		>
+			{appState.executions.length} executions
+		</span>
 	</div>
 
-	<div class="flex-1 overflow-y-auto p-4">
+	<div class="flex-1 overflow-y-auto p-4 md:p-5">
 		{#if appState.executions.length === 0}
-			<p class="text-[13px] text-text-faint">No executions yet. Start one from the sidebar button.</p>
+			<div
+				class="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border-default bg-surface-raised/40 px-6 text-center"
+			>
+				<p class="text-[13px] font-medium text-text-secondary">No executions yet</p>
+				<p class="mt-1 max-w-sm text-[12px] leading-snug text-text-faint">
+					Start execution from the sidebar after setting keywords and a default resume.
+				</p>
+			</div>
 		{:else}
 			<div class="space-y-2">
 				{#each appState.executions as ex (ex.id)}
-					<div class="rounded-md border border-border-subtle bg-surface-raised p-3">
+					<div
+						class="rounded-md border border-border-subtle bg-surface-raised p-3 transition-colors duration-150 hover:border-border-default"
+					>
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0 flex-1">
-								<p class="truncate text-[13px] font-medium text-text-primary">{configSummary(ex)}</p>
+								<p class="truncate text-[13px] font-medium text-text-primary">
+									{configSummary(ex)}
+								</p>
 								<p class="mt-0.5 text-xs text-text-muted">
 									{formatDate(ex.startedAt)}
-									{#if ex.finishedAt} · {formatDuration(ex.startedAt, ex.finishedAt)}{/if}
+									{#if ex.finishedAt}
+										· {formatDuration(ex.startedAt, ex.finishedAt)}{/if}
 									· {ex.discovered} jobs
 								</p>
 								{#if ex.errorMessage}
 									<p class="mt-1 text-xs text-danger-500">{ex.errorMessage}</p>
 								{/if}
 							</div>
-							<span class="shrink-0 rounded-sm px-2 py-0.5 text-xs font-medium {statusClass[ex.status]}">
+							<span
+								class="shrink-0 rounded-sm px-2 py-0.5 text-xs font-medium {statusClass[ex.status]}"
+							>
 								{statusLabel[ex.status]}
 							</span>
 						</div>

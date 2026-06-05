@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
+	import { SvelteSet } from 'svelte/reactivity';
+	import Inbox from '@lucide/svelte/icons/inbox';
 	import StatusBadge from './StatusBadge.svelte';
 	import { contentTransition } from '$lib/transitions';
 	import type { ApplicationStatus, JobSummary, KanbanTab } from '$lib/types';
@@ -13,11 +15,16 @@
 
 	let statusFilter = $state<ApplicationStatus | ''>('');
 	let search = $state('');
-	let selected = $state<Set<number>>(new Set());
+	let selected = new SvelteSet<number>();
 
 	const statusLabels: Record<ApplicationStatus, string> = {
-		FOUND: 'Found', NEEDS_INPUT: 'Needs Answer', READY_FOR_REVIEW: 'Review',
-		APPROVED: 'Queued', EXTERNAL: 'External', SUBMITTED: 'Submitted', REJECTED: 'Rejected',
+		FOUND: 'Found',
+		NEEDS_INPUT: 'Needs Answer',
+		READY_FOR_REVIEW: 'Review',
+		APPROVED: 'Queued',
+		EXTERNAL: 'External',
+		SUBMITTED: 'Submitted',
+		REJECTED: 'Rejected',
 		FAILED: 'Failed'
 	};
 
@@ -37,15 +44,18 @@
 	);
 
 	function toggleSelect(id: number) {
-		const next = new Set(selected);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		selected = next;
+		if (selected.has(id)) selected.delete(id);
+		else selected.add(id);
 	}
 
 	function toggleAll() {
-		if (selected.size === filtered.length) selected = new Set();
-		else selected = new Set(filtered.map((j) => j.id));
+		if (selected.size === filtered.length) {
+			selected.clear();
+			return;
+		}
+
+		selected.clear();
+		for (const job of filtered) selected.add(job.id);
 	}
 
 	function relativeDate(iso: string): string {
@@ -57,7 +67,14 @@
 	}
 
 	const allStatuses: ApplicationStatus[] = [
-		'FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'APPROVED', 'EXTERNAL', 'SUBMITTED', 'FAILED', 'REJECTED'
+		'FOUND',
+		'NEEDS_INPUT',
+		'READY_FOR_REVIEW',
+		'APPROVED',
+		'EXTERNAL',
+		'SUBMITTED',
+		'FAILED',
+		'REJECTED'
 	];
 
 	const allSelected = $derived(filtered.length > 0 && selected.size === filtered.length);
@@ -65,10 +82,13 @@
 
 <div class="flex h-full flex-col">
 	<!-- Toolbar -->
-	<div class="flex flex-shrink-0 items-center gap-2 border-b border-border-subtle px-4 py-2.5">
+	<div
+		class="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-3"
+	>
 		<select
-			class="h-8 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-muted focus:border-border-strong focus:outline-none"
+			class="h-8 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-secondary focus:border-border-strong focus:outline-none"
 			bind:value={statusFilter}
+			aria-label="Filter jobs by status"
 		>
 			<option value="">All statuses</option>
 			{#each allStatuses as s (s)}
@@ -78,9 +98,10 @@
 
 		<input
 			type="text"
-			placeholder="Search jobs..."
-			class="h-8 flex-1 rounded-md border border-border-subtle bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-default focus:outline-none"
+			placeholder="Search title, company, or skill"
+			class="h-8 min-w-48 flex-1 rounded-md border border-border-subtle bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-placeholder focus:border-border-default focus:outline-none"
 			bind:value={search}
+			aria-label="Search jobs"
 		/>
 
 		<span class="text-[11px] text-text-faint">{filtered.length} jobs</span>
@@ -94,7 +115,9 @@
 					<th class="w-9 px-3 py-2.5 text-left">
 						<button
 							type="button"
-							class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {allSelected ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
+							class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {allSelected
+								? 'border-accent-500 bg-accent-500'
+								: 'bg-transparent'} focus-visible:outline-none"
 							onclick={toggleAll}
 							aria-label="Select all"
 						>
@@ -103,11 +126,26 @@
 							{/if}
 						</button>
 					</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Job</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Company</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Location</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Status</th>
-					<th class="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-text-faint">Date</th>
+					<th
+						class="px-3 py-2.5 text-left text-[10px] font-semibold tracking-wide text-text-faint uppercase"
+						>Job</th
+					>
+					<th
+						class="px-3 py-2.5 text-left text-[10px] font-semibold tracking-wide text-text-faint uppercase"
+						>Company</th
+					>
+					<th
+						class="px-3 py-2.5 text-left text-[10px] font-semibold tracking-wide text-text-faint uppercase"
+						>Location</th
+					>
+					<th
+						class="px-3 py-2.5 text-left text-[10px] font-semibold tracking-wide text-text-faint uppercase"
+						>Status</th
+					>
+					<th
+						class="px-3 py-2.5 text-left text-[10px] font-semibold tracking-wide text-text-faint uppercase"
+						>Date</th
+					>
 				</tr>
 			</thead>
 			<tbody>
@@ -117,10 +155,21 @@
 						onclick={() => onOpenJob(job, 'info')}
 						in:fade={contentTransition}
 					>
-						<td class="px-3 py-2.5" onclick={(e) => { e.stopPropagation(); toggleSelect(job.id); }}>
+						<td
+							class="px-3 py-2.5"
+							onclick={(e) => {
+								e.stopPropagation();
+								toggleSelect(job.id);
+							}}
+							onkeydown={(e) => e.stopPropagation()}
+						>
 							<button
 								type="button"
-								class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {selected.has(job.id) ? 'bg-accent-500 border-accent-500' : 'bg-transparent'} focus-visible:outline-none"
+								class="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-sm border border-border-default {selected.has(
+									job.id
+								)
+									? 'border-accent-500 bg-accent-500'
+									: 'bg-transparent'} focus-visible:outline-none"
 								aria-label="Select job"
 							>
 								{#if selected.has(job.id)}
@@ -129,11 +178,24 @@
 							</button>
 						</td>
 						<td class="px-3 py-2.5">
-							<p class="font-medium text-text-primary">{job.title}</p>
+							<button
+								type="button"
+								class="max-w-full cursor-pointer truncate text-left font-medium text-text-primary transition-colors duration-100 hover:text-accent-500 focus-visible:outline-none"
+								aria-label={`Open ${job.title} at ${job.company}`}
+								onclick={(e) => {
+									e.stopPropagation();
+									onOpenJob(job, 'info');
+								}}
+							>
+								{job.title}
+							</button>
 							{#if job.skills.length > 0}
 								<div class="mt-0.5 flex flex-wrap gap-1">
 									{#each job.skills.slice(0, 4) as skill (skill)}
-										<span class="rounded-sm bg-surface-hover px-1 py-0.5 text-[10px] text-text-faint">{skill}</span>
+										<span
+											class="rounded-sm bg-surface-hover px-1 py-0.5 text-[10px] text-text-faint"
+											>{skill}</span
+										>
 									{/each}
 									{#if job.skills.length > 4}
 										<span class="text-[10px] text-text-faint">+{job.skills.length - 4}</span>
@@ -142,7 +204,7 @@
 							{/if}
 						</td>
 						<td class="px-3 py-2.5 text-text-muted">{job.company}</td>
-						<td class="px-3 py-2.5 text-text-muted">{job.location || '—'}</td>
+						<td class="px-3 py-2.5 text-text-muted">{job.location || 'Not listed'}</td>
 						<td class="px-3 py-2.5"><StatusBadge status={job.status} size="sm" /></td>
 						<td class="px-3 py-2.5 text-text-faint">{relativeDate(job.createdAt)}</td>
 					</tr>
@@ -150,8 +212,14 @@
 
 				{#if filtered.length === 0}
 					<tr>
-						<td colspan="6" class="py-16 text-center text-[12px] text-text-faint">
-							No jobs found
+						<td colspan="6" class="py-10 text-center">
+							<div
+								class="t-empty-state mx-auto inline-flex items-center gap-2 text-text-faint"
+								aria-label="No jobs match the current filters"
+							>
+								<Inbox size={18} aria-hidden="true" />
+								<span class="text-[12px] font-medium whitespace-nowrap">No matches</span>
+							</div>
 						</td>
 					</tr>
 				{/if}
