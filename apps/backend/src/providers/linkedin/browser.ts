@@ -1,16 +1,11 @@
 import { launchContext } from "cloakbrowser";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import type { BrowserContext } from "playwright-core";
 
 let activeContext: BrowserContext | null = null;
 
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const backendRoot = moduleDir.includes(`${path.sep}dist${path.sep}`)
-    ? path.resolve(moduleDir, "..", "..", "..")
-    : path.resolve(moduleDir, "..", "..", "..");
-const storageDir = path.join(backendRoot, "storage");
+const storageDir = path.resolve("storage");
 const sessionFilePath = path.join(storageDir, "linkedin-session.json");
 
 async function existingSessionFile(): Promise<string | undefined> {

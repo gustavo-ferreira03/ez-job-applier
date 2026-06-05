@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        PUBLIC_API_URL: ${PUBLIC_API_URL}
+    init: true
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+      - "3000:3000"
+    environment:
+      FRONTEND_PORT: 3001
+    volumes:
+      - app-storage:/app/apps/backend/storage
+
+volumes:
+  app-storage:
