@@ -407,7 +407,7 @@
 							{/if}
 
 						{:else if job.status === 'APPROVED'}
-							<p class="text-sm text-text-muted">Application queued. The bot will submit it on the next execution.</p>
+							<p class="text-sm text-text-muted">Application queued.</p>
 
 						{:else if job.status === 'EXTERNAL'}
 							{#if detail.applicationUrl}
