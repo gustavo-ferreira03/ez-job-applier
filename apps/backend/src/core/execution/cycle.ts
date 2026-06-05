@@ -171,6 +171,8 @@ async function processQueue(
             await ctx.appRepo.setProcessing(appRec.id, false);
 
             console.error(`[execution] apply failed for job ${jobId}:`, e);
+            const failed = await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
+            await ctx.appRepo.setProcessing(failed.id, false);
         }
     }
 

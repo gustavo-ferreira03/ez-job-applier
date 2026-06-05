@@ -104,10 +104,12 @@ async function runForever(
 
             await ctx.executionRepo.setStatus(id, "running", null);
             let easyApplyLimited = false;
+            let cycleErrored = false;
             try {
                 const result = await runCycle(id, config, cycleMaxMs, ctx, () => _stopFlag, (s) => { _activeSession = s; });
                 easyApplyLimited = result.easyApplyLimited;
             } catch (e) {
+                cycleErrored = true;
                 const msg = e instanceof Error ? e.message : String(e);
                 if (isAuthError(msg)) {
                     console.log("[execution] auth error detected — entering action_needed");
@@ -120,7 +122,7 @@ async function runForever(
 
             if (_stopFlag) break;
 
-            const pending = easyApplyLimited ? [] : await ctx.appRepo.listIdsByStatus("APPROVED");
+            const pending = (easyApplyLimited || cycleErrored) ? [] : await ctx.appRepo.listIdsByStatus("APPROVED");
             if (pending.length > 0) {
                 console.log(`[execution] ${pending.length} job(s) ready for submission — restarting cycle`);
                 continue;

@@ -187,7 +187,8 @@
 		</select>
 	{:else}
 		<input
-			type={q.fieldType ?? 'text'}
+			type="text"
+			inputmode={q.fieldType === 'number' ? 'decimal' : undefined}
 			class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-sm text-text-primary placeholder:text-text-placeholder focus:border-border-strong focus:outline-none"
 			bind:value={answerInputs[key]}
 		/>
