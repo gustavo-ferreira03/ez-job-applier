@@ -40,7 +40,7 @@
 		},
 		{
 			id: 'needs-input',
-			title: 'Needs Answer',
+			title: 'Needs Input',
 			statuses: ['NEEDS_INPUT'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-input-text',

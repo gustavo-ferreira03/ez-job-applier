@@ -10,7 +10,7 @@
 
 	const labels: Record<ApplicationStatus, string> = {
 		FOUND: 'Found',
-		NEEDS_INPUT: 'Needs Answer',
+		NEEDS_INPUT: 'Needs Input',
 		READY_FOR_REVIEW: 'Review',
 		APPROVED: 'Queued',
 		EXTERNAL: 'External',
