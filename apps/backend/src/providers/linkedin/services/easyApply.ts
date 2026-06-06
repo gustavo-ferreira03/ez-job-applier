@@ -291,8 +291,7 @@ async function isRequired(el: Locator): Promise<boolean> {
 async function probeNumericValidation(field: Locator, modal: Locator): Promise<boolean> {
     const original = await field.inputValue();
     await field.fill("a");
-    await field.dispatchEvent("input");
-    await field.dispatchEvent("blur");
+    await field.press("Tab");
     await field.page().waitForTimeout(300);
 
     const errorEls = modal.locator("[role='alert'], [aria-live='polite'], [aria-live='assertive']");
@@ -327,9 +326,9 @@ async function fillTextFields(
         const inputMode = await field.getAttribute("inputmode");
         const hasMin = (await field.getAttribute("min")) !== null;
         const alreadyNumeric = rawType === "number" || inputMode === "decimal" || inputMode === "numeric" || hasMin;
-        const isNumeric = alreadyNumeric || (!answer && rawType === "text" && await probeNumericValidation(field, modal));
-        const fieldType: ApplicationQuestion["fieldType"] = isNumeric ? "number" : (rawType as ApplicationQuestion["fieldType"]);
         const current = await field.inputValue();
+        const isNumeric = alreadyNumeric || (!answer && !current && rawType === "text" && await probeNumericValidation(field, modal));
+        const fieldType: ApplicationQuestion["fieldType"] = isNumeric ? "number" : (rawType as ApplicationQuestion["fieldType"]);
 
         if (answer) {
             const fillValue = fieldType === "number" ? toPlainNumber(answer) : answer;
@@ -403,30 +402,17 @@ async function fillFileFields(
 }
 
 async function unfollow(modal: Locator): Promise<void> {
-    for (const role of ["checkbox", "switch"] as const) {
-        const el = modal
-            .getByRole(role, { name: /follow/i })
-            .first();
-        if (await el.count()) {
-            try {
-                if (await el.isChecked()) await el.click({ force: true });
-            } catch {
-            }
-            return;
-        }
-    }
     const label = modal.locator("label").filter({ hasText: /follow/i }).first();
-    if (await label.count()) {
-        try {
-            const cb = label
-                .locator("input[type='checkbox'], input[type='radio']")
-                .first();
-            if ((await cb.count()) && (await cb.isChecked())) {
-                await label.click({ force: true });
-            }
-        } catch {
-        }
-    }
+    if (!(await label.count())) return;
+
+    const forId = await label.getAttribute("for");
+    const checkbox = forId
+        ? modal.locator(`[id="${cssAttr(forId)}"]`).first()
+        : modal.getByRole("checkbox", { name: /follow/i }).first();
+
+    if (!(await checkbox.count()) || !(await checkbox.isChecked())) return;
+
+    await label.click();
 }
 
 async function closeModal(page: Page, modal: Locator): Promise<void> {

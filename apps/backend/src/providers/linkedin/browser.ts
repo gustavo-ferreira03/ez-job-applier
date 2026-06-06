@@ -41,6 +41,7 @@ export async function openLinkedinContext(options: {
             storageState: await existingSessionFile(),
             extraHTTPHeaders: { "Accept-Language": acceptLanguage },
         },
+        humanize: true,
     });
     context.setDefaultTimeout(10 * 60 * 1000);
     activeContext = context;
@@ -87,6 +88,8 @@ export async function openLoginContext(): Promise<BrowserContext> {
             storageState: await existingSessionFile(),
             extraHTTPHeaders: { "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6" },
         },
+        humanize: true,
+        humanPreset: "careful",
     });
     context.setDefaultTimeout(10 * 60 * 1000);
     activeContext = context;
