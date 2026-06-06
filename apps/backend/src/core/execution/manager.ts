@@ -3,6 +3,8 @@ import type { AppContext } from "../context";
 import type { DiscoverConfig } from "../types";
 import type { IJobProviderSession } from "../interfaces";
 import { runCycle } from "./cycle";
+import { isWithinSchedule, nextScheduleOpen } from "./schedule";
+import { getSettings } from "../../repositories/settings";
 import { startVncStack, stopVncStack, openLoginBrowser, waitForLogin } from "../login/vnc";
 
 export type WorkerFactory = (ctx: AppContext, shouldStop: () => boolean) => { run(): Promise<void>; wake(): void };
@@ -102,6 +104,16 @@ async function runForever(
             }
             if (_stopFlag) break;
 
+            const gateSchedule = (await getSettings()).advanced.schedule;
+            if (gateSchedule.enabled && !isWithinSchedule(gateSchedule)) {
+                const open = nextScheduleOpen(gateSchedule);
+                const sleepMs = open ? Math.max(1_000, open.getTime() - Date.now()) : 3_600_000;
+                await ctx.executionRepo.setStatus(id, "waiting", open?.toISOString() ?? null);
+                console.log(`[execution] outside schedule — waiting until ${open?.toISOString() ?? "an active day"}`);
+                await interruptibleSleep(sleepMs);
+                continue;
+            }
+
             await ctx.executionRepo.setStatus(id, "running", null);
             let easyApplyLimited = false;
             let cycleErrored = false;
@@ -128,10 +140,16 @@ async function runForever(
                 continue;
             }
 
-            const nextRunAt = new Date(Date.now() + intervalMs).toISOString();
+            let nextRun = new Date(Date.now() + intervalMs);
+            const waitSchedule = (await getSettings()).advanced.schedule;
+            if (waitSchedule.enabled) {
+                const open = nextScheduleOpen(waitSchedule, nextRun);
+                if (open) nextRun = open;
+            }
+            const nextRunAt = nextRun.toISOString();
             await ctx.executionRepo.setStatus(id, "waiting", nextRunAt);
             console.log(`[execution] waiting until ${nextRunAt}`);
-            await interruptibleSleep(intervalMs);
+            await interruptibleSleep(Math.max(1_000, nextRun.getTime() - Date.now()));
         }
     } finally {
         const ex = await ctx.executionRepo.get(id);

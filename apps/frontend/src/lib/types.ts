@@ -90,7 +90,20 @@ export interface AppSettings {
 		searchLocale: 'pt-BR' | 'en-US';
 		cycleMaxMs: number;
 		intervalMs: number;
+		schedule: ScheduleSettings;
 	};
+}
+
+export interface ScheduleDay {
+	enabled: boolean;
+	start: string;
+	end: string;
+}
+
+export interface ScheduleSettings {
+	enabled: boolean;
+	timezone: string;
+	days: ScheduleDay[];
 }
 
 export interface AutoApplyStatus {

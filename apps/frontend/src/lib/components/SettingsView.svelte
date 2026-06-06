@@ -4,12 +4,22 @@
 	import FileText from '@lucide/svelte/icons/file-text';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Upload from '@lucide/svelte/icons/upload';
+	import X from '@lucide/svelte/icons/x';
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import * as api from '$lib/api';
 	import type { ProviderInfo } from '$lib/api';
-	import type { AppSettings, DiscoverConfig, LlmSettings } from '$lib/types';
+	import type {
+		AppSettings,
+		DiscoverConfig,
+		LlmSettings,
+		ScheduleDay,
+		ScheduleSettings
+	} from '$lib/types';
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
+	import { trapFocus } from '$lib/focusTrap';
+	import { modalTransition } from '$lib/transitions';
 	import ProvidersModal from './ProvidersModal.svelte';
 
 	type Tab = 'geral' | 'ia' | 'avancado';
@@ -19,7 +29,6 @@
 		};
 		advanced: Partial<AppSettings['advanced']>;
 	}>;
-
 	const WORK_TYPES = [
 		{ value: '', label: 'Any' },
 		{ value: 'remote', label: 'Remote' },
@@ -56,9 +65,23 @@
 		{ id: 'avancado', label: 'Advanced' }
 	];
 
+	const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+	const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+	const TIMEZONES = [
+		'America/Sao_Paulo',
+		'America/New_York',
+		'America/Chicago',
+		'America/Los_Angeles',
+		'Europe/London',
+		'Europe/Lisbon',
+		'Europe/Paris',
+		'UTC'
+	];
+
 	let activeTab = $state<Tab>('geral');
 	let configuredProviders = $state<ProviderInfo[]>([]);
 	let providersModalOpen = $state(false);
+	let scheduleModalOpen = $state(false);
 	let clearConfirming = $state(false);
 	let settingsDebounce: ReturnType<typeof setTimeout> | null = null;
 	let pendingSettingsPatch: SettingsPatch = {};
@@ -217,6 +240,52 @@
 		const minutes = Number(value);
 		if (!Number.isFinite(minutes) || minutes <= 0) return;
 		scheduleSettingsPatch({ advanced: { [key]: Math.round(minutes * 60_000) } });
+	}
+
+	let schedule = $derived(appState.settings.advanced.schedule);
+	let scheduleActiveDays = $derived(schedule.days.filter((d) => d.enabled).length);
+	let scheduleHasInvalid = $derived(schedule.days.some((d) => d.enabled && d.start >= d.end));
+	let scheduleSummary = $derived(
+		schedule.enabled
+			? scheduleActiveDays > 0
+				? scheduleWindowSummary()
+				: 'No active windows yet'
+			: 'Runs whenever execution is started'
+	);
+
+	function formatDayRange(): string {
+		const active = schedule.days.map((day, i) => (day.enabled ? i : -1)).filter((i) => i >= 0);
+		if (active.length === 0) return 'No days selected';
+		if (active.length === 7) return 'Every day';
+		if (active.join(',') === '0,1,2,3,4') return 'Mon to Fri';
+		if (active.join(',') === '5,6') return 'Weekend';
+		return active.map((i) => DAY_LABELS[i]).join(', ');
+	}
+
+	function scheduleWindowSummary(): string {
+		const activeDays = schedule.days.filter((day) => day.enabled);
+		const uniformWindow = activeDays.every(
+			(day) => day.start === activeDays[0]?.start && day.end === activeDays[0]?.end
+		);
+		const window = uniformWindow ? `${activeDays[0].start} to ${activeDays[0].end}` : 'mixed hours';
+		return `${formatDayRange()}, ${window}`;
+	}
+
+	function patchSchedule(next: ScheduleSettings) {
+		scheduleSettingsPatch({ advanced: { schedule: next } });
+	}
+
+	function setScheduleEnabled(enabled: boolean) {
+		patchSchedule({ ...schedule, enabled });
+	}
+
+	function setScheduleTimezone(timezone: string) {
+		patchSchedule({ ...schedule, timezone });
+	}
+
+	function setScheduleDay(index: number, change: Partial<ScheduleDay>) {
+		const days = schedule.days.map((d, i) => (i === index ? { ...d, ...change } : d));
+		patchSchedule({ ...schedule, days });
 	}
 
 	async function handleUpload(e: Event) {
@@ -861,6 +930,66 @@
 				</section>
 
 				<section>
+					<div class="mb-3">
+						<div>
+							<h3 class="text-[13px] font-semibold text-text-primary">Schedule</h3>
+							<p class="mt-1 text-[11px] text-text-faint">
+								Choose exactly when automation is allowed to run.
+							</p>
+						</div>
+					</div>
+
+					<div
+						class="rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 transition-colors duration-150 hover:border-border-default"
+					>
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<div class="min-w-0">
+								<div class="flex flex-wrap items-center gap-2">
+									<p class="text-[12px] font-medium text-text-primary">Automation window</p>
+								</div>
+								<p class="mt-1 max-w-xl text-[12px] leading-snug text-text-faint">
+									Choose specific days and times for automation to run.
+								</p>
+							</div>
+							<div class="flex flex-shrink-0 items-center gap-2">
+								<button
+									type="button"
+									class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-raised px-3 text-[12px] font-medium text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-text-primary focus-visible:outline-none"
+									onclick={() => (scheduleModalOpen = true)}
+								>
+									Edit
+								</button>
+								<button
+									type="button"
+									class="relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition-colors duration-150 focus-visible:outline-none {schedule.enabled
+										? 'bg-accent-500'
+										: 'border border-border-default bg-surface-raised'}"
+									aria-label={schedule.enabled ? 'Disable schedule' : 'Enable schedule'}
+									aria-pressed={schedule.enabled}
+									onclick={() => setScheduleEnabled(!schedule.enabled)}
+								>
+									<span
+										class="absolute h-4 w-4 rounded-full bg-white shadow transition-all duration-150 {schedule.enabled
+											? 'left-[24px]'
+											: 'left-[4px]'}"
+									></span>
+								</button>
+							</div>
+						</div>
+
+						{#if schedule.enabled && (scheduleActiveDays === 0 || scheduleHasInvalid)}
+							<p
+								class="mt-3 rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-[12px] text-danger-500"
+							>
+								{scheduleActiveDays === 0
+									? 'Add at least one run window before relying on scheduled execution.'
+									: 'Fix the invalid schedule window before relying on scheduled execution.'}
+							</p>
+						{/if}
+					</div>
+				</section>
+
+				<section>
 					<h3 class="mb-3 text-[13px] font-semibold text-text-primary">Danger zone</h3>
 					<div
 						class="flex items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3"
@@ -897,4 +1026,150 @@
 			refreshLlmSettings();
 		}}
 	/>
+{/if}
+
+{#if scheduleModalOpen}
+	<div class="z-modal fixed inset-0 flex items-start justify-center bg-black/70 p-4">
+		<button
+			class="absolute inset-0 cursor-default"
+			type="button"
+			aria-label="Close schedule settings"
+			onclick={() => (scheduleModalOpen = false)}
+		></button>
+
+		<div
+			class="relative z-10 mt-8 flex max-h-[calc(100vh-64px)] w-[min(560px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Schedule settings"
+			tabindex="-1"
+			use:trapFocus={{ onEscape: () => (scheduleModalOpen = false) }}
+			transition:fly={modalTransition}
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+		>
+			<div
+				class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4"
+			>
+				<div>
+					<h2 class="text-[13px] font-semibold text-text-primary">Schedule</h2>
+					<p class="mt-1 text-[11px] text-text-faint">{scheduleSummary}</p>
+				</div>
+				<button
+					type="button"
+					class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
+					onclick={() => (scheduleModalOpen = false)}
+					aria-label="Close"
+				>
+					<X size={14} />
+				</button>
+			</div>
+
+			<div class="flex-1 overflow-y-auto p-4">
+				<div class="space-y-3">
+					<div>
+						<label
+							class="mb-1.5 block text-[12px] font-medium text-text-secondary"
+							for="schedule-modal-tz">Time zone</label
+						>
+						<select
+							id="schedule-modal-tz"
+							class="h-9 w-full cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary transition-colors duration-150 focus:border-border-strong focus:outline-none"
+							value={schedule.timezone}
+							onchange={(e) => setScheduleTimezone((e.target as HTMLSelectElement).value)}
+						>
+							{#each TIMEZONES as tz (tz)}
+								<option value={tz}>{tz}</option>
+							{/each}
+							{#if !TIMEZONES.includes(schedule.timezone)}
+								<option value={schedule.timezone}>{schedule.timezone}</option>
+							{/if}
+						</select>
+					</div>
+					<div class="min-w-0">
+						<div class="overflow-hidden rounded-md border border-border-subtle">
+							{#each schedule.days as day, i (i)}
+								{@const invalid = day.enabled && day.start >= day.end}
+								<div
+									class="grid gap-2 border-b border-border-subtle bg-surface-overlay px-3 py-2 last:border-b-0 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center {invalid
+										? 'bg-danger-bg/50'
+										: ''}"
+								>
+									<button
+										type="button"
+										class="flex min-w-0 cursor-pointer items-center gap-2 text-left focus-visible:outline-none"
+										aria-pressed={day.enabled}
+										onclick={() => setScheduleDay(i, { enabled: !day.enabled })}
+									>
+										<span
+											class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {day.enabled
+												? 'bg-accent-500'
+												: 'border border-border-default bg-surface-raised'}"
+										>
+											<span
+												class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {day.enabled
+													? 'left-[18px]'
+													: 'left-[3px]'}"
+											></span>
+										</span>
+										<span
+											class="truncate text-[13px] font-medium {day.enabled
+												? 'text-text-primary'
+												: 'text-text-faint'}">{DAY_NAMES[i]}</span
+										>
+									</button>
+
+									<div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+										<input
+											type="time"
+											aria-label="{DAY_NAMES[i]} start time"
+											class="h-8 min-w-0 rounded-md border bg-surface-raised px-2.5 text-[12px] text-text-primary [color-scheme:dark] transition-colors duration-150 focus:outline-none disabled:cursor-not-allowed disabled:opacity-45 {invalid
+												? 'border-danger-600'
+												: 'border-border-default focus:border-border-strong'}"
+											value={day.start}
+											disabled={!day.enabled}
+											onchange={(e) =>
+												setScheduleDay(i, { start: (e.target as HTMLInputElement).value })}
+										/>
+										<span
+											class="text-center text-[11px] {day.enabled
+												? 'text-text-faint'
+												: 'text-text-faint/60'}"
+										>
+											to
+										</span>
+										<input
+											type="time"
+											aria-label="{DAY_NAMES[i]} end time"
+											class="h-8 min-w-0 rounded-md border bg-surface-raised px-2.5 text-[12px] text-text-primary [color-scheme:dark] transition-colors duration-150 focus:outline-none disabled:cursor-not-allowed disabled:opacity-45 {invalid
+												? 'border-danger-600'
+												: 'border-border-default focus:border-border-strong'}"
+											value={day.end}
+											disabled={!day.enabled}
+											onchange={(e) =>
+												setScheduleDay(i, { end: (e.target as HTMLInputElement).value })}
+										/>
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				{#if schedule.enabled && scheduleActiveDays === 0}
+					<p
+						class="mt-4 rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-[12px] text-danger-500"
+					>
+						Add at least one run window before relying on scheduled execution.
+					</p>
+				{:else if scheduleHasInvalid}
+					<p
+						class="mt-4 rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-[12px] text-danger-500"
+					>
+						Fix the highlighted window. End time must be after start time.
+					</p>
+				{/if}
+			</div>
+		</div>
+	</div>
 {/if}

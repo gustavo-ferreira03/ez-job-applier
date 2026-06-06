@@ -40,7 +40,20 @@ function defaultSettings(): AppSettings {
 			browserVisible: false,
 			searchLocale: 'pt-BR',
 			cycleMaxMs: 3_600_000,
-			intervalMs: 14_400_000
+			intervalMs: 14_400_000,
+			schedule: {
+				enabled: false,
+				timezone: 'America/Sao_Paulo',
+				days: [
+					{ enabled: true, start: '09:00', end: '18:00' },
+					{ enabled: true, start: '09:00', end: '18:00' },
+					{ enabled: true, start: '09:00', end: '18:00' },
+					{ enabled: true, start: '09:00', end: '18:00' },
+					{ enabled: true, start: '09:00', end: '18:00' },
+					{ enabled: false, start: '09:00', end: '18:00' },
+					{ enabled: false, start: '09:00', end: '18:00' }
+				]
+			}
 		}
 	};
 }

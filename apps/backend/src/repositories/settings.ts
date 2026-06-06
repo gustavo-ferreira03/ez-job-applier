@@ -19,6 +19,18 @@ export interface AppSettings {
     advanced: AdvancedSettings;
 }
 
+export interface ScheduleDay {
+    enabled: boolean;
+    start: string;
+    end: string;
+}
+
+export interface ScheduleSettings {
+    enabled: boolean;
+    timezone: string;
+    days: ScheduleDay[];
+}
+
 export interface GeneralSettings {
     execution: DiscoverConfig;
     defaultResume: string | null;
@@ -31,6 +43,7 @@ export interface AdvancedSettings {
     searchLocale: "pt-BR" | "en-US";
     cycleMaxMs: number;
     intervalMs: number;
+    schedule: ScheduleSettings;
 }
 
 const defaults: AppSettings = {
@@ -41,7 +54,25 @@ const defaults: AppSettings = {
         blockedCompanies: [],
     },
     llm: { enabled: false, provider: "anthropic", model: "claude-sonnet-4-6", filterJobs: false, autoAnswer: false, externalApply: false, filterCriteria: "" },
-    advanced: { browserVisible: false, searchLocale: "pt-BR", cycleMaxMs: 3_600_000, intervalMs: 14_400_000 },
+    advanced: {
+        browserVisible: false,
+        searchLocale: "pt-BR",
+        cycleMaxMs: 3_600_000,
+        intervalMs: 14_400_000,
+        schedule: {
+            enabled: false,
+            timezone: "America/Sao_Paulo",
+            days: [
+                { enabled: true, start: "09:00", end: "18:00" },
+                { enabled: true, start: "09:00", end: "18:00" },
+                { enabled: true, start: "09:00", end: "18:00" },
+                { enabled: true, start: "09:00", end: "18:00" },
+                { enabled: true, start: "09:00", end: "18:00" },
+                { enabled: false, start: "09:00", end: "18:00" },
+                { enabled: false, start: "09:00", end: "18:00" },
+            ],
+        },
+    },
 };
 
 type SettingsPatch = Partial<{

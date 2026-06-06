@@ -8,6 +8,7 @@ import {
     type OAuthDeviceCodeInfo,
 } from "@earendil-works/pi-ai/oauth";
 import { getSettings, updateSettings, type LlmSettings } from "../repositories/settings";
+import { wakeExecution } from "../core/execution/manager";
 import type { AppContext } from "../core/context";
 
 type OAuthState = {
@@ -40,6 +41,7 @@ export function createSettingsRouter(ctx: AppContext) {
     router.patch("/settings", async (c) => {
         const body = await c.req.json();
         const updated = await updateSettings(body);
+        if (body?.advanced?.schedule !== undefined) wakeExecution();
         return c.json(updated);
     });
 
