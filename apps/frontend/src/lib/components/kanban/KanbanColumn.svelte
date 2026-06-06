@@ -76,7 +76,7 @@
 		<span class="text-xs font-semibold tracking-wide uppercase {column.headerClass}">
 			{column.title}
 		</span>
-		<div class="flex items-center gap-1.5">
+		<div class="flex min-h-6 items-center gap-1.5">
 			<span class="text-xs text-text-muted">{jobs.length}</span>
 			{#if column.canRejectAll}
 				<div class="relative" bind:this={menuRef}>
