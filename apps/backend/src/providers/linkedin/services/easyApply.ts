@@ -291,7 +291,6 @@ async function isRequired(el: Locator): Promise<boolean> {
 async function probeNumericValidation(field: Locator, modal: Locator): Promise<boolean> {
     const original = await field.inputValue();
     await field.fill("a");
-    await field.press("Tab");
     await field.page().waitForTimeout(300);
 
     const errorEls = modal.locator("[role='alert'], [aria-live='polite'], [aria-live='assertive']");
