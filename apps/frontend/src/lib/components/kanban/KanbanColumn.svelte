@@ -2,6 +2,7 @@
 	import KanbanCard from './KanbanCard.svelte';
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import MoreHorizontal from '@lucide/svelte/icons/ellipsis';
+	import Plus from '@lucide/svelte/icons/plus';
 	import type { JobSummary, KanbanColumn as KanbanColumnDef, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -10,9 +11,10 @@
 		onOpenJob: (job: JobSummary, tab: KanbanTab) => void;
 		onRejectAll?: (column: KanbanColumnDef) => void;
 		onSubmitAll?: () => void;
+		onAdd?: () => void;
 	}
 
-	let { column, jobs, onOpenJob, onRejectAll, onSubmitAll }: Props = $props();
+	let { column, jobs, onOpenJob, onRejectAll, onSubmitAll, onAdd }: Props = $props();
 	let menuOpen = $state(false);
 	let menuClosing = $state(false);
 	let menuStyle = $state('');
@@ -78,6 +80,16 @@
 		</span>
 		<div class="flex min-h-6 items-center gap-1.5">
 			<span class="text-xs text-text-muted">{jobs.length}</span>
+			{#if column.canAdd}
+				<button
+					type="button"
+					class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-text-faint transition-colors duration-150 hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
+					aria-label="Add job by link"
+					onclick={() => onAdd?.()}
+				>
+					<Plus size={14} aria-hidden="true" />
+				</button>
+			{/if}
 			{#if column.canRejectAll}
 				<div class="relative" bind:this={menuRef}>
 					<button

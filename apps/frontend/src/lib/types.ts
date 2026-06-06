@@ -120,6 +120,7 @@ export interface KanbanColumn {
 	headerClass: string;
 	canRejectAll?: boolean;
 	canSubmitAll?: boolean;
+	canAdd?: boolean;
 	columnClass?: string;
 }
 

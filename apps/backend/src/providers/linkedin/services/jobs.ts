@@ -285,16 +285,99 @@ async function addMissingSkills(page: Page, skillsUl: Locator): Promise<void> {
     }
 }
 
+const JOB_DETAIL_PANE = "[data-sdui-screen='com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails']";
+
+export function extractLinkedinJobId(url: string): string | null {
+    try {
+        const parsed = new URL(url);
+        const viewMatch = parsed.pathname.match(/\/jobs\/view\/(\d+)/);
+        if (viewMatch) return viewMatch[1];
+        const current = parsed.searchParams.get("currentJobId");
+        if (current && /^\d+$/.test(current)) return current;
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+const STANDALONE_JOB_PANE = "[data-sdui-screen='com.linkedin.sdui.flagshipnav.jobs.JobDetails']";
+
+async function readAboutSection(page: Page, aboutContainer: Locator): Promise<string> {
+    await aboutContainer.locator("p, li").first().waitFor({ timeout: 10000 }).catch(() => undefined);
+
+    const moreToggle = aboutContainer.getByText(/^…?\s*more$/i).first();
+    if (await moreToggle.count()) {
+        await moreToggle.scrollIntoViewIfNeeded().catch(() => undefined);
+        await moreToggle.click({ timeout: 5000 }).catch(() => undefined);
+        await page.waitForTimeout(1000);
+    }
+
+    const raw = await aboutContainer.innerText();
+    return cleanText(
+        raw
+            .replace(/^About the job\s*/i, "")
+            .replace(/^Sobre a vaga\s*/i, "")
+            .replace(/…\s*more\s*$/i, "")
+            .trim(),
+    );
+}
+
+export async function fetchJobByUrl(page: Page, url: string): Promise<Partial<LinkedinJob>> {
+    const jobId = extractLinkedinJobId(url);
+    if (!jobId) throw new Error(`Could not extract LinkedIn job id from URL: ${url}`);
+
+    const target = `https://www.linkedin.com/jobs/view/${jobId}/`;
+    await page.goto(target, { waitUntil: "domcontentloaded" });
+    if (isAuthWall(page.url()) && (await trySavedAccountLogin(page))) {
+        await page.goto(target, { waitUntil: "domcontentloaded" });
+    }
+    if (isAuthWall(page.url())) throw new Error("LinkedIn session expired; log in again");
+    await page.waitForTimeout(3000);
+
+    const pane = page.locator(STANDALONE_JOB_PANE).first();
+    await pane.waitFor({ timeout: 30000 });
+
+    const companyLink = pane.locator("a[href*='/company/']").first();
+    const company = (await companyLink.count())
+        ? cleanText(await companyLink.innerText()).split("\n")[0]
+        : "";
+
+    const lines = (await pane.innerText())
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+    const companyIdx = company ? lines.indexOf(company) : -1;
+    const title = (companyIdx >= 0 ? lines[companyIdx + 1] : lines[0]) ?? "";
+    const metaLine = lines.find((l) => l.includes(" · ")) ?? "";
+    const location = metaLine.split(" · ")[0].trim();
+
+    let about: string | null = null;
+    const aboutH2 = pane.locator("h2").filter({ hasText: /about the job|sobre a vaga/i }).first();
+    if (await aboutH2.count()) {
+        about = await readAboutSection(page, aboutH2.locator("xpath=../.."));
+    }
+
+    return {
+        jobId,
+        provider: "linkedin",
+        title,
+        company,
+        location,
+        url: target,
+        preferences: [],
+        skills: [],
+        about,
+        applicationUrl: null,
+    };
+}
+
 async function getJobDetails(page: Page, easyApply: boolean, fillSkillGaps: boolean): Promise<Partial<LinkedinJob>> {
     const detailPane = page
-        .locator("[data-sdui-screen='com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails']")
+        .locator(JOB_DETAIL_PANE)
         .first();
 
-    const aboutH2 = detailPane.locator("h2").filter({ hasText: /about the job/i }).first();
-    const aboutContainer = aboutH2.locator("xpath=../..");
-    await aboutContainer.locator("p, li").first().waitFor({ timeout: 10000 });
-    const rawAbout = await aboutContainer.innerText();
-    const about = rawAbout.replace(/^About the job\s*/i, "").trim();
+    const aboutH2 = detailPane.locator("h2").filter({ hasText: /about the job|sobre a vaga/i }).first();
+    const about = await readAboutSection(page, aboutH2.locator("xpath=../.."));
 
     let preferences: string[] = [];
     let skills: string[] = [];
@@ -317,7 +400,7 @@ async function getJobDetails(page: Page, easyApply: boolean, fillSkillGaps: bool
     return {
         preferences,
         skills,
-        about: cleanText(about),
+        about,
         applicationUrl,
     };
 }

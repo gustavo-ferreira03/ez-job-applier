@@ -104,6 +104,21 @@ export function reprocessJob(jobId: number): Promise<{ ok: boolean }> {
 	return post(`/jobs/${jobId}/reprocess`);
 }
 
+export async function addManualJob(
+	url: string
+): Promise<{ status: 'scraping' | 'reactivated' | 'exists' }> {
+	const res = await fetch(`${BASE}/jobs`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ url })
+	});
+	const data = await res.json().catch(() => null);
+	if (!res.ok) {
+		throw new Error(data?.message || data?.error || `${res.status} POST /jobs`);
+	}
+	return data;
+}
+
 // Settings
 export function getAppSettings(): Promise<AppSettings> {
 	return get('/settings');

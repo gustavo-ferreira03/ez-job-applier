@@ -51,6 +51,32 @@ export async function openLinkedinContext(options: {
     return context;
 }
 
+export async function openDetachedLinkedinContext(options: {
+    visible?: boolean;
+    searchLocale?: "pt-BR" | "en-US";
+} = {}): Promise<BrowserContext> {
+    const locale = options.searchLocale ?? "pt-BR";
+    const acceptLanguage =
+        locale === "pt-BR"
+            ? "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6"
+            : "en-US,en;q=0.9";
+
+    const context = await launchContext({
+        headless: !options.visible,
+        locale,
+        viewport: { width: 960, height: 640 },
+        launchOptions: { slowMo: 50 },
+        args: ["--window-size=960,640"],
+        contextOptions: {
+            storageState: await existingSessionFile(),
+            extraHTTPHeaders: { "Accept-Language": acceptLanguage },
+        },
+        humanize: true,
+    });
+    context.setDefaultTimeout(10 * 60 * 1000);
+    return context;
+}
+
 export async function saveLinkedinSession(context = activeContext): Promise<void> {
     if (!context) return;
     await fs.mkdir(storageDir, { recursive: true });

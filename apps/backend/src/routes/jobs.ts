@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { listJobs } from "../core/jobs/list";
 import { getJob } from "../core/jobs/get";
+import { addManualJob } from "../core/jobs/add-manual";
 import type { AppContext } from "../core/context";
 
 const JobIdParam = z.object({
@@ -49,6 +50,18 @@ export function createJobsRouter(ctx: AppContext): OpenAPIHono {
             return c.json(job);
         },
     );
+
+    router.post("/jobs", async (c) => {
+        const body = await c.req.json().catch(() => null);
+        const url = body && typeof body.url === "string" ? body.url : "";
+        if (!url.trim()) throw new HTTPException(400, { message: "url is required" });
+        try {
+            const result = await addManualJob(url, ctx);
+            return c.json(result);
+        } catch (e) {
+            throw new HTTPException(400, { message: e instanceof Error ? e.message : String(e) });
+        }
+    });
 
     return router;
 }

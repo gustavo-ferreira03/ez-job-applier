@@ -11,4 +11,5 @@ export interface IJobProvider {
     readonly name: string;
     matchesJob(job: Job): boolean;
     createSession(): Promise<IJobProviderSession>;
+    fetchJobDetails(url: string): Promise<Partial<Job>>;
 }

@@ -69,9 +69,9 @@
 	--color-success-500: #4ade80;
 
 	/* ─── Z-index ─────────────────────────────────────────────── */
-	--z-drawer: 50;
-	--z-modal: 100;
-	--z-toast: 200;
+	--z-index-drawer: 50;
+	--z-index-modal: 100;
+	--z-index-toast: 200;
 
 	/* ─── Shadows ─────────────────────────────────────────────── */
 	--shadow-drawer: -12px 0 32px rgb(0 0 0 / 0.6);

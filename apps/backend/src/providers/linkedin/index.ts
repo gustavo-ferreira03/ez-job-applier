@@ -4,9 +4,10 @@ import {
     openLinkedinContext,
     closeLinkedinContext,
     saveLinkedinSession,
+    openDetachedLinkedinContext,
 } from "./browser";
 import { login } from "./services/auth";
-import { discoverJobs as discoverJobsService } from "./services/jobs";
+import { discoverJobs as discoverJobsService, fetchJobByUrl } from "./services/jobs";
 import { runEasyApply } from "./services/easyApply";
 import type { SearchConfig } from "./services/types";
 import { getSettings } from "../../repositories/settings";
@@ -16,6 +17,17 @@ export const linkedinProvider: IJobProvider = {
 
     matchesJob(job: Job): boolean {
         return job.url.toLowerCase().includes("linkedin.com");
+    },
+
+    async fetchJobDetails(url: string): Promise<Partial<Job>> {
+        const { advanced: { searchLocale } } = await getSettings();
+        const context = await openDetachedLinkedinContext({ visible: false, searchLocale });
+        try {
+            const page = context.pages()[0] ?? (await context.newPage());
+            return await fetchJobByUrl(page, url);
+        } finally {
+            await context.close().catch(() => undefined);
+        }
     },
 
     async createSession(): Promise<IJobProviderSession> {

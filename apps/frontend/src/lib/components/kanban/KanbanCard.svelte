@@ -11,6 +11,8 @@
 
 	let { job, defaultTab, onOpen }: Props = $props();
 
+	const loading = $derived(job.processing && job.about === null);
+
 	function relativeDate(iso: string): string {
 		const diff = Date.now() - new Date(iso).getTime();
 		const days = Math.floor(diff / 86_400_000);
@@ -20,6 +22,23 @@
 	}
 </script>
 
+{#if loading}
+<div
+	class="w-full rounded-md border border-border-subtle bg-surface-raised p-2.5"
+	transition:fly={cardTransition}
+	aria-label="Loading job"
+>
+	<div class="animate-pulse">
+		<div class="h-3.5 w-full rounded bg-border-strong"></div>
+		<div class="mt-2 h-3 w-1/2 rounded bg-border-strong"></div>
+		<div class="mt-3 flex gap-1.5">
+			<div class="h-4 w-10 rounded-sm bg-border-strong"></div>
+			<div class="h-4 w-12 rounded-sm bg-border-strong"></div>
+			<div class="h-4 w-8 rounded-sm bg-border-strong"></div>
+		</div>
+	</div>
+</div>
+{:else}
 <button
 	type="button"
 	class="w-full cursor-pointer rounded-md bg-surface-raised p-2.5 text-left focus-visible:outline-none
@@ -89,3 +108,4 @@
 		<span class="text-xs text-text-muted">{relativeDate(job.createdAt)}</span>
 	</div>
 </button>
+{/if}

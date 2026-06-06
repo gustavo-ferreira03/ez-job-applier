@@ -11,6 +11,7 @@
 		KanbanTab
 	} from '$lib/types';
 	import SubmitAllModal from '$lib/components/SubmitAllModal.svelte';
+	import AddJobModal from '$lib/components/AddJobModal.svelte';
 
 	interface Props {
 		jobs: JobSummary[];
@@ -31,6 +32,7 @@
 	let rejecting = $state(false);
 	let submitAllOpen = $state(false);
 	let submittingAll = $state(false);
+	let addOpen = $state(false);
 
 	const columns: KanbanColumnDef[] = [
 		{
@@ -39,7 +41,8 @@
 			statuses: ['FOUND'],
 			defaultTab: 'info' as KanbanTab,
 			headerClass: 'text-text-muted',
-			canRejectAll: true
+			canRejectAll: true,
+			canAdd: true
 		},
 		{
 			id: 'needs-input',
@@ -154,9 +157,20 @@
 			onSubmitAll={() => {
 				submitAllOpen = true;
 			}}
+			onAdd={() => {
+				addOpen = true;
+			}}
 		/>
 	{/each}
 </section>
+
+{#if addOpen}
+	<AddJobModal
+		onClose={() => {
+			addOpen = false;
+		}}
+	/>
+{/if}
 
 {#if submitAllOpen}
 	<SubmitAllModal
