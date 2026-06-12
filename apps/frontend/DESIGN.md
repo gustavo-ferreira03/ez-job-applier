@@ -24,8 +24,10 @@ colors:
   danger-bg: '#1c0a0a'
   danger-text: '#f87171'
   review-bg: '#0c2540'
-  external-bg: '#2e1065'
-  external-text: '#d8b4fe'
+  tag-linkedin-bg: '#182a4d'
+  tag-linkedin-text: '#7aa2f7'
+  tag-external-bg: '#2a1f4d'
+  tag-external-text: '#c4a7f5'
 typography:
   headline:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
@@ -125,7 +127,6 @@ The palette is a restrained dark neutral system with one sky-blue command accent
 ### Secondary
 
 - **Review Blue Field**: Used for review and execution-adjacent state surfaces.
-- **External Purple Field**: Used only for external application state.
 - **Warning Amber Field**: Used for login-needed, unanswered questions, paused execution, and other required-input states.
 - **Submitted Green Field**: Used for submitted, configured, success, and completion states.
 - **Danger Red Field**: Used for failures, destructive actions, and removal affordances.
@@ -201,6 +202,7 @@ The system is flat by default. Depth is conveyed through tonal layering, borders
 
 - **Style:** Small rounded tags, 4px radius, Surface Hover background, Muted Text foreground.
 - **State:** Status badges use semantic backgrounds and text. Skill chips remain neutral so they do not compete with job state.
+- **Tag chips:** Source/route tags (LinkedIn, External) use their own low-saturation tinted fills, distinct per source and decoupled from both the Command Sky accent and the status vocabulary. They carry calm color identity without claiming an action or state meaning. In the board tag filter, the same identity reads as a small colored dot, while selection stays on the neutral active treatment used by nav and tabs.
 
 ### Cards / Containers
 

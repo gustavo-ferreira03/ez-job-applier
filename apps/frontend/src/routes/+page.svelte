@@ -97,10 +97,10 @@
 
 	const actionCounts = $derived({
 		total: appState.jobs.filter((j) =>
-			['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL'].includes(j.status)
+			['FOUND', 'NEEDS_INPUT', 'READY_FOR_REVIEW'].includes(j.status)
 		).length,
 		needsAction: appState.jobs.filter((j) =>
-			['NEEDS_INPUT', 'READY_FOR_REVIEW', 'EXTERNAL'].includes(j.status)
+			['NEEDS_INPUT', 'READY_FOR_REVIEW'].includes(j.status)
 		).length,
 		review: appState.jobs.filter((j) => j.status === 'READY_FOR_REVIEW').length
 	});

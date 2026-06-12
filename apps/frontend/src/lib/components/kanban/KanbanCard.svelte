@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { cardTransition } from '$lib/transitions';
+	import { tagStyle } from '$lib/tags';
 	import type { JobSummary, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -72,6 +73,15 @@
 		{job.company}
 		{#if job.location}<span class="text-text-muted opacity-75"> · {job.location}</span>{/if}
 	</p>
+
+	<!-- Tags -->
+	{#if job.tags.length > 0}
+		<div class="mt-2 flex flex-wrap gap-1">
+			{#each job.tags as tag (tag)}
+				<span class="rounded-sm px-1.5 py-0.5 text-xs font-medium {tagStyle(tag).chip}">{tag}</span>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Skills -->
 	{#if job.skills.length > 0}

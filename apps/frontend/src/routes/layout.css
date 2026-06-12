@@ -37,9 +37,6 @@
 	--color-status-review-bg: #0c2540;
 	--color-status-review-text: #38bdf8;
 	--color-status-review-border: #0a1e30;
-	--color-status-external-bg: #2e1065;
-	--color-status-external-text: #d8b4fe;
-	--color-status-external-border: #2a1040;
 	--color-status-submitted-bg: #052e16;
 	--color-status-submitted-text: #4ade80;
 	--color-status-submitted-border: #0a3d1c;
@@ -47,6 +44,12 @@
 	--color-status-failed-text: #f87171;
 	--color-status-unanswered-bg: #431407;
 	--color-status-unanswered-text: #fb923c;
+
+	/* ─── Tags (source / route) ───────────────────────────────── */
+	--color-tag-linkedin-bg: #182a4d;
+	--color-tag-linkedin-text: #7aa2f7;
+	--color-tag-external-bg: #2a1f4d;
+	--color-tag-external-text: #c4a7f5;
 
 	/* ─── Auto-apply ──────────────────────────────────────────── */
 	--color-autoapply-bg: #14532d;

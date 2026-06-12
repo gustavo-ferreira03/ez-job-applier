@@ -34,8 +34,7 @@ export interface IAppRepo {
     replaceQuestions(appId: number, questions: ApplicationQuestion[]): Promise<void>;
     getQuestions(appId: number): Promise<ApplicationQuestion[]>;
     answerQuestions(appId: number, answers: Record<string, string>): Promise<void>;
-    rejectByStatuses(statuses: ApplicationStatus[]): Promise<number>;
-    approveByStatuses(statuses: ApplicationStatus[]): Promise<number>;
+    approveByIds(jobIds: number[]): Promise<number>;
     listIdsByStatus(status: ApplicationStatus): Promise<number[]>;
     listFoundJobIds(): Promise<number[]>;
     setProcessing(appId: number, processing: boolean): Promise<void>;

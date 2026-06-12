@@ -22,7 +22,6 @@
 		NEEDS_INPUT: 'Needs Answer',
 		READY_FOR_REVIEW: 'Review',
 		APPROVED: 'Queued',
-		EXTERNAL: 'External',
 		SUBMITTED: 'Submitted',
 		REJECTED: 'Rejected',
 		FAILED: 'Failed'
@@ -71,7 +70,6 @@
 		'NEEDS_INPUT',
 		'READY_FOR_REVIEW',
 		'APPROVED',
-		'EXTERNAL',
 		'SUBMITTED',
 		'FAILED',
 		'REJECTED'

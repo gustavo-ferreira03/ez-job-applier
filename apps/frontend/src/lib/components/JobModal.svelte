@@ -16,7 +16,6 @@
 		'FOUND',
 		'NEEDS_INPUT',
 		'READY_FOR_REVIEW',
-		'EXTERNAL',
 		'FAILED'
 	];
 
@@ -452,20 +451,6 @@
 							{/if}
 						{:else if job.status === 'APPROVED'}
 							<p class="text-sm text-text-muted">Application queued.</p>
-						{:else if job.status === 'EXTERNAL'}
-							{#if detail.applicationUrl}
-								<a
-									href={detail.applicationUrl}
-									target="_blank"
-									rel="noreferrer noopener"
-									class="flex cursor-pointer items-center gap-1.5 text-sm text-status-external-text hover:underline"
-								>
-									<ExternalLink size={12} aria-hidden="true" />
-									Apply externally
-								</a>
-							{:else}
-								<p class="text-sm text-text-faint">No external link available.</p>
-							{/if}
 						{:else if job.status === 'FAILED'}
 							{#if detail.errorMessage}
 								<div class="mb-3 rounded-md bg-danger-bg px-3 py-2 text-[13px] text-danger-600">

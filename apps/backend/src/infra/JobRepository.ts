@@ -5,6 +5,7 @@ import type { IJobRepo } from "../core/ports";
 import type { Job } from "../core/types";
 import type { ApplicationStatus } from "../core/types";
 import type { JobDetail, JobSummary } from "../core/jobs/types";
+import { deriveTags } from "../core/jobs/tags";
 import type { ApplicationQuestion } from "../core/types";
 
 function parseList(value: string | null): string[] {
@@ -100,6 +101,7 @@ export class JobRepository implements IJobRepo {
                 url: job.url,
                 preferences: serializeList(job.preferences),
                 skills: serializeList(job.skills),
+                tags: serializeList(deriveTags(job)),
                 about: job.about,
                 applicationUrl: job.applicationUrl,
                 createdAt: timestamp,
@@ -114,6 +116,7 @@ export class JobRepository implements IJobRepo {
                     url: job.url,
                     preferences: serializeList(job.preferences),
                     skills: serializeList(job.skills),
+                    tags: serializeList(deriveTags(job)),
                     about: job.about,
                     applicationUrl: job.applicationUrl,
                     updatedAt: timestamp,
@@ -149,6 +152,7 @@ export class JobRepository implements IJobRepo {
             url: job.url,
             preferences: parseList(job.preferences),
             skills: parseList(job.skills),
+            tags: parseList(job.tags),
             about: job.about,
             applicationUrl: job.applicationUrl,
             status: (application?.status ?? "FOUND") as ApplicationStatus,
@@ -200,6 +204,7 @@ export class JobRepository implements IJobRepo {
             url: job.url,
             preferences: parseList(job.preferences),
             skills: parseList(job.skills),
+            tags: parseList(job.tags),
             about: job.about,
             applicationUrl: job.applicationUrl,
             status: (application?.status ?? "FOUND") as ApplicationStatus,

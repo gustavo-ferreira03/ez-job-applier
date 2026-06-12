@@ -10,6 +10,7 @@ export interface JobSummary {
     url: string;
     preferences: string[];
     skills: string[];
+    tags: string[];
     about: string | null;
     applicationUrl: string | null;
     status: ApplicationStatus;

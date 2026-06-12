@@ -3,7 +3,6 @@ export type ApplicationStatus =
 	| 'NEEDS_INPUT'
 	| 'READY_FOR_REVIEW'
 	| 'APPROVED'
-	| 'EXTERNAL'
 	| 'SUBMITTED'
 	| 'REJECTED'
 	| 'FAILED';
@@ -39,6 +38,7 @@ export interface JobSummary {
 	url: string;
 	preferences: string[];
 	skills: string[];
+	tags: string[];
 	about: string | null;
 	applicationUrl: string | null;
 	status: ApplicationStatus;

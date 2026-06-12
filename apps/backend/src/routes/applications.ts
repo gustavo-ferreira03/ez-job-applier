@@ -2,9 +2,8 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { saveAnswers } from "../core/applications/answer";
 import { applyToJob } from "../core/applications/apply";
-import { rejectJob, rejectJobsByStatus, reprocessJob } from "../core/applications/reject";
+import { rejectJob, rejectJobsByIds, reprocessJob } from "../core/applications/reject";
 import { wakeExecution } from "../core/execution/manager";
-import { APPLICATION_STATUSES } from "../core/types";
 import type { AppContext } from "../core/context";
 
 const JobIdParam = z.object({
@@ -31,13 +30,13 @@ const ApplyBody = z
     })
     .openapi("ApplyBody");
 
-const RejectJobsBody = z
+const JobIdsBody = z
     .object({
-        statuses: z.array(z.enum(APPLICATION_STATUSES)).openapi({
-            example: ["FOUND", "NEEDS_INPUT"],
+        ids: z.array(z.number().int()).openapi({
+            example: [1, 2, 3],
         }),
     })
-    .openapi("RejectJobsBody");
+    .openapi("JobIdsBody");
 
 export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
     const router = new OpenAPIHono();
@@ -111,11 +110,15 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
             method: "post",
             path: "/jobs/approve",
             tags: ["Applications"],
-            summary: "Approve all ready-for-review jobs",
+            summary: "Approve the given ready-for-review jobs",
+            request: {
+                body: { content: { "application/json": { schema: JobIdsBody } }, required: true },
+            },
             responses: { 200: { description: "Jobs approved" } },
         }),
         async (c) => {
-            const approved = await ctx.appRepo.approveByStatuses(["READY_FOR_REVIEW"]);
+            const { ids } = c.req.valid("json");
+            const approved = await ctx.appRepo.approveByIds(ids);
             if (approved > 0) wakeExecution();
             return c.json({ approved });
         },
@@ -126,17 +129,17 @@ export function createApplicationsRouter(ctx: AppContext): OpenAPIHono {
             method: "post",
             path: "/jobs/reject",
             tags: ["Applications"],
-            summary: "Reject jobs by status",
+            summary: "Reject the given jobs",
             request: {
-                body: { content: { "application/json": { schema: RejectJobsBody } }, required: true },
+                body: { content: { "application/json": { schema: JobIdsBody } }, required: true },
             },
             responses: {
                 200: { description: "Jobs rejected" },
             },
         }),
         async (c) => {
-            const { statuses } = c.req.valid("json");
-            const rejected = await rejectJobsByStatus(statuses, ctx);
+            const { ids } = c.req.valid("json");
+            const rejected = await rejectJobsByIds(ids, ctx);
             return c.json({ rejected });
         },
     );

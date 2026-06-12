@@ -13,7 +13,6 @@
 		NEEDS_INPUT: 'Needs Input',
 		READY_FOR_REVIEW: 'Review',
 		APPROVED: 'Queued',
-		EXTERNAL: 'External',
 		SUBMITTED: 'Submitted',
 		REJECTED: 'Rejected',
 		FAILED: 'Failed'
@@ -24,7 +23,6 @@
 		NEEDS_INPUT: 'bg-status-input-bg text-status-input-text',
 		READY_FOR_REVIEW: 'bg-status-review-bg text-status-review-text',
 		APPROVED: 'bg-execution-bg text-execution-text',
-		EXTERNAL: 'bg-status-external-bg text-status-external-text',
 		SUBMITTED: 'bg-status-submitted-bg text-status-submitted-text',
 		REJECTED: 'bg-status-found-bg text-text-faint',
 		FAILED: 'bg-status-failed-bg text-status-failed-text'

@@ -5,13 +5,8 @@ const REJECTABLE_STATUSES = new Set<ApplicationStatus>([
     "FOUND",
     "NEEDS_INPUT",
     "READY_FOR_REVIEW",
-    "EXTERNAL",
     "FAILED",
 ]);
-
-function rejectableStatuses(statuses: ApplicationStatus[]): ApplicationStatus[] {
-    return statuses.filter((status) => REJECTABLE_STATUSES.has(status));
-}
 
 export async function rejectJob(jobId: number, ctx: AppContext): Promise<void> {
     const job = await ctx.jobRepo.getById(jobId);
@@ -31,20 +26,20 @@ export async function rejectJob(jobId: number, ctx: AppContext): Promise<void> {
     await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED");
 }
 
-export async function rejectJobsByStatus(statuses: ApplicationStatus[], ctx: AppContext): Promise<number> {
-    const allowed = rejectableStatuses(statuses);
-    let rejected = await ctx.appRepo.rejectByStatuses(allowed);
-
-    if (allowed.includes("FOUND")) {
-        const foundWithoutApplication = await ctx.appRepo.listFoundJobIds();
-        for (const jobId of foundWithoutApplication) {
-            const job = await ctx.jobRepo.getById(jobId);
-            if (!job) continue;
+export async function rejectJobsByIds(ids: number[], ctx: AppContext): Promise<number> {
+    let rejected = 0;
+    for (const id of ids) {
+        const job = await ctx.jobRepo.getById(id);
+        if (!job) continue;
+        const application = await ctx.appRepo.get(job.provider, job.jobId);
+        if (application) {
+            if (application.processing || !REJECTABLE_STATUSES.has(application.status)) continue;
+            await ctx.appRepo.updateStatus(application.id, "REJECTED");
+        } else {
             await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED");
-            rejected += 1;
         }
+        rejected += 1;
     }
-
     return rejected;
 }
 

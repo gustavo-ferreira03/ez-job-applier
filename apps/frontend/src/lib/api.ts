@@ -1,7 +1,6 @@
 import { PUBLIC_API_URL } from '$env/static/public';
 import type {
 	AppSettings,
-	ApplicationStatus,
 	AutoApplyStatus,
 	Execution,
 	JobDetail,
@@ -92,12 +91,12 @@ export function rejectJob(jobId: number): Promise<{ ok: boolean }> {
 	return post(`/jobs/${jobId}/reject`);
 }
 
-export function rejectJobsByStatus(statuses: ApplicationStatus[]): Promise<{ rejected: number }> {
-	return post('/jobs/reject', { statuses });
+export function rejectJobs(ids: number[]): Promise<{ rejected: number }> {
+	return post('/jobs/reject', { ids });
 }
 
-export function approveAllReadyForReview(): Promise<{ approved: number }> {
-	return post('/jobs/approve');
+export function approveJobs(ids: number[]): Promise<{ approved: number }> {
+	return post('/jobs/approve', { ids });
 }
 
 export function reprocessJob(jobId: number): Promise<{ ok: boolean }> {

@@ -14,6 +14,7 @@ export const jobs = sqliteTable(
         url: text("url").notNull(),
         preferences: text("preferences").notNull().default("[]"),
         skills: text("skills").notNull().default("[]"),
+        tags: text("tags").notNull().default("[]"),
         about: text("about"),
         applicationUrl: text("application_url"),
         createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),

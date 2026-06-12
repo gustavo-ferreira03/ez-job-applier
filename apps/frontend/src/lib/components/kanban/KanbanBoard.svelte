@@ -12,6 +12,7 @@
 	} from '$lib/types';
 	import SubmitAllModal from '$lib/components/SubmitAllModal.svelte';
 	import AddJobModal from '$lib/components/AddJobModal.svelte';
+	import { tagStyle } from '$lib/tags';
 
 	interface Props {
 		jobs: JobSummary[];
@@ -24,9 +25,26 @@
 		'FOUND',
 		'NEEDS_INPUT',
 		'READY_FOR_REVIEW',
-		'EXTERNAL',
 		'FAILED'
 	];
+
+	const TAG_ORDER = ['LinkedIn', 'External'];
+
+	let selectedTags = $state<string[]>([]);
+
+	const availableTags = $derived.by(() => {
+		const present = new Set<string>();
+		for (const job of jobs) for (const tag of job.tags) present.add(tag);
+		const known = TAG_ORDER.filter((t) => present.has(t));
+		const extra = [...present].filter((t) => !TAG_ORDER.includes(t)).sort();
+		return [...known, ...extra];
+	});
+
+	function toggleTag(tag: string) {
+		selectedTags = selectedTags.includes(tag)
+			? selectedTags.filter((t) => t !== tag)
+			: [...selectedTags, tag];
+	}
 
 	let rejectColumn = $state<KanbanColumnDef | null>(null);
 	let rejecting = $state(false);
@@ -62,14 +80,6 @@
 			canSubmitAll: true
 		},
 		{
-			id: 'external',
-			title: 'External',
-			statuses: ['EXTERNAL'],
-			defaultTab: 'actions' as KanbanTab,
-			headerClass: 'text-status-external-text',
-			canRejectAll: true
-		},
-		{
 			id: 'submitted',
 			title: 'Submitted',
 			statuses: ['SUBMITTED'],
@@ -94,25 +104,40 @@
 		}
 	];
 
-	const rejectableCount = $derived(rejectColumn ? countRejectableJobs(rejectColumn) : 0);
+	const rejectableCount = $derived(rejectColumn ? rejectableJobs(rejectColumn).length : 0);
+
+	function matchesTagFilter(job: JobSummary): boolean {
+		if (selectedTags.length === 0) return true;
+		return job.tags.some((tag) => selectedTags.includes(tag));
+	}
 
 	function jobsForColumn(col: KanbanColumnDef) {
-		return jobs.filter((j) => col.statuses.includes(j.status));
+		return jobs.filter((j) => col.statuses.includes(j.status) && matchesTagFilter(j));
 	}
 
 	function isRejectable(job: JobSummary): boolean {
 		return !job.processing && REJECTABLE_STATUSES.includes(job.status);
 	}
 
-	function countRejectableJobs(column: KanbanColumnDef): number {
-		return jobs.filter((job) => column.statuses.includes(job.status) && isRejectable(job)).length;
+	function rejectableJobs(column: KanbanColumnDef): JobSummary[] {
+		return jobs.filter(
+			(job) => column.statuses.includes(job.status) && isRejectable(job) && matchesTagFilter(job)
+		);
 	}
+
+	function submittableJobs(): JobSummary[] {
+		return jobs.filter(
+			(j) => j.status === 'READY_FOR_REVIEW' && !j.processing && matchesTagFilter(j)
+		);
+	}
+
+	const submittableCount = $derived(submittableJobs().length);
 
 	async function confirmSubmitAll() {
 		if (submittingAll) return;
 		submittingAll = true;
 		try {
-			const result = await api.approveAllReadyForReview();
+			const result = await api.approveJobs(submittableJobs().map((j) => j.id));
 			toastState.show(
 				`${result.approved} ${result.approved === 1 ? 'job queued' : 'jobs queued'} for submission`,
 				'success'
@@ -130,7 +155,7 @@
 		if (!rejectColumn || rejecting || rejectableCount === 0) return;
 		rejecting = true;
 		try {
-			const result = await api.rejectJobsByStatus(rejectColumn.statuses);
+			const result = await api.rejectJobs(rejectableJobs(rejectColumn).map((j) => j.id));
 			toastState.show(
 				`${result.rejected} ${result.rejected === 1 ? 'job rejected' : 'jobs rejected'}`,
 				'success'
@@ -145,24 +170,57 @@
 	}
 </script>
 
-<section class="flex h-full gap-4 overflow-x-auto p-4" aria-label="Application pipeline">
-	{#each columns as col (col.id)}
-		<KanbanColumn
-			column={col}
-			jobs={jobsForColumn(col)}
-			{onOpenJob}
-			onRejectAll={(column) => {
-				rejectColumn = column;
-			}}
-			onSubmitAll={() => {
-				submitAllOpen = true;
-			}}
-			onAdd={() => {
-				addOpen = true;
-			}}
-		/>
-	{/each}
-</section>
+<div class="flex h-full flex-col">
+	{#if availableTags.length > 1}
+		<div
+			class="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2.5"
+			aria-label="Filter by tag"
+		>
+			{#each availableTags as tag (tag)}
+				{@const active = selectedTags.includes(tag)}
+				<button
+					type="button"
+					class="flex cursor-pointer items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs font-medium transition-colors duration-100 focus-visible:outline-none {active
+						? 'border-border-strong bg-surface-hover text-text-primary'
+						: 'border-border-default text-text-muted hover:border-border-strong hover:text-text-secondary'}"
+					aria-pressed={active}
+					onclick={() => toggleTag(tag)}
+				>
+					<span class="h-1.5 w-1.5 rounded-full {tagStyle(tag).dot}"></span>
+					{tag}
+				</button>
+			{/each}
+			{#if selectedTags.length > 0}
+				<button
+					type="button"
+					class="ml-auto cursor-pointer text-[11px] text-text-faint transition-colors duration-100 hover:text-text-muted focus-visible:outline-none"
+					onclick={() => (selectedTags = [])}
+				>
+					Clear
+				</button>
+			{/if}
+		</div>
+	{/if}
+
+	<section class="flex min-h-0 flex-1 gap-4 overflow-x-auto p-4" aria-label="Application pipeline">
+		{#each columns as col (col.id)}
+			<KanbanColumn
+				column={col}
+				jobs={jobsForColumn(col)}
+				{onOpenJob}
+				onRejectAll={(column) => {
+					rejectColumn = column;
+				}}
+				onSubmitAll={() => {
+					submitAllOpen = true;
+				}}
+				onAdd={() => {
+					addOpen = true;
+				}}
+			/>
+		{/each}
+	</section>
+</div>
 
 {#if addOpen}
 	<AddJobModal
@@ -175,7 +233,7 @@
 {#if submitAllOpen}
 	<SubmitAllModal
 		{submittingAll}
-		reviewCount={jobs.filter((j) => j.status === 'READY_FOR_REVIEW' && !j.processing).length}
+		reviewCount={submittableCount}
 		onConfirm={confirmSubmitAll}
 		onClose={() => {
 			submitAllOpen = false;
