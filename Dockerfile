@@ -2,8 +2,11 @@ FROM node:slim
 
 RUN npm install -g pnpm@10.30.1
 
+ARG TYPST_VERSION=0.14.2
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends xvfb x11vnc procps \
+    && apt-get install -y --no-install-recommends ca-certificates curl procps xvfb x11vnc xz-utils \
+    && curl -fsSL "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz" \
+        | tar -xJ --strip-components=1 -C /usr/local/bin "typst-x86_64-unknown-linux-musl/typst" \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
