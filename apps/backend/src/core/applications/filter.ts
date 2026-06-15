@@ -28,5 +28,5 @@ export async function shouldApply(
         job.skills.length ? `\nRequired skills: ${job.skills.join(", ")}` : "",
     ].join("");
 
-    return ctx.llm.generate({ system, prompt, schema: filterSchema });
+    return ctx.llm.generate({ system, prompt, schema: filterSchema, label: "filter" });
 }

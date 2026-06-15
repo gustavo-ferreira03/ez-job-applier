@@ -5,5 +5,6 @@ export interface ILlmClient {
         system: string;
         prompt: string;
         schema: S;
+        label?: string;
     }): Promise<z.infer<S>>;
 }
