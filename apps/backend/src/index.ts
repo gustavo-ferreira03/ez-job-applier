@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,7 @@ import { JobRepository } from "./infra/JobRepository";
 import { ApplicationRepository } from "./infra/ApplicationRepository";
 import { ExecutionRepository } from "./infra/ExecutionRepository";
 import { ResumeRepository } from "./infra/ResumeRepository";
+import { ResumeMasterRepository } from "./infra/ResumeMasterRepository";
 import { ProviderRegistry } from "./infra/ProviderRegistry";
 import { PiLlmClient } from "./infra/PiLlmClient";
 import { createJobsRouter } from "./routes/jobs";
@@ -20,6 +22,7 @@ import { createApplicationsRouter } from "./routes/applications";
 import { createAutoApplyRouter } from "./routes/auto-apply";
 import { createExecutionRouter } from "./routes/execution";
 import resumesRouter from "./routes/resumes";
+import { createResumeMasterRouter } from "./routes/resume-master";
 import { createSettingsRouter } from "./routes/settings";
 import databaseRouter from "./routes/database";
 import { startExecution, registerWorker } from "./core/execution/manager";
@@ -42,6 +45,7 @@ const ctx: AppContext = {
     appRepo: new ApplicationRepository(db),
     executionRepo: new ExecutionRepository(db),
     resumeRepo: new ResumeRepository(),
+    resumeMasterRepo: new ResumeMasterRepository(),
     providerRegistry,
     llmAuth,
     modelRegistry,
@@ -70,6 +74,7 @@ const app = new OpenAPIHono();
 app.use("*", cors());
 
 app.onError((err, c) => {
+    if (err instanceof HTTPException) return err.getResponse();
     console.error(err);
     return c.json({ error: err.message }, 500);
 });
@@ -79,6 +84,7 @@ app.route("/", createApplicationsRouter(ctx));
 app.route("/", createAutoApplyRouter(ctx));
 app.route("/", createExecutionRouter(ctx));
 app.route("/", resumesRouter);
+app.route("/", createResumeMasterRouter(ctx));
 app.route("/", createSettingsRouter(ctx));
 app.route("/", databaseRouter);
 

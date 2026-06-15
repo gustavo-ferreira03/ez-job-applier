@@ -33,8 +33,10 @@ function defaultSettings(): AppSettings {
 			model: 'claude-sonnet-4-6',
 			filterJobs: false,
 			autoAnswer: false,
+			autoTailorResumes: false,
 			externalApply: false,
-			filterCriteria: ''
+			filterCriteria: '',
+			resumeTailoringInstructions: ''
 		},
 		advanced: {
 			browserVisible: false,

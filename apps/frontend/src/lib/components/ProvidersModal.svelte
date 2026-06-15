@@ -24,8 +24,10 @@
 		model: '',
 		filterJobs: false,
 		autoAnswer: false,
+		autoTailorResumes: false,
 		externalApply: false,
-		filterCriteria: ''
+		filterCriteria: '',
+		resumeTailoringInstructions: ''
 	});
 	let search = $state('');
 	let expandedProvider = $state<string | null>(null);

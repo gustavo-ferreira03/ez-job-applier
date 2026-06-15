@@ -1,11 +1,14 @@
 <script lang="ts">
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import FileText from '@lucide/svelte/icons/file-text';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Upload from '@lucide/svelte/icons/upload';
 	import X from '@lucide/svelte/icons/x';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import * as api from '$lib/api';
 	import type { ProviderInfo } from '$lib/api';
@@ -21,6 +24,7 @@
 	import { trapFocus } from '$lib/focusTrap';
 	import { modalTransition } from '$lib/transitions';
 	import ProvidersModal from './ProvidersModal.svelte';
+	import YamlEditor from './YamlEditor.svelte';
 
 	type Tab = 'geral' | 'ia' | 'avancado';
 	type SettingsPatch = Partial<{
@@ -86,8 +90,43 @@
 	let settingsDebounce: ReturnType<typeof setTimeout> | null = null;
 	let pendingSettingsPatch: SettingsPatch = {};
 	let filterCriteriaDebounce: ReturnType<typeof setTimeout> | null = null;
+	let tailoringInstructionsDebounce: ReturnType<typeof setTimeout> | null = null;
 	let blockedKeywordInput = $state('');
 	let blockedCompanyInput = $state('');
+	let masters = $state<string[]>([]);
+	let selectedMaster = $state('');
+	let masterYaml = $state('');
+	let masterIssues = $state<api.ResumeIssue[]>([]);
+	let masterStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let masterExtracting = $state(false);
+	let newMasterName = $state('');
+	let addingMaster = $state(false);
+	let extractMenuOpen = $state(false);
+	let masterSaveTimer: ReturnType<typeof setTimeout> | null = null;
+	let pendingMasterSave: { name: string; yaml: string } | null = null;
+	let masterTabs = $derived(
+		selectedMaster && !masters.includes(selectedMaster) ? [...masters, selectedMaster] : masters
+	);
+	let masterStatusText = $derived(
+		masterStatus === 'saving'
+			? 'Saving changes…'
+			: masterStatus === 'saved'
+				? 'Saved'
+				: masterStatus === 'error'
+					? 'Fix YAML to save'
+					: ''
+	);
+	const MASTER_TEMPLATE =
+		'meta:\n  template: default\n  locale: en\nbasics:\n  name: New Resume\nwork: []\nskills: []\n';
+
+	$effect(() => {
+		if (appState.resumes.length === 0) extractMenuOpen = false;
+	});
+
+	function normalizeMasterName(name: string): string {
+		const cleaned = name.trim().replace(/[^A-Za-z0-9 _-]+/g, '').replace(/\s+/g, '-');
+		return cleaned.length > 0 ? cleaned : 'master';
+	}
 
 	function mergeSettings(base: AppSettings, patch: SettingsPatch): AppSettings {
 		const execution = patch.general?.execution
@@ -167,7 +206,150 @@
 
 	onMount(() => {
 		refreshLlmSettings();
+		loadMasters();
 	});
+
+	onDestroy(() => {
+		void flushMasterSave();
+	});
+
+	async function loadMasters() {
+		try {
+			const { masters: list } = await api.listMasters();
+			masters = list;
+			if (list.length > 0 && !list.includes(selectedMaster)) {
+				await openMaster(list[0]);
+			} else if (list.length === 0) {
+				selectedMaster = '';
+				masterYaml = '';
+			}
+		} catch {
+			toastState.show('Failed to load master resumes', 'error');
+		}
+	}
+
+	async function openMaster(name: string) {
+		await flushMasterSave();
+		selectedMaster = name;
+		masterIssues = [];
+		masterStatus = 'idle';
+		addingMaster = false;
+		extractMenuOpen = false;
+		if (!masters.includes(name)) {
+			masterYaml = MASTER_TEMPLATE;
+			return;
+		}
+		try {
+			const { yaml } = await api.getMaster(name);
+			masterYaml = yaml ?? '';
+		} catch {
+			toastState.show('Failed to load master resume', 'error');
+		}
+	}
+
+	function startNewMaster() {
+		addingMaster = true;
+		newMasterName = '';
+		extractMenuOpen = false;
+	}
+
+	async function confirmNewMaster() {
+		const name = normalizeMasterName(newMasterName);
+		if (!name) return;
+		await flushMasterSave();
+		addingMaster = false;
+		if (masters.includes(name)) {
+			await openMaster(name);
+			return;
+		}
+		selectedMaster = name;
+		masterYaml = MASTER_TEMPLATE;
+		masterIssues = [];
+		await doSaveMaster(name, masterYaml);
+	}
+
+	function scheduleMasterSave() {
+		if (!selectedMaster) return;
+		pendingMasterSave = { name: selectedMaster, yaml: masterYaml };
+		masterStatus = 'saving';
+		if (masterSaveTimer) clearTimeout(masterSaveTimer);
+		masterSaveTimer = setTimeout(() => void flushMasterSave(), 700);
+	}
+
+	async function flushMasterSave() {
+		if (masterSaveTimer) {
+			clearTimeout(masterSaveTimer);
+			masterSaveTimer = null;
+		}
+		const p = pendingMasterSave;
+		pendingMasterSave = null;
+		if (p) await doSaveMaster(p.name, p.yaml);
+	}
+
+	function cancelPendingMasterSave(name: string) {
+		if (pendingMasterSave?.name !== name) return;
+		if (masterSaveTimer) {
+			clearTimeout(masterSaveTimer);
+			masterSaveTimer = null;
+		}
+		pendingMasterSave = null;
+	}
+
+	async function doSaveMaster(name: string, yaml: string) {
+		try {
+			const res = await api.saveMaster(name, yaml);
+			const current = name === selectedMaster;
+			if ('issues' in res) {
+				if (current) {
+					masterIssues = res.issues;
+					masterStatus = 'error';
+				}
+			} else {
+				if (!masters.includes(name)) masters = [...masters, name].sort();
+				if (current) {
+					masterIssues = [];
+					masterStatus = 'saved';
+				}
+			}
+		} catch {
+			if (name === selectedMaster) masterStatus = 'error';
+			toastState.show('Failed to save master resume', 'error');
+		}
+	}
+
+	async function extractMaster(source: string) {
+		if (!selectedMaster) return;
+		if (!source) return;
+		extractMenuOpen = false;
+		cancelPendingMasterSave(selectedMaster);
+		masterExtracting = true;
+		masterIssues = [];
+		try {
+			const { yaml } = await api.extractMaster(selectedMaster, source);
+			masterYaml = yaml;
+			masterStatus = 'saved';
+			if (!masters.includes(selectedMaster)) masters = [...masters, selectedMaster].sort();
+			toastState.show('Draft generated from PDF', 'success');
+		} catch {
+			toastState.show('Failed to generate from PDF', 'error');
+		} finally {
+			masterExtracting = false;
+		}
+	}
+
+	async function removeMaster() {
+		if (!selectedMaster) return;
+		await flushMasterSave();
+		extractMenuOpen = false;
+		try {
+			await api.deleteMaster(selectedMaster);
+			toastState.show(`Removed ${selectedMaster}`, 'success');
+			selectedMaster = '';
+			await loadMasters();
+		} catch {
+			toastState.show('Failed to remove master resume', 'error');
+		}
+	}
 
 	async function handleLlmSetting(update: Partial<LlmSettings>) {
 		try {
@@ -178,6 +360,17 @@
 		}
 	}
 
+	let activeProvider = $derived(
+		configuredProviders.find((p) => p.id === appState.settings.llm.provider)
+	);
+	let activeModels = $derived(activeProvider?.models ?? []);
+
+	function selectProvider(id: string) {
+		const provider = configuredProviders.find((p) => p.id === id);
+		const model = provider?.models[0]?.id ?? appState.settings.llm.model;
+		handleLlmSetting({ provider: id, model });
+	}
+
 	function handleFilterCriteriaInput(value: string) {
 		appState.settings = {
 			...appState.settings,
@@ -186,6 +379,17 @@
 		if (filterCriteriaDebounce !== null) clearTimeout(filterCriteriaDebounce);
 		filterCriteriaDebounce = setTimeout(() => {
 			handleLlmSetting({ filterCriteria: value });
+		}, 600);
+	}
+
+	function handleTailoringInstructionsInput(value: string) {
+		appState.settings = {
+			...appState.settings,
+			llm: { ...appState.settings.llm, resumeTailoringInstructions: value }
+		};
+		if (tailoringInstructionsDebounce !== null) clearTimeout(tailoringInstructionsDebounce);
+		tailoringInstructionsDebounce = setTimeout(() => {
+			handleLlmSetting({ resumeTailoringInstructions: value });
 		}, 600);
 	}
 
@@ -716,6 +920,162 @@
 						</div>
 					{/if}
 				</section>
+				<section class="mb-6">
+					<div class="mb-3">
+						<div>
+							<h3 class="text-[13px] font-semibold text-text-primary">Master resumes</h3>
+							<p class="mt-1 text-[11px] text-text-faint">
+								Structured sources the AI tailors per job. The best-fitting one is auto-selected.
+							</p>
+						</div>
+
+						<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+							{#if masterTabs.length > 0}
+								<label class="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-xs sm:flex-row sm:items-center">
+									<span class="text-[10px] font-medium whitespace-nowrap text-text-faint">Master</span>
+									<select
+										aria-label="Master resume"
+										value={selectedMaster}
+										class="h-7 w-full min-w-0 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2 text-[11px] text-text-muted transition-colors duration-150 hover:border-border-strong focus:border-border-strong focus:outline-none"
+										onchange={(e) => openMaster((e.currentTarget as HTMLSelectElement).value)}
+									>
+										{#each masterTabs as name (name)}
+											<option value={name}>{name}{!masters.includes(name) ? ' (unsaved)' : ''}</option>
+										{/each}
+									</select>
+								</label>
+							{/if}
+						{#if addingMaster}
+							<div class="flex min-w-0 gap-1.5">
+								<input
+									type="text"
+									class="h-7 min-w-0 flex-1 rounded-md border border-border-strong bg-surface-overlay px-2 text-[11px] text-text-primary placeholder:text-text-placeholder focus:outline-none sm:w-32 sm:flex-none"
+									placeholder="Name…"
+									bind:value={newMasterName}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											confirmNewMaster();
+										}
+										if (e.key === 'Escape') addingMaster = false;
+									}}
+								/>
+								<button
+									type="button"
+									class="h-7 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
+									onclick={confirmNewMaster}>Add</button
+								>
+							</div>
+						{:else}
+							<button
+								type="button"
+								class="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-dashed border-border-default px-2.5 text-[11px] font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none"
+								onclick={startNewMaster}
+						>
+								<Plus size={11} aria-hidden="true" /> New
+							</button>
+						{/if}
+
+							{#if selectedMaster}
+								<div class="flex min-w-0 flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
+									{#if masterStatusText}
+										<span
+											aria-live="polite"
+											class="text-[10px] font-medium whitespace-nowrap {masterStatus === 'saved'
+												? 'text-success-500'
+												: masterStatus === 'error'
+													? 'text-danger-600'
+													: 'text-text-faint'}"
+										>
+											{masterStatusText}
+										</span>
+									{/if}
+									<div class="relative w-full sm:w-auto">
+										<button
+											type="button"
+											disabled={appState.resumes.length === 0 || masterExtracting}
+											aria-haspopup="menu"
+											aria-expanded={extractMenuOpen}
+											title={appState.resumes.length === 0 ? 'Upload a PDF first' : 'Choose a PDF to generate from'}
+											class="flex h-7 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[11px] font-medium whitespace-nowrap text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"
+											onclick={() => {
+												extractMenuOpen = !extractMenuOpen;
+											}}
+										>
+											<Sparkles size={11} aria-hidden="true" />
+											{masterExtracting ? 'Generating…' : 'Generate from PDF'}
+											<ChevronDown size={11} aria-hidden="true" />
+										</button>
+
+										{#if extractMenuOpen && appState.resumes.length > 0}
+											<div
+												role="menu"
+												transition:fly={{ y: -4, duration: 120 }}
+												class="z-modal absolute right-0 mt-1 w-full min-w-64 rounded-md border border-border-default bg-surface-raised p-1 shadow-[var(--shadow-modal)] sm:w-80"
+											>
+												<p class="px-2 py-1 text-[10px] font-medium text-text-faint">Choose source PDF</p>
+												{#each appState.resumes as r (r)}
+													<button
+														type="button"
+														role="menuitem"
+														title={r}
+														class="flex min-h-8 w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none"
+														onclick={() => extractMaster(r)}
+													>
+														<FileText size={12} class="flex-shrink-0 text-text-faint" aria-hidden="true" />
+														<span class="min-w-0 flex-1 truncate">{r}</span>
+														{#if appState.defaultResume === r}
+															<span class="flex-shrink-0 text-[9px] font-bold text-success-500">DEFAULT</span>
+														{/if}
+													</button>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/if}
+						</div>
+					</div>
+
+					{#if selectedMaster}
+						<YamlEditor
+							class="h-72"
+							placeholder={'meta:\n  template: default\nbasics:\n  name: Your Name\n  label: Software Engineer\nwork: []'}
+							bind:value={masterYaml}
+							oninput={scheduleMasterSave}
+						/>
+
+						{#if masterIssues.length > 0}
+							<div class="mt-2 rounded-md border border-danger-border bg-danger-bg px-3 py-2">
+								<p class="mb-1 text-[11px] font-semibold text-danger-500">Validation errors</p>
+								<ul class="space-y-0.5">
+									{#each masterIssues as issue (issue.path.join('.') + issue.message)}
+										<li class="text-[11px] text-danger-500">
+											{issue.path.length ? issue.path.join('.') + ': ' : ''}{issue.message}
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+
+						{#if masters.includes(selectedMaster)}
+							<button
+								type="button"
+								class="mt-2 cursor-pointer text-[10px] font-medium text-danger-600 transition-colors duration-150 hover:text-danger-700 focus-visible:outline-none"
+								onclick={removeMaster}>Delete “{selectedMaster}”</button
+							>
+						{/if}
+					{:else}
+						<div
+							class="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle py-10 text-center"
+						>
+							<FileText size={24} strokeWidth={1.5} class="text-text-faint" aria-hidden="true" />
+							<p class="text-[11px] text-text-faint">
+								No master resumes yet. Create one with “New”.
+							</p>
+						</div>
+					{/if}
+				</section>
 			</div>
 		{:else if activeTab === 'ia'}
 			<section class="mb-6">
@@ -733,17 +1093,63 @@
 					>
 				</div>
 
-				<div class="mb-4 space-y-1.5">
-					{#each configuredProviders as p (p.id)}
-						<div
-							class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-3 py-2.5"
-						>
-							<span class="min-w-0 flex-1 text-[12px] text-text-primary">{p.name}</span>
-							<span class="text-[10px] font-bold text-success-500">CONFIGURED</span>
-						</div>
-					{/each}
+				<div class="mb-4 space-y-3">
 					{#if configuredProviders.length === 0}
-						<p class="text-[11px] text-text-faint">No providers configured</p>
+						<p class="text-[11px] text-text-faint">
+							No providers configured. Use “Manage providers” to add one.
+						</p>
+					{:else}
+						{#if !activeProvider}
+							<p
+								class="rounded-md border border-status-input-border bg-status-input-bg px-3 py-2 text-[11px] text-status-input-text"
+							>
+								Active provider “{appState.settings.llm.provider}” isn’t configured. Pick a configured
+								one below.
+							</p>
+						{/if}
+						<div class="grid gap-3 sm:grid-cols-2">
+							<div>
+								<label
+									class="mb-1.5 block text-[11px] font-medium text-text-secondary"
+									for="llm-provider">Active provider</label
+								>
+								<select
+									id="llm-provider"
+									class="h-8 w-full cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+									value={appState.settings.llm.provider}
+									onchange={(e) => selectProvider((e.target as HTMLSelectElement).value)}
+								>
+									{#if !activeProvider}
+										<option value={appState.settings.llm.provider}
+											>{appState.settings.llm.provider} (not configured)</option
+										>
+									{/if}
+									{#each configuredProviders as p (p.id)}
+										<option value={p.id}>{p.name}</option>
+									{/each}
+								</select>
+							</div>
+							<div>
+								<label
+									class="mb-1.5 block text-[11px] font-medium text-text-secondary"
+									for="llm-model">Model</label
+								>
+								<select
+									id="llm-model"
+									disabled={!activeProvider}
+									class="h-8 w-full cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none disabled:opacity-50"
+									value={appState.settings.llm.model}
+									onchange={(e) => handleLlmSetting({ model: (e.target as HTMLSelectElement).value })}
+								>
+									{#if activeModels.length === 0}
+										<option value={appState.settings.llm.model}>{appState.settings.llm.model}</option>
+									{/if}
+									{#each activeModels as m (m.id)}
+										<option value={m.id}>{m.label}</option>
+									{/each}
+								</select>
+							</div>
+						</div>
 					{/if}
 				</div>
 
@@ -778,7 +1184,7 @@
 						? ''
 						: 'opacity-50'} transition-opacity duration-150"
 				>
-					{#each [{ key: 'filterJobs' as const, label: 'Filter jobs', desc: 'Automatically rejects jobs outside your profile' }, { key: 'autoAnswer' as const, label: 'Auto-answer questions', desc: 'Automatically fills application questions' }, { key: 'externalApply' as const, label: 'Apply to external jobs', desc: 'Uses an agent to fill external ATS forms' }] as feat (feat.key)}
+					{#each [{ key: 'filterJobs' as const, label: 'Filter jobs', desc: 'Automatically rejects jobs outside your profile' }, { key: 'autoAnswer' as const, label: 'Auto-answer questions', desc: 'Automatically fills application questions' }, { key: 'autoTailorResumes' as const, label: 'Auto-tailor resumes', desc: 'Generates a tailored resume when a job is ready for review' }, { key: 'externalApply' as const, label: 'Apply to external jobs', desc: 'Uses an agent to fill external ATS forms' }] as feat (feat.key)}
 						<button
 							type="button"
 							class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 text-left transition-colors duration-150 hover:border-border-default focus-visible:outline-none"
@@ -819,6 +1225,28 @@
 								oninput={(e) => handleFilterCriteriaInput((e.target as HTMLTextAreaElement).value)}
 								class="w-full resize-none rounded-md border border-border-default bg-surface-overlay px-3 py-2 text-[12px] text-text-primary placeholder:text-text-faint focus:border-accent-500 focus:outline-none"
 							></textarea>
+						</div>
+					{/if}
+
+					{#if appState.settings.llm.autoTailorResumes}
+						<div class="pt-2">
+							<label
+								for="resume-tailoring-instructions"
+								class="mb-1 block text-[11px] font-medium text-text-secondary"
+								>Resume tailoring instructions</label
+							>
+							<textarea
+								id="resume-tailoring-instructions"
+								rows="3"
+								placeholder="Example: Emphasize backend APIs, PostgreSQL, and distributed systems. Keep it concise."
+								value={appState.settings.llm.resumeTailoringInstructions}
+								oninput={(e) =>
+									handleTailoringInstructionsInput((e.target as HTMLTextAreaElement).value)}
+								class="w-full resize-none rounded-md border border-border-default bg-surface-overlay px-3 py-2 text-[12px] text-text-primary placeholder:text-text-faint focus:border-accent-500 focus:outline-none"
+							></textarea>
+							<p class="mt-1 text-[10px] text-text-faint">
+								Used by auto-tailoring and manual Generate resume actions.
+							</p>
 						</div>
 					{/if}
 				</div>

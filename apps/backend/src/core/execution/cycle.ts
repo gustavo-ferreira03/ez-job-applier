@@ -1,10 +1,14 @@
 import path from "node:path";
+import os from "node:os";
+import fs from "node:fs/promises";
 import type { AppContext } from "../context";
 import type { ApplyResult, DiscoverConfig } from "../types";
 import type { IJobProviderSession } from "../interfaces";
 import { getSettings, type AppSettings } from "../../repositories/settings";
 import { shouldApply } from "../applications/filter";
 import { checkStaticFilter } from "../applications/static-filter";
+import { generateResumePdf } from "../resumes/pdf";
+import { scheduleAutoTailorIfNeeded } from "../resumes/auto-tailor";
 
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
 
@@ -77,7 +81,6 @@ async function processQueue(
     deferredJobIds: Set<number>,
     settings: AppSettings,
 ): Promise<CycleResult> {
-    const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
     let easyApplyLimited = false;
 
     const foundIds = await ctx.appRepo.listIdsByStatus("FOUND");
@@ -109,7 +112,11 @@ async function processQueue(
         try {
             const result = await session.getQuestions(job, resumePath);
             const updated = await ctx.appRepo.upsert(
-                job.provider, job.jobId, result.status, resumeFilename, result.errorMessage,
+                job.provider,
+                job.jobId,
+                result.status,
+                undefined,
+                result.errorMessage,
             );
             await ctx.appRepo.setProcessing(updated.id, false);
             if (!isEasyApplyLimited(result) || result.questions.length > 0) {
@@ -121,6 +128,9 @@ async function processQueue(
                 console.log(`[execution] deferred: ${job.title} → ${result.errorMessage}`);
             } else {
                 console.log(`[execution] questions: ${job.title} → ${result.status}`);
+                if (result.status === "READY_FOR_REVIEW") {
+                    scheduleAutoTailorIfNeeded(jobId, ctx, settings);
+                }
             }
         } catch (e) {
             await ctx.appRepo.setProcessing(appRec.id, false);
@@ -147,11 +157,28 @@ async function processQueue(
         }
 
         await ctx.appRepo.setProcessing(appRec.id, true);
+        let tailoredTempPath: string | undefined;
         try {
-            const selectedResumePath = appRec.resumeFilename
+            const baseResumePath = appRec.resumeFilename
                 ? await ctx.resumeRepo.getResumePath(appRec.resumeFilename)
                 : resumePath;
-            const selectedResumeFilename = selectedResumePath ? path.basename(selectedResumePath) : undefined;
+            const selectedResumeFilename = baseResumePath ? path.basename(baseResumePath) : undefined;
+
+            const tailored = await ctx.resumeMasterRepo.readTailored(jobId);
+            let selectedResumePath = baseResumePath;
+            if (tailored) {
+                try {
+                    const pdf = await generateResumePdf(tailored, `resume-job-${jobId}`);
+                    tailoredTempPath = path.join(os.tmpdir(), `tailored-${jobId}-${Date.now()}.pdf`);
+                    await fs.writeFile(tailoredTempPath, pdf);
+                    selectedResumePath = tailoredTempPath;
+                } catch (e) {
+                    tailoredTempPath = undefined;
+                    selectedResumePath = baseResumePath;
+                    console.error(`[execution] tailored resume failed for job ${jobId}, using base resume:`, e);
+                }
+            }
+
             const result = await session.apply(job, answers, selectedResumePath);
             const updated = await ctx.appRepo.upsert(
                 job.provider, job.jobId, result.status, selectedResumeFilename, result.errorMessage,
@@ -173,6 +200,8 @@ async function processQueue(
             console.error(`[execution] apply failed for job ${jobId}:`, e);
             const failed = await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
             await ctx.appRepo.setProcessing(failed.id, false);
+        } finally {
+            if (tailoredTempPath) await fs.rm(tailoredTempPath, { force: true }).catch(() => {});
         }
     }
 

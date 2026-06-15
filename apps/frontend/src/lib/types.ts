@@ -73,8 +73,10 @@ export interface LlmSettings {
 	model: string;
 	filterJobs: boolean;
 	autoAnswer: boolean;
+	autoTailorResumes: boolean;
 	externalApply: boolean;
 	filterCriteria: string;
+	resumeTailoringInstructions: string;
 }
 
 export interface AppSettings {

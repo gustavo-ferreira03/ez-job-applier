@@ -9,8 +9,10 @@ export interface LlmSettings {
     model: string;
     filterJobs: boolean;
     autoAnswer: boolean;
+    autoTailorResumes: boolean;
     externalApply: boolean;
     filterCriteria: string;
+    resumeTailoringInstructions: string;
 }
 
 export interface AppSettings {
@@ -53,7 +55,17 @@ const defaults: AppSettings = {
         blockedKeywords: [],
         blockedCompanies: [],
     },
-    llm: { enabled: false, provider: "anthropic", model: "claude-sonnet-4-6", filterJobs: false, autoAnswer: false, externalApply: false, filterCriteria: "" },
+    llm: {
+        enabled: false,
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+        filterJobs: false,
+        autoAnswer: false,
+        autoTailorResumes: false,
+        externalApply: false,
+        filterCriteria: "",
+        resumeTailoringInstructions: "",
+    },
     advanced: {
         browserVisible: false,
         searchLocale: "pt-BR",

@@ -51,6 +51,13 @@
 	--color-tag-external-bg: #2a1f4d;
 	--color-tag-external-text: #c4a7f5;
 
+	/* ─── Syntax (YAML editor) — low-sat, decoupled from accent/status ─── */
+	--color-syntax-key: #7aa2f7;
+	--color-syntax-string: #9ece6a;
+	--color-syntax-number: #e0af68;
+	--color-syntax-comment: #5c6370;
+	--color-syntax-punct: #8492a6;
+
 	/* ─── Auto-apply ──────────────────────────────────────────── */
 	--color-autoapply-bg: #14532d;
 	--color-autoapply-text: #86efac;
@@ -96,7 +103,7 @@
 }
 
 .t-dropdown {
-	transform-origin: top right;
+	transform-origin: var(--dropdown-origin, top right);
 	transform: scale(var(--dropdown-pre-scale));
 	opacity: 0;
 	pointer-events: none;

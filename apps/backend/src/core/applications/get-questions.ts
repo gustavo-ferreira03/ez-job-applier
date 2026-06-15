@@ -1,6 +1,6 @@
-import path from "node:path";
 import type { AppContext } from "../context";
 import type { ApplyResult } from "../types";
+import { scheduleAutoTailorIfNeeded } from "../resumes/auto-tailor";
 
 export async function getQuestions(jobId: number, ctx: AppContext): Promise<ApplyResult> {
     const job = await ctx.jobRepo.getById(jobId);
@@ -11,7 +11,6 @@ export async function getQuestions(jobId: number, ctx: AppContext): Promise<Appl
 
     try {
         const resumePath = await ctx.resumeRepo.getDefaultResumePath();
-        const resumeFilename = resumePath ? path.basename(resumePath) : undefined;
 
         const result = await session.getQuestions(job, resumePath);
 
@@ -19,10 +18,13 @@ export async function getQuestions(jobId: number, ctx: AppContext): Promise<Appl
             job.provider,
             job.jobId,
             result.status,
-            resumeFilename,
+            undefined,
             result.errorMessage,
         );
         await ctx.appRepo.replaceQuestions(application.id, result.questions);
+        if (result.status === "READY_FOR_REVIEW") {
+            scheduleAutoTailorIfNeeded(jobId, ctx);
+        }
 
         return result;
     } finally {

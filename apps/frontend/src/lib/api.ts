@@ -169,6 +169,65 @@ export function deleteResume(filename: string): Promise<{ ok: boolean }> {
 	return del(`/resumes/${encodeURIComponent(filename)}`);
 }
 
+// Resume masters (structured, for tailoring)
+export interface ResumeIssue {
+	path: (string | number)[];
+	message: string;
+}
+
+export function listMasters(): Promise<{ masters: string[] }> {
+	return get('/resume/masters');
+}
+
+export function getMaster(name: string): Promise<{ yaml: string | null }> {
+	return get(`/resume/masters/${encodeURIComponent(name)}`);
+}
+
+export async function saveMaster(
+	name: string,
+	yaml: string
+): Promise<{ ok: true } | { issues: ResumeIssue[] }> {
+	const res = await fetch(`${BASE}/resume/masters/${encodeURIComponent(name)}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ yaml })
+	});
+	if (res.status === 400) {
+		const data = (await res.json()) as { issues?: ResumeIssue[] };
+		return { issues: data.issues ?? [] };
+	}
+	if (!res.ok) throw new Error(`${res.status} PUT /resume/masters`);
+	return { ok: true };
+}
+
+export function deleteMaster(name: string): Promise<{ ok: boolean }> {
+	return del(`/resume/masters/${encodeURIComponent(name)}`);
+}
+
+export function extractMaster(name: string, resumeFilename?: string): Promise<{ yaml: string }> {
+	return post(`/resume/masters/${encodeURIComponent(name)}/extract`, { resumeFilename });
+}
+
+export function tailorJob(id: number, master?: string): Promise<{ ok: boolean; master: string }> {
+	return post(`/jobs/${id}/tailor`, master ? { master } : {});
+}
+
+export function getTailored(id: number): Promise<{ exists: boolean; master: string | null; updatedAt: string | null }> {
+	return get(`/jobs/${id}/tailor`);
+}
+
+export function deleteTailored(id: number): Promise<{ ok: boolean }> {
+	return del(`/jobs/${id}/tailor`);
+}
+
+export function tailorPreviewUrl(id: number, version?: number): string {
+	return `${BASE}/jobs/${id}/tailor/preview.pdf${version ? `?t=${version}` : ''}`;
+}
+
+export function resumePreviewUrl(filename: string): string {
+	return `${BASE}/resumes/${encodeURIComponent(filename)}/preview.pdf`;
+}
+
 // Database
 export function clearDatabase(): Promise<{ ok: boolean }> {
 	return del('/database');

@@ -1,7 +1,13 @@
+import type { ResumeInput } from "resume-ci";
 import type { Job, DiscoverConfig, ApplicationQuestion, ApplicationStatus } from "./types";
 import type { IJobProvider } from "./interfaces";
 import type { Execution, ExecutionStatusValue } from "./discoveries/types";
 import type { JobSummary, JobDetail } from "./jobs/types";
+
+export interface TailoredResumeMeta {
+    master: string;
+    updatedAt: string;
+}
 
 export interface IJobRepo {
     getById(id: number): Promise<Job | null>;
@@ -52,7 +58,21 @@ export interface IExecutionRepo {
 export interface IResumeRepo {
     getDefaultResumePath(): Promise<string | undefined>;
     getDefaultResumeText(): Promise<string | undefined>;
+    getResumeText(filename: string): Promise<string | undefined>;
     getResumePath(filename: string): Promise<string>;
+}
+
+export interface IResumeMasterRepo {
+    listMasters(): Promise<string[]>;
+    readMaster(name: string): Promise<string | null>;
+    writeMaster(name: string, yaml: string): Promise<void>;
+    deleteMaster(name: string): Promise<void>;
+    readMasterParsed(name: string): Promise<ResumeInput | null>;
+    readTailored(jobId: number): Promise<ResumeInput | null>;
+    readTailoredMeta(jobId: number): Promise<TailoredResumeMeta | null>;
+    writeTailored(jobId: number, data: ResumeInput, meta: TailoredResumeMeta): Promise<void>;
+    deleteTailored(jobId: number): Promise<void>;
+    hasTailored(jobId: number): Promise<boolean>;
 }
 
 export interface IProviderRegistry {

@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import type { AppContext } from "../context";
 import { getSettings } from "../../repositories/settings";
+import { scheduleAutoTailorIfNeeded } from "../resumes/auto-tailor";
 
 const answerSchema = z.object({
     answers: z.array(z.object({
@@ -46,7 +47,7 @@ Leave the answer as empty string only if truly impossible to determine.${resumeT
 
     let result: { answers: { label: string; answer: string }[] };
     try {
-        result = await ctx.llm.generate({ system, prompt, schema: answerSchema });
+        result = await ctx.llm.generate({ system, prompt, schema: answerSchema, label: "auto-answer" });
     } catch (e) {
         console.warn(`${tag}: LLM could not answer (${unanswered.length} question(s) left for manual input)`);
         return;
@@ -76,6 +77,7 @@ Leave the answer as empty string only if truly impossible to determine.${resumeT
     if (allAnswered) {
         await ctx.appRepo.updateStatus(appRec.id, "READY_FOR_REVIEW");
         console.log(`${tag}: promoted to READY_FOR_REVIEW`);
+        scheduleAutoTailorIfNeeded(jobId, ctx);
     }
 }
 

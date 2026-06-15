@@ -58,9 +58,15 @@ importers:
       playwright-core:
         specifier: ^1.60.0
         version: 1.60.0
+      resume-ci:
+        specifier: ^0.1.4
+        version: 0.1.4
       ws:
         specifier: ^8.21.0
         version: 8.21.0
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -2712,6 +2718,10 @@ packages:
     engines: {node: '>= 0.4'}
     hasBin: true
 
+  resume-ci@0.1.4:
+    resolution: {integrity: sha512-VWOIVty0E76G++5KchLb9d9a5FDmlr6cMWCW81yjNbQdTvfLhX3znMwWjAkeKQ9iIlyC+1IdspbjaH2FS6sNaQ==}
+    hasBin: true
+
   retry@0.12.0:
     resolution: {integrity: sha512-9LkiTwjUh6rT555DtE9rTX+BKByPfrMzEAtnlEtdEwr3Nkffwiihqe2bWADg+OQRjt9gl6ICdmB/ZFDCGAtSow==}
     engines: {node: '>= 4'}
@@ -5132,6 +5142,11 @@ snapshots:
       is-core-module: 2.16.2
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
+
+  resume-ci@0.1.4:
+    dependencies:
+      yaml: 2.9.0
+      zod: 4.4.3
 
   retry@0.12.0: {}
 

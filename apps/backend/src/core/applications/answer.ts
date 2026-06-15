@@ -1,4 +1,5 @@
 import type { AppContext } from "../context";
+import { scheduleAutoTailorIfNeeded } from "../resumes/auto-tailor";
 
 function hasAnswer(answer: string | undefined): boolean {
     return answer !== undefined && answer.trim().length > 0;
@@ -24,5 +25,6 @@ export async function saveAnswers(
     const allAnswered = questions.length > 0 && questions.every((q) => hasAnswer(q.answer));
     if (application.status === "NEEDS_INPUT" && allAnswered) {
         await ctx.appRepo.updateStatus(application.id, "READY_FOR_REVIEW");
+        scheduleAutoTailorIfNeeded(jobId, ctx);
     }
 }

@@ -1,10 +1,13 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
+import fs from "node:fs/promises";
+import path from "node:path";
 import {
     listResumes,
     saveResume,
     deleteResume,
     resumeExists,
+    RESUMES_DIR,
 } from "../repositories/resumes/services/storage";
 import {
     getDefaultResume,
@@ -131,5 +134,18 @@ router.openapi(
         return c.json({ ok: true });
     },
 );
+
+router.get("/resumes/:filename/preview.pdf", async (c) => {
+    const filename = path.basename(c.req.param("filename"));
+    if (!(await resumeExists(filename))) {
+        throw new HTTPException(404, { message: "Resume not found" });
+    }
+
+    const pdf = await fs.readFile(path.join(RESUMES_DIR, filename));
+    return c.body(new Uint8Array(pdf), 200, {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${filename.replace(/"/g, "")}"`,
+    });
+});
 
 export default router;

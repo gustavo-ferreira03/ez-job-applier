@@ -28,6 +28,11 @@ colors:
   tag-linkedin-text: '#7aa2f7'
   tag-external-bg: '#2a1f4d'
   tag-external-text: '#c4a7f5'
+  syntax-key: '#7aa2f7'
+  syntax-string: '#9ece6a'
+  syntax-number: '#e0af68'
+  syntax-comment: '#5c6370'
+  syntax-punct: '#8492a6'
 typography:
   headline:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
