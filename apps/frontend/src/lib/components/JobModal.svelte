@@ -59,18 +59,17 @@
 			.listMasters()
 			.then((r) => (masterOptions = r.masters))
 			.catch(() => {});
-		api
-			.getTailored(job.id)
-			.then((r) => {
-				tailored = r.exists;
-				tailoredMaster = r.master;
-			})
-			.catch(() => {});
 		try {
-			detail = await api.getJob(job.id);
-			selectedResume = detail.resumeFilename ?? '';
+			const [tailoredRes, jobDetail] = await Promise.all([
+				api.getTailored(job.id).catch(() => ({ exists: false, master: null })),
+				api.getJob(job.id)
+			]);
+			tailored = tailoredRes.exists;
+			tailoredMaster = tailoredRes.master;
+			detail = jobDetail;
+			selectedResume = tailored ? 'tailored' : (jobDetail.resumeFilename ?? '');
 			if (job.status === 'READY_FOR_REVIEW' || job.status === 'APPROVED') {
-				for (const [index, q] of detail.questions.entries()) {
+				for (const [index, q] of jobDetail.questions.entries()) {
 					if (q.answer != null) answerInputs[inputKey(q, index)] = q.answer;
 				}
 			}
@@ -113,6 +112,7 @@
 	}
 
 	function selectedResumePreviewUrl(): string | null {
+		if (selectedResume === 'tailored') return tailored ? api.tailorPreviewUrl(job.id, tailorVersion) : null;
 		if (selectedResume) return api.resumePreviewUrl(selectedResume);
 		return appState.defaultResume ? api.resumePreviewUrl(appState.defaultResume) : null;
 	}
@@ -203,7 +203,8 @@
 		busy = true;
 		notice = 'Queueing application...';
 		try {
-			await api.applyToJob(job.id, collectCurrentAnswers(), selectedResume || undefined);
+			const resumeFilename = selectedResume && selectedResume !== 'tailored' ? selectedResume : undefined;
+			await api.applyToJob(job.id, collectCurrentAnswers(), resumeFilename);
 			toastState.show('Application queued', 'success');
 			onClose();
 			await appState.refreshJobs();
@@ -255,6 +256,7 @@
 			const res = await api.tailorJob(job.id, master);
 			tailored = true;
 			tailoredMaster = res.master;
+			selectedResume = 'tailored';
 			tailorVersion = Date.now();
 			toastState.show(`Resume tailored via “${res.master}”`, 'success');
 		} catch (e) {
@@ -546,6 +548,9 @@
 										<option value=""
 											>Default{appState.defaultResume ? ` (${appState.defaultResume})` : ''}</option
 										>
+										{#if tailored}
+											<option value="tailored">Tailored from {tailoredMaster ?? 'master'}</option>
+										{/if}
 										{#each appState.resumes as r (r)}
 											<option value={r}>{r}</option>
 										{/each}
