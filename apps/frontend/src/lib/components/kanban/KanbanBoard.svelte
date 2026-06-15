@@ -171,7 +171,7 @@
 </script>
 
 <div class="flex h-full flex-col">
-	{#if availableTags.length > 1}
+	{#if availableTags.length > 0}
 		<div
 			class="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2.5"
 			aria-label="Filter by tag"

@@ -71,7 +71,7 @@
 <svelte:window onclick={handleWindowClick} />
 
 <div
-	class="flex h-full min-h-0 w-65 shrink-0 flex-col rounded-lg border border-border-subtle bg-surface-overlay/30 {column.columnClass ??
+	class="flex h-full min-h-0 w-[calc(100vw-2rem)] shrink-0 flex-col rounded-lg border border-border-subtle bg-surface-overlay/30 sm:w-65 {column.columnClass ??
 		''}"
 >
 	<div class="flex shrink-0 items-center justify-between px-2 pt-2 pb-2">

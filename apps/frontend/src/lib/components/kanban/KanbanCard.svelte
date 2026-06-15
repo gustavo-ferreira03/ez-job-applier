@@ -25,7 +25,7 @@
 
 {#if loading}
 <div
-	class="w-full rounded-md border border-border-subtle bg-surface-raised p-2.5"
+	class="w-full shrink-0 rounded-md border border-border-subtle bg-surface-raised p-2.5"
 	transition:fly={cardTransition}
 	aria-label="Loading job"
 >
@@ -42,7 +42,7 @@
 {:else}
 <button
 	type="button"
-	class="w-full cursor-pointer rounded-md bg-surface-raised p-2.5 text-left focus-visible:outline-none
+	class="w-full shrink-0 cursor-pointer rounded-md bg-surface-raised p-2.5 text-left focus-visible:outline-none
 		{job.processing
 		? 'animate-pulse-border border-2 border-accent-500'
 		: 'border border-border-subtle transition-colors duration-100 hover:border-border-default'}"
