@@ -167,7 +167,6 @@ function isAuthError(msg: string): boolean {
 }
 
 async function handleActionNeeded(id: string, ctx: AppContext): Promise<boolean> {
-    await ctx.executionRepo.setStatus(id, "action_needed");
     await acquireVnc();
     try {
         try {
@@ -184,6 +183,7 @@ async function handleActionNeeded(id: string, ctx: AppContext): Promise<boolean>
             stopVncStack();
             return false;
         }
+        await ctx.executionRepo.setStatus(id, "action_needed");
         const loggedIn = await waitForLogin(loginContext, () => _stopFlag);
         stopVncStack();
         if (loggedIn) {

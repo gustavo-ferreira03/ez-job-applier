@@ -37,9 +37,10 @@ async function processOne(jobId: number, ctx: AppContext): Promise<void> {
         else if (phase === "waiting") writeStatus("NEEDS_INPUT");
     };
 
-    beginJob(jobId, job.title, onPhase);
     const tag = `[external-apply] "${job.title}" @ ${job.company}`;
     try {
+        await ensureVnc();
+        beginJob(jobId, job.title, onPhase);
         const result = await runExternalApply(ctx, jobId, ensureVnc);
         terminal = true;
         if (result.status === "submitted") {
