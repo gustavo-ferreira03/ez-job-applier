@@ -6,6 +6,7 @@
 	import { appState } from '$lib/state.svelte';
 	import { sendExternalApplyMessage, stopExternalApply } from '$lib/api';
 	import { toastState } from '$lib/toast.svelte';
+	import { renderChatMarkdown } from '$lib/chatMarkdown';
 	import X from '@lucide/svelte/icons/x';
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import Square from '@lucide/svelte/icons/square';
@@ -197,12 +198,12 @@
 							in:fly={{ y: 6, duration: 160 }}
 						>
 							<div
-								class="max-w-[88%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed whitespace-pre-wrap break-words {m.role ===
+								class="chat-rich max-w-[88%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed break-words {m.role ===
 								'user'
 									? 'bg-surface-hover text-text-primary'
 									: 'bg-surface-overlay text-text-secondary'}"
 							>
-								{m.text}
+								{@html renderChatMarkdown(m.text)}
 							</div>
 							<span class="mt-1 px-1 text-[10px] text-text-faint">
 								{m.role === 'user' ? 'You' : 'Agent'} · {timeOf(m.ts)}
@@ -261,3 +262,70 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.chat-rich :global(p + p),
+	.chat-rich :global(p + ul),
+	.chat-rich :global(p + ol),
+	.chat-rich :global(ul + p),
+	.chat-rich :global(ol + p),
+	.chat-rich :global(pre + p) {
+		margin-top: 0.5rem;
+	}
+
+	.chat-rich :global(ul),
+	.chat-rich :global(ol) {
+		margin: 0.35rem 0 0;
+		padding-left: 1rem;
+	}
+
+	.chat-rich :global(ul) {
+		list-style: disc;
+	}
+
+	.chat-rich :global(ol) {
+		list-style: decimal;
+	}
+
+	.chat-rich :global(li + li) {
+		margin-top: 0.2rem;
+	}
+
+	.chat-rich :global(strong) {
+		font-weight: 600;
+		color: var(--color-text-primary);
+	}
+
+	.chat-rich :global(em) {
+		color: var(--color-text-primary);
+		font-style: italic;
+	}
+
+	.chat-rich :global(a) {
+		color: var(--color-accent-500);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.chat-rich :global(code) {
+		border-radius: 0.25rem;
+		background: var(--color-surface-base);
+		padding: 0.05rem 0.25rem;
+		font-size: 0.92em;
+		color: var(--color-text-primary);
+	}
+
+	.chat-rich :global(pre) {
+		margin-top: 0.5rem;
+		max-width: 100%;
+		overflow-x: auto;
+		border-radius: 0.375rem;
+		background: var(--color-surface-base);
+		padding: 0.5rem;
+	}
+
+	.chat-rich :global(pre code) {
+		background: transparent;
+		padding: 0;
+	}
+</style>
