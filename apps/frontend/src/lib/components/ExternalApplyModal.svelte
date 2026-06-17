@@ -238,7 +238,7 @@
 					>
 						<textarea
 							bind:this={composer}
-							class="max-h-28 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-[12.5px] text-text-primary placeholder:text-text-placeholder focus:outline-none"
+							class="max-h-28 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-[12.5px] text-text-primary placeholder:text-text-placeholder focus:outline-none focus-visible:!outline-none"
 							rows="1"
 							placeholder={status.active ? 'Tell the agent how to proceed…' : 'No active session'}
 							bind:value={draft}
