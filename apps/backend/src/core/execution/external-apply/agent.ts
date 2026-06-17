@@ -1,19 +1,30 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import { SessionManager, createAgentSession } from "@earendil-works/pi-coding-agent";
+import { SessionManager, createAgentSession, loadSkillsFromDir, stripFrontmatter } from "@earendil-works/pi-coding-agent";
 import type { ResumeInput } from "resume-ci";
 import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf } from "../../resumes/pdf";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
 
-const guidePath = path.join(path.dirname(fileURLToPath(import.meta.url)), "playwright-cli-guide.md");
+const SKILLS_DIR = process.env.CLAUDE_SKILLS_DIR ?? path.join(os.homedir(), ".claude", "skills");
 
 export interface ExternalApplyResult {
     status: "submitted" | "aborted" | "failed";
     error?: string;
+}
+
+async function loadPlaywrightSkill(): Promise<string | null> {
+    try {
+        const { skills } = loadSkillsFromDir({ dir: SKILLS_DIR, source: "external-apply" });
+        const skill = skills.find((s) => s.name === "playwright-cli");
+        if (!skill) return null;
+        return stripFrontmatter(await fs.readFile(skill.filePath, "utf8")).trim();
+    } catch (e) {
+        console.error(`[external-apply] failed to load playwright-cli skill from ${SKILLS_DIR}:`, e);
+        return null;
+    }
 }
 
 async function loadResume(ctx: AppContext, jobId: number): Promise<ResumeInput | null> {
@@ -78,12 +89,12 @@ export async function runExternalApply(
             sessionManager: (SessionManager as unknown as { inMemory(): unknown }).inMemory() as never,
         });
 
-        const guide = await fs.readFile(guidePath, "utf8");
+        const skill = await loadPlaywrightSkill();
         const task = [
             "You are an autonomous agent applying to a job on the candidate's behalf via an external application site (an ATS, not LinkedIn).",
             "",
-            "## How to control the browser",
-            guide,
+            "You drive the browser only through the `browser` tool: pass the arguments that would follow `playwright-cli` as the `args` array (e.g. `playwright-cli click e15` → args [\"click\", \"e15\"]). The browser session is managed for you — never pass `-s=`, `open --persistent`, `close`, or install commands.",
+            skill ? "\n## playwright-cli reference\n" + skill : "",
             "",
             "## Checkpoint rules (mandatory)",
             "- Call `request_approval` at every important step (e.g. after filling a form section, before navigating away) and ALWAYS before the final submit.",
