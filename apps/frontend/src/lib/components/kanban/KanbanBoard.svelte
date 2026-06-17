@@ -28,7 +28,7 @@
 		'FAILED'
 	];
 
-	const TAG_ORDER = ['LinkedIn', 'External'];
+	const TAG_ORDER = ['LinkedIn', 'Easy Apply', 'External'];
 
 	let selectedTags = $state<string[]>([]);
 

@@ -5,6 +5,7 @@ interface TagStyle {
 
 const TAG_STYLES: Record<string, TagStyle> = {
 	LinkedIn: { chip: 'bg-tag-linkedin-bg text-tag-linkedin-text', dot: 'bg-tag-linkedin-text' },
+	'Easy Apply': { chip: 'bg-tag-easyapply-bg text-tag-easyapply-text', dot: 'bg-tag-easyapply-text' },
 	External: { chip: 'bg-tag-external-bg text-tag-external-text', dot: 'bg-tag-external-text' }
 };
 
