@@ -20,6 +20,10 @@ RUN apt-get update \
     && cd apps/backend && pnpm exec playwright-core install-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npm install -g @playwright/cli \
+    && cd apps/backend && pnpm exec playwright-core install chromium
+
 COPY . .
 
 ARG PUBLIC_API_URL=http://localhost:3000

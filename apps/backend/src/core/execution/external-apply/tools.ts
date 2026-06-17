@@ -48,7 +48,9 @@ export function createExternalApplyTools(jc: JobToolContext) {
             if (jc.aborted) {
                 return textResult("This application was rejected by the user. Stop and call finish with status='aborted'.");
             }
-            const args = [`-s=${jc.session}`, ...params.args];
+            const userArgs = [...params.args];
+            if (userArgs[0] === "open" && !userArgs.includes("--headed")) userArgs.push("--headed");
+            const args = [`-s=${jc.session}`, ...userArgs];
             try {
                 const { stdout, stderr } = await execFileAsync("playwright-cli", args, {
                     cwd: jc.workDir,
