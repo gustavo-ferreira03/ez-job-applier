@@ -8,7 +8,12 @@ import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf } from "../../resumes/pdf";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../../login/vnc";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
-import { registerSession } from "./state";
+import { registerSession, postAgentMessage } from "./state";
+
+function fail(error: string): ExternalApplyResult {
+    postAgentMessage(`I couldn't continue: ${error}`);
+    return { status: "failed", error };
+}
 
 async function writeBrowserConfig(workDir: string): Promise<void> {
     const config = {
@@ -56,17 +61,17 @@ export async function runExternalApply(
     ensureVnc: () => Promise<void>,
 ): Promise<ExternalApplyResult> {
     const job = await ctx.jobRepo.getById(jobId);
-    if (!job) return { status: "failed", error: `Job ${jobId} not found` };
-    if (!job.applicationUrl) return { status: "failed", error: "Job has no external application URL" };
+    if (!job) return fail(`Job ${jobId} not found`);
+    if (!job.applicationUrl) return fail("Job has no external application URL");
 
     const settings = await getSettings();
     const model = ctx.modelRegistry.find(settings.llm.provider, settings.llm.model);
     if (!model) {
-        return { status: "failed", error: `LLM model not configured (${settings.llm.provider}/${settings.llm.model})` };
+        return fail(`LLM model not configured (${settings.llm.provider}/${settings.llm.model})`);
     }
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
     if (!auth.ok) {
-        return { status: "failed", error: auth.error ?? `LLM provider not authenticated (${settings.llm.provider})` };
+        return fail(auth.error ?? `LLM provider not authenticated (${settings.llm.provider})`);
     }
 
     const workDir = path.join(os.tmpdir(), `ext-apply-${jobId}-${Date.now()}`);
@@ -145,9 +150,9 @@ export async function runExternalApply(
         await session.prompt(task);
 
         if (jc.finishStatus === "submitted") return { status: "submitted" };
-        if (jc.aborted) return { status: "aborted", error: "Rejected by user" };
+        if (jc.aborted) return { status: "aborted", error: "Stopped by user" };
         if (jc.finishStatus === "aborted") return { status: "aborted" };
-        return { status: "failed", error: "Agent stopped without submitting" };
+        return fail("The agent stopped before submitting");
     } finally {
         await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
     }

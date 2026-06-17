@@ -158,7 +158,13 @@
 		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
 			<!-- Live browser -->
 			<div class="min-h-0 flex-1 bg-black md:border-r md:border-border-subtle">
-				<iframe class="h-full w-full border-0" src="/vnc" title="Agent browser"></iframe>
+				{#if status.active}
+					<iframe class="h-full w-full border-0" src="/vnc" title="Agent browser"></iframe>
+				{:else}
+					<div class="flex h-full items-center justify-center px-6 text-center text-[12px] text-text-faint">
+						The browser session has ended. The conversation is shown on the right.
+					</div>
+				{/if}
 			</div>
 
 			<!-- Chat rail -->

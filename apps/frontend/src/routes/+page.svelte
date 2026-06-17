@@ -32,7 +32,7 @@
 
 	function openJob(job: JobSummary, tab: KanbanTab) {
 		const agent = appState.externalApply;
-		if (agent.active && agent.jobId === job.id) {
+		if (agent.jobId === job.id && agent.messages.length > 0) {
 			externalApplyModalOpen = true;
 			return;
 		}

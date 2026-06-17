@@ -22,29 +22,38 @@ async function processOne(jobId: number, ctx: AppContext): Promise<void> {
         }
     };
 
+    let terminal = false;
+    let statusChain: Promise<void> = Promise.resolve();
+    const writeStatus = (status: "FOUND" | "NEEDS_INPUT" | "READY_FOR_REVIEW" | "FAILED", error?: string): Promise<void> => {
+        statusChain = statusChain.then(() =>
+            ctx.appRepo.upsert(job.provider, job.jobId, status, undefined, error).then(() => {}).catch(() => {}),
+        );
+        return statusChain;
+    };
+
     const onPhase = (phase: ExternalApplyPhase): void => {
-        if (phase === "working") {
-            ctx.appRepo.upsert(job.provider, job.jobId, "FOUND").catch(() => {});
-        } else if (phase === "waiting") {
-            ctx.appRepo.upsert(job.provider, job.jobId, "NEEDS_INPUT").catch(() => {});
-        }
+        if (terminal) return;
+        if (phase === "working") writeStatus("FOUND");
+        else if (phase === "waiting") writeStatus("NEEDS_INPUT");
     };
 
     beginJob(jobId, job.title, onPhase);
     const tag = `[external-apply] "${job.title}" @ ${job.company}`;
     try {
         const result = await runExternalApply(ctx, jobId, ensureVnc);
+        terminal = true;
         if (result.status === "submitted") {
-            await ctx.appRepo.upsert(job.provider, job.jobId, "READY_FOR_REVIEW");
+            await writeStatus("READY_FOR_REVIEW");
             endJob("submitted");
             console.log(`${tag}: submitted → review`);
         } else {
-            await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, result.error ?? "Not submitted");
+            await writeStatus("FAILED", result.error ?? "Not submitted");
             endJob("failed");
             console.log(`${tag}: ${result.status}${result.error ? ` — ${result.error}` : ""}`);
         }
     } catch (e) {
-        await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
+        terminal = true;
+        await writeStatus("FAILED", String(e));
         endJob("failed");
         console.error(`${tag}: error`, e);
     } finally {
@@ -65,7 +74,17 @@ export function createExternalApplyWorker(ctx: AppContext, shouldStop: () => boo
         });
     }
 
+    async function resetOrphans(): Promise<void> {
+        for (const jobId of await ctx.appRepo.listIdsByStatus("NEEDS_INPUT")) {
+            const job = await ctx.jobRepo.getById(jobId);
+            if (job?.applicationUrl != null) {
+                await ctx.appRepo.upsert(job.provider, job.jobId, "FOUND").catch(() => {});
+            }
+        }
+    }
+
     async function run(): Promise<void> {
+        await resetOrphans();
         const attempted = new Set<number>();
 
         while (!shouldStop()) {
