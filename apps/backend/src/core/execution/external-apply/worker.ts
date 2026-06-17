@@ -3,13 +3,12 @@ import { getSettings } from "../../../repositories/settings";
 import { startVncStack, stopVncStack } from "../../login/vnc";
 import { acquireVnc, releaseVnc } from "../../login/vnc-lock";
 import { runExternalApply } from "./agent";
-import { beginJob, endJob } from "./state";
+import { beginJob, endJob, type ExternalApplyPhase } from "./state";
 
 async function processOne(jobId: number, ctx: AppContext): Promise<void> {
     const job = await ctx.jobRepo.getById(jobId);
     if (!job || job.applicationUrl == null) return;
 
-    beginJob(jobId, job.title);
     let vncStarted = false;
     const ensureVnc = async (): Promise<void> => {
         if (vncStarted) return;
@@ -23,25 +22,36 @@ async function processOne(jobId: number, ctx: AppContext): Promise<void> {
         }
     };
 
+    const onPhase = (phase: ExternalApplyPhase): void => {
+        if (phase === "working") {
+            ctx.appRepo.upsert(job.provider, job.jobId, "FOUND").catch(() => {});
+        } else if (phase === "waiting") {
+            ctx.appRepo.upsert(job.provider, job.jobId, "NEEDS_INPUT").catch(() => {});
+        }
+    };
+
+    beginJob(jobId, job.title, onPhase);
     const tag = `[external-apply] "${job.title}" @ ${job.company}`;
     try {
         const result = await runExternalApply(ctx, jobId, ensureVnc);
         if (result.status === "submitted") {
-            await ctx.appRepo.upsert(job.provider, job.jobId, "SUBMITTED");
-            console.log(`${tag}: submitted`);
+            await ctx.appRepo.upsert(job.provider, job.jobId, "READY_FOR_REVIEW");
+            endJob("submitted");
+            console.log(`${tag}: submitted → review`);
         } else {
             await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, result.error ?? "Not submitted");
+            endJob("failed");
             console.log(`${tag}: ${result.status}${result.error ? ` — ${result.error}` : ""}`);
         }
     } catch (e) {
         await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
+        endJob("failed");
         console.error(`${tag}: error`, e);
     } finally {
         if (vncStarted) {
             stopVncStack();
             releaseVnc();
         }
-        endJob();
     }
 }
 
@@ -71,9 +81,9 @@ export function createExternalApplyWorker(ctx: AppContext, shouldStop: () => boo
                 continue;
             }
 
-            const approved = await ctx.appRepo.listIdsByStatus("APPROVED");
+            const found = await ctx.appRepo.listIdsByStatus("FOUND");
             const pending: number[] = [];
-            for (const jobId of approved) {
+            for (const jobId of found) {
                 if (attempted.has(jobId)) continue;
                 const job = await ctx.jobRepo.getById(jobId);
                 if (job?.applicationUrl != null) pending.push(jobId);

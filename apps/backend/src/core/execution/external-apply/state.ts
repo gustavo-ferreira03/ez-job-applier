@@ -1,60 +1,120 @@
-export type ApprovalDecision = "approve" | "reject";
+import crypto from "node:crypto";
+
+export type ExternalApplyPhase = "idle" | "working" | "waiting" | "submitted" | "failed";
+
+export interface ChatMessage {
+    id: string;
+    role: "agent" | "user";
+    text: string;
+    ts: number;
+}
 
 export interface ExternalApplyStatus {
     active: boolean;
-    awaitingApproval: boolean;
     jobId: number | null;
     title: string | null;
-    summary: string | null;
+    phase: ExternalApplyPhase;
+    messages: ChatMessage[];
+}
+
+export type AskResolution = { kind: "reply"; text: string } | { kind: "stop" };
+
+interface SessionHandle {
+    steer: (text: string) => void;
+    abort: () => void;
 }
 
 const status: ExternalApplyStatus = {
     active: false,
-    awaitingApproval: false,
     jobId: null,
     title: null,
-    summary: null,
+    phase: "idle",
+    messages: [],
 };
 
-let pending: ((decision: ApprovalDecision) => void) | null = null;
+let pendingAsk: ((resolution: AskResolution) => void) | null = null;
+let session: SessionHandle | null = null;
+let onPhase: ((phase: ExternalApplyPhase) => void) | null = null;
+let stopping = false;
 
-export function getExternalApplyStatus(): ExternalApplyStatus {
-    return { ...status };
+function setPhase(phase: ExternalApplyPhase): void {
+    status.phase = phase;
+    onPhase?.(phase);
 }
 
-export function beginJob(jobId: number, title: string): void {
+function push(role: ChatMessage["role"], text: string): void {
+    status.messages.push({ id: crypto.randomUUID(), role, text, ts: Date.now() });
+}
+
+export function getExternalApplyStatus(): ExternalApplyStatus {
+    return { ...status, messages: [...status.messages] };
+}
+
+export function beginJob(jobId: number, title: string, phaseListener: (phase: ExternalApplyPhase) => void): void {
     status.active = true;
     status.jobId = jobId;
     status.title = title;
-    status.awaitingApproval = false;
-    status.summary = null;
+    status.messages = [];
+    pendingAsk = null;
+    session = null;
+    stopping = false;
+    onPhase = phaseListener;
+    setPhase("working");
 }
 
-export function endJob(): void {
+export function registerSession(handle: SessionHandle): void {
+    session = handle;
+}
+
+export function endJob(phase: "submitted" | "failed"): void {
     status.active = false;
-    status.jobId = null;
-    status.title = null;
-    status.awaitingApproval = false;
-    status.summary = null;
-    pending = null;
+    status.phase = phase;
+    pendingAsk = null;
+    session = null;
+    onPhase = null;
+    stopping = false;
 }
 
-export function requestApproval(summary: string): Promise<ApprovalDecision> {
-    status.awaitingApproval = true;
-    status.summary = summary;
-    return new Promise<ApprovalDecision>((resolve) => {
-        pending = (decision) => {
-            status.awaitingApproval = false;
-            status.summary = null;
-            resolve(decision);
-        };
+export function postAgentMessage(text: string): void {
+    if (text.trim()) push("agent", text.trim());
+}
+
+export function askUser(question: string): Promise<AskResolution> {
+    if (question.trim()) push("agent", question.trim());
+    setPhase("waiting");
+    return new Promise<AskResolution>((resolve) => {
+        pendingAsk = resolve;
     });
 }
 
-export function decideApproval(decision: ApprovalDecision): boolean {
-    if (!pending) return false;
-    const resolve = pending;
-    pending = null;
-    resolve(decision);
+export function sendUserMessage(text: string): boolean {
+    const trimmed = text.trim();
+    if (!trimmed || !status.active) return false;
+    push("user", trimmed);
+    if (pendingAsk) {
+        const resolve = pendingAsk;
+        pendingAsk = null;
+        setPhase("working");
+        resolve({ kind: "reply", text: trimmed });
+    } else {
+        session?.steer(trimmed);
+    }
     return true;
+}
+
+export function stopExternalApply(): boolean {
+    if (!status.active) return false;
+    stopping = true;
+    push("user", "Stop");
+    if (pendingAsk) {
+        const resolve = pendingAsk;
+        pendingAsk = null;
+        resolve({ kind: "stop" });
+    }
+    session?.abort();
+    return true;
+}
+
+export function isStopping(): boolean {
+    return stopping;
 }

@@ -8,6 +8,7 @@ import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf } from "../../resumes/pdf";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../../login/vnc";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
+import { registerSession } from "./state";
 
 async function writeBrowserConfig(workDir: string): Promise<void> {
     const config = {
@@ -104,17 +105,28 @@ export async function runExternalApply(
             sessionManager: (SessionManager as unknown as { inMemory(): unknown }).inMemory() as never,
         });
 
+        registerSession({
+            steer: (text) => void session.steer(text).catch(() => {}),
+            abort: () => void session.abort().catch(() => {}),
+        });
+
         const skill = await loadPlaywrightSkill();
         const task = [
-            "You are an autonomous agent applying to a job on the candidate's behalf via an external application site (an ATS, not LinkedIn).",
+            "You are an autonomous agent applying to a job on the candidate's behalf via an external application site (an ATS, not LinkedIn). You work mostly on your own; the user watches the live browser and chats with you.",
             "",
             "You drive the browser only through the `browser` tool: pass the arguments that would follow `playwright-cli` as the `args` array (e.g. `playwright-cli click e15` → args [\"click\", \"e15\"]). The browser session is managed for you — never pass `-s=`, `open --persistent`, `close`, or install commands.",
             skill ? "\n## playwright-cli reference\n" + skill : "",
             "",
-            "## Checkpoint rules (mandatory)",
-            "- Call `request_approval` at every important step (e.g. after filling a form section, before navigating away) and ALWAYS before the final submit.",
-            "- After EACH approval, take a fresh [\"snapshot\"] before acting — the user may have changed the page.",
-            "- Never click a final submit/apply button before a `request_approval` for that submit has been approved.",
+            "## Talking to the user",
+            "- Use `say` to post a short progress update whenever you complete a meaningful step (opened the page, filled a section, hit an obstacle). Keep the user informed.",
+            "- Use `ask_user` when you need information you don't have, are unsure how to proceed, or want a decision. It waits for the user's reply.",
+            "- The user may send you a message at any time; it arrives as a normal user message. Follow their instructions and acknowledge with `say`.",
+            "- Write to the user in the same language as the job posting.",
+            "",
+            "## Rules",
+            "- You MUST `ask_user` and get an explicit go-ahead before clicking the final submit/apply button. Never submit without it.",
+            "- After the user replies or takes over, take a fresh [\"snapshot\"] before acting — the page may have changed.",
+            "- Do not fabricate information you do not have (CPF, birth date, phone, address, salary). If a required field needs it, `ask_user`.",
             "- When done, call `finish` with status='submitted' (after an approved submit) or 'aborted'.",
             "",
             "## Job",
@@ -127,7 +139,7 @@ export async function runExternalApply(
             resume ? JSON.stringify(resume) : "(none available)",
             resumePdfPath ? `\nRésumé PDF for upload: ${resumePdfPath}` : "",
             "",
-            "Start by opening the application URL, then take a snapshot and proceed. Fill fields from the candidate data. Do not fabricate information you do not have — if a required field cannot be answered, request approval and explain.",
+            "Start by opening the application URL with `browser`, post a brief `say` that you've started, then snapshot and fill the form from the candidate data.",
         ].filter((line) => line !== "").join("\n");
 
         await session.prompt(task);

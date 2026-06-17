@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@earendil-works/pi-ai";
 import { getActiveDisplay } from "../../login/vnc";
-import { requestApproval } from "./state";
+import { askUser, postAgentMessage } from "./state";
 
 const execFileAsync = promisify(execFile);
 
@@ -73,28 +73,40 @@ export function createExternalApplyTools(jc: JobToolContext) {
         },
     });
 
-    const request_approval = defineTool({
-        name: "request_approval",
-        label: "request_approval",
+    const say = defineTool({
+        name: "say",
+        label: "say",
         description:
-            "Pause and ask the user to review the browser before continuing. Call this at every important step and ALWAYS before the final submit. `summary` describes what you have done and what you are about to do.",
+            "Report progress to the user in the chat (non-blocking). Use a short sentence whenever you complete a meaningful step (page opened, a section filled, an obstacle found). Does not pause you.",
         parameters: Type.Object({
-            summary: Type.String({ description: "What you did and what you are about to do next" }),
+            message: Type.String({ description: "A short progress update for the user" }),
+        }),
+        async execute(_id, params) {
+            postAgentMessage(params.message);
+            return textResult("Posted.");
+        },
+    });
+
+    const ask_user = defineTool({
+        name: "ask_user",
+        label: "ask_user",
+        description:
+            "Ask the user a question in the chat and wait for their reply. Use when you need information you don't have, are unsure how to proceed, or want confirmation. You MUST call this and get a go-ahead before clicking the final submit/apply button. Returns the user's reply.",
+        parameters: Type.Object({
+            question: Type.String({ description: "What you need from the user" }),
         }),
         async execute(_id, params) {
             await jc.ensureVnc();
-            const decision = await requestApproval(params.summary);
-            if (decision === "approve") {
-                jc.approvedOnce = true;
+            const resolution = await askUser(params.question);
+            if (resolution.kind === "stop") {
+                jc.aborted = true;
                 return textResult(
-                    "APPROVED by the user. The user may have changed the page while in control — take a fresh [\"snapshot\"] before any further action.",
+                    "The user stopped this application. Call finish with status='aborted' and take no further actions.",
+                    true,
                 );
             }
-            jc.aborted = true;
-            return textResult(
-                "REJECTED by the user. Stop immediately: call finish with status='aborted' and perform no further browser actions.",
-                true,
-            );
+            jc.approvedOnce = true;
+            return textResult(`The user replied: ${resolution.text}`);
         },
     });
 
@@ -108,7 +120,7 @@ export function createExternalApplyTools(jc: JobToolContext) {
         async execute(_id, params) {
             if (params.status === "submitted" && !jc.approvedOnce) {
                 return textResult(
-                    "You must call request_approval and receive approval before submitting. Request approval first.",
+                    "You must use ask_user to get the user's go-ahead before submitting. Ask first.",
                 );
             }
             jc.finishStatus = params.status;
@@ -116,5 +128,5 @@ export function createExternalApplyTools(jc: JobToolContext) {
         },
     });
 
-    return [browser, request_approval, finish];
+    return [browser, say, ask_user, finish];
 }
