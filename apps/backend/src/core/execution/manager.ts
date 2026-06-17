@@ -6,6 +6,7 @@ import { runCycle } from "./cycle";
 import { isWithinSchedule, nextScheduleOpen } from "./schedule";
 import { getSettings } from "../../repositories/settings";
 import { startVncStack, stopVncStack, openLoginBrowser, waitForLogin } from "../login/vnc";
+import { acquireVnc, releaseVnc } from "../login/vnc-lock";
 
 export type WorkerFactory = (ctx: AppContext, shouldStop: () => boolean) => { run(): Promise<void>; wake(): void };
 
@@ -167,24 +168,29 @@ function isAuthError(msg: string): boolean {
 
 async function handleActionNeeded(id: string, ctx: AppContext): Promise<boolean> {
     await ctx.executionRepo.setStatus(id, "action_needed");
+    await acquireVnc();
     try {
-        await startVncStack();
-    } catch (e) {
-        console.error("[login] VNC stack failed to start (is x11vnc installed?):", e);
-        return false;
-    }
-    let loginContext;
-    try {
-        loginContext = await openLoginBrowser();
-    } catch (e) {
-        console.error("[login] failed to open login browser:", e);
+        try {
+            await startVncStack();
+        } catch (e) {
+            console.error("[login] VNC stack failed to start (is x11vnc installed?):", e);
+            return false;
+        }
+        let loginContext;
+        try {
+            loginContext = await openLoginBrowser();
+        } catch (e) {
+            console.error("[login] failed to open login browser:", e);
+            stopVncStack();
+            return false;
+        }
+        const loggedIn = await waitForLogin(loginContext, () => _stopFlag);
         stopVncStack();
-        return false;
+        if (loggedIn) {
+            console.log("[login] session restored — resuming execution");
+        }
+        return loggedIn;
+    } finally {
+        releaseVnc();
     }
-    const loggedIn = await waitForLogin(loginContext, () => _stopFlag);
-    stopVncStack();
-    if (loggedIn) {
-        console.log("[login] session restored — resuming execution");
-    }
-    return loggedIn;
 }

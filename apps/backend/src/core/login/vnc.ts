@@ -56,6 +56,10 @@ function spawnWithOutput(cmd: string, args: string[], env = process.env): Promis
     });
 }
 
+export function getActiveDisplay(): string {
+    return activeDisplay;
+}
+
 function x11Env(): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = { ...process.env, DISPLAY: activeDisplay, XDG_SESSION_TYPE: "x11" };
     delete env.WAYLAND_DISPLAY;
