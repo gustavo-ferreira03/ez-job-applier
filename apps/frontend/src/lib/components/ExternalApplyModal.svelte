@@ -23,6 +23,7 @@
 	let sending = $state(false);
 	let stopping = $state(false);
 	let scroller = $state<HTMLDivElement>();
+	let composer = $state<HTMLTextAreaElement>();
 
 	const QUICK_REPLIES = ['Continue', 'Submit it', 'Looks good'];
 
@@ -58,6 +59,17 @@
 		});
 	});
 
+	$effect(() => {
+		void draft;
+		tick().then(resizeComposer);
+	});
+
+	function resizeComposer() {
+		if (!composer) return;
+		composer.style.height = 'auto';
+		composer.style.height = `${Math.min(composer.scrollHeight, 112)}px`;
+	}
+
 	async function send(text: string) {
 		const value = text.trim();
 		if (!value || sending) return;
@@ -65,6 +77,8 @@
 		try {
 			await sendExternalApplyMessage(value);
 			draft = '';
+			await tick();
+			resizeComposer();
 			await appState.refreshExternalApply();
 		} catch (e) {
 			toastState.show(e instanceof Error ? e.message : String(e), 'error');
@@ -108,7 +122,7 @@
 	></button>
 
 	<div
-		class="relative z-10 flex h-[min(820px,92vh)] w-[min(1240px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
+		class="relative z-10 flex max-h-[92vh] w-[min(1560px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Agent application session"
@@ -155,9 +169,9 @@
 		</header>
 
 		<!-- Body: browser + chat -->
-		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
+		<div class="grid min-h-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_360px]">
 			<!-- Live browser -->
-			<div class="min-h-0 flex-1 bg-black md:border-r md:border-border-subtle">
+			<div class="aspect-[1280/800] min-h-0 w-full overflow-hidden bg-black md:border-r md:border-border-subtle">
 				{#if status.active}
 					<iframe class="h-full w-full border-0" src="/vnc" title="Agent browser"></iframe>
 				{:else}
@@ -169,7 +183,7 @@
 
 			<!-- Chat rail -->
 			<aside
-				class="flex h-72 shrink-0 flex-col bg-surface-sidebar md:h-auto md:w-[360px]"
+				class="flex h-72 min-h-0 shrink-0 flex-col bg-surface-sidebar md:h-auto md:max-h-[calc(92vh-57px)] md:w-[360px]"
 			>
 				<div bind:this={scroller} class="flex-1 space-y-3 overflow-y-auto px-3.5 py-4">
 					{#if messages.length === 0}
@@ -223,10 +237,12 @@
 						class="flex items-end gap-2 rounded-md border border-border-default bg-surface-base px-2.5 py-1.5 focus-within:border-border-strong"
 					>
 						<textarea
-							class="max-h-28 min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[12.5px] text-text-primary placeholder:text-text-placeholder focus:outline-none"
+							bind:this={composer}
+							class="max-h-28 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-[12.5px] text-text-primary placeholder:text-text-placeholder focus:outline-none"
 							rows="1"
 							placeholder={status.active ? 'Tell the agent how to proceed…' : 'No active session'}
 							bind:value={draft}
+							oninput={resizeComposer}
 							onkeydown={onInputKeydown}
 							disabled={!status.active || sending}
 						></textarea>
