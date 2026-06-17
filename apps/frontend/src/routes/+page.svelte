@@ -20,7 +20,6 @@
 	let loginModalOpen = $state(false);
 	let wasActionNeeded = $state(false);
 	let externalApplyModalOpen = $state(false);
-	let wasAwaitingApproval = $state(false);
 
 	onMount(() => appState.init());
 
@@ -31,14 +30,12 @@
 		wasActionNeeded = actionNeeded;
 	});
 
-	$effect(() => {
-		const awaiting = appState.externalApply.awaitingApproval;
-		if (awaiting && !wasAwaitingApproval) externalApplyModalOpen = true;
-		if (!awaiting && wasAwaitingApproval) externalApplyModalOpen = false;
-		wasAwaitingApproval = awaiting;
-	});
-
 	function openJob(job: JobSummary, tab: KanbanTab) {
+		const agent = appState.externalApply;
+		if (agent.active && agent.jobId === job.id) {
+			externalApplyModalOpen = true;
+			return;
+		}
 		selectedJob = { job, tab };
 	}
 

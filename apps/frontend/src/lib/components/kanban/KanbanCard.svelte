@@ -2,6 +2,7 @@
 	import { fly } from 'svelte/transition';
 	import { cardTransition } from '$lib/transitions';
 	import { tagStyle } from '$lib/tags';
+	import { appState } from '$lib/state.svelte';
 	import type { JobSummary, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -13,6 +14,12 @@
 	let { job, defaultTab, onOpen }: Props = $props();
 
 	const loading = $derived(job.processing && job.about === null);
+	const agentPhase = $derived(
+		appState.externalApply.active && appState.externalApply.jobId === job.id
+			? appState.externalApply.phase
+			: null
+	);
+	const agentActive = $derived(agentPhase === 'working' || agentPhase === 'waiting');
 
 	function relativeDate(iso: string): string {
 		const diff = Date.now() - new Date(iso).getTime();
@@ -43,7 +50,7 @@
 <button
 	type="button"
 	class="w-full shrink-0 cursor-pointer rounded-md bg-surface-raised p-2.5 text-left focus-visible:outline-none
-		{job.processing
+		{job.processing || agentActive
 		? 'animate-pulse-border border-2 border-accent-500'
 		: 'border border-border-subtle transition-colors duration-100 hover:border-border-default'}"
 	onclick={() => onOpen(job, defaultTab)}
@@ -101,7 +108,19 @@
 
 	<div class="mt-2 flex items-center justify-between border-t border-border-subtle pt-1.5">
 		<div class="flex items-center gap-1.5">
-			{#if job.unansweredCount > 0}
+			{#if agentPhase === 'working'}
+				<span
+					class="rounded-sm bg-execution-bg px-1.5 py-0.5 text-xs font-medium text-execution-text"
+				>
+					Applying…
+				</span>
+			{:else if agentPhase === 'waiting'}
+				<span
+					class="rounded-sm bg-status-input-bg px-1.5 py-0.5 text-xs font-medium text-status-input-text"
+				>
+					Agent needs you
+				</span>
+			{:else if job.unansweredCount > 0}
 				<span
 					class="rounded-sm bg-status-unanswered-bg px-1.5 py-0.5 text-xs font-medium text-status-unanswered-text"
 				>

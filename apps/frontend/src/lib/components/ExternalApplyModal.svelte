@@ -1,10 +1,14 @@
 <script lang="ts">
-	import { fly } from 'svelte/transition';
+	import { fly, fade } from 'svelte/transition';
+	import { tick } from 'svelte';
 	import { modalTransition } from '$lib/transitions';
 	import { trapFocus } from '$lib/focusTrap';
 	import { appState } from '$lib/state.svelte';
-	import { decideExternalApply } from '$lib/api';
+	import { sendExternalApplyMessage, stopExternalApply } from '$lib/api';
 	import { toastState } from '$lib/toast.svelte';
+	import X from '@lucide/svelte/icons/x';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import Square from '@lucide/svelte/icons/square';
 
 	interface Props {
 		onClose: () => void;
@@ -12,77 +16,226 @@
 
 	let { onClose }: Props = $props();
 
-	let submitting = $state(false);
-
 	const status = $derived(appState.externalApply);
+	const messages = $derived(status.messages);
 
-	async function decide(decision: 'approve' | 'reject') {
-		submitting = true;
+	let draft = $state('');
+	let sending = $state(false);
+	let stopping = $state(false);
+	let scroller = $state<HTMLDivElement>();
+
+	const QUICK_REPLIES = ['Continue', 'Submit it', 'Looks good'];
+
+	const phaseLabel = $derived(
+		(
+			{
+				working: 'Working',
+				waiting: 'Waiting for you',
+				submitted: 'Submitted',
+				failed: 'Stopped',
+				idle: 'Idle'
+			} as const
+		)[status.phase]
+	);
+
+	const phaseClass = $derived(
+		(
+			{
+				working: 'bg-execution-bg text-execution-text',
+				waiting: 'bg-status-input-bg text-status-input-text',
+				submitted: 'bg-status-submitted-bg text-status-submitted-text',
+				failed: 'bg-danger-bg text-danger-500',
+				idle: 'bg-surface-hover text-text-muted'
+			} as const
+		)[status.phase]
+	);
+
+	$effect(() => {
+		void messages.length;
+		void status.phase;
+		tick().then(() => {
+			if (scroller) scroller.scrollTop = scroller.scrollHeight;
+		});
+	});
+
+	async function send(text: string) {
+		const value = text.trim();
+		if (!value || sending) return;
+		sending = true;
 		try {
-			await decideExternalApply(decision);
+			await sendExternalApplyMessage(value);
+			draft = '';
 			await appState.refreshExternalApply();
 		} catch (e) {
 			toastState.show(e instanceof Error ? e.message : String(e), 'error');
 		} finally {
-			submitting = false;
+			sending = false;
 		}
+	}
+
+	async function stop() {
+		stopping = true;
+		try {
+			await stopExternalApply();
+			await appState.refreshExternalApply();
+		} catch (e) {
+			toastState.show(e instanceof Error ? e.message : String(e), 'error');
+		} finally {
+			stopping = false;
+		}
+	}
+
+	function onInputKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			send(draft);
+		}
+	}
+
+	function onKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') onClose();
+	}
+
+	function timeOf(ts: number): string {
+		return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 	}
 </script>
 
-<div class="z-modal fixed inset-0 flex items-start justify-center bg-black/70 p-4">
+<svelte:window onkeydown={onKeydown} />
+
+<div class="z-modal fixed inset-0 flex items-center justify-center bg-black/70 p-4">
 	<button class="absolute inset-0 cursor-default" type="button" aria-label="Close" onclick={onClose}
 	></button>
 
 	<div
-		class="relative z-10 mt-8 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised pb-1 shadow-[var(--shadow-modal)]"
-		style="max-height: calc(100vh - 80px)"
+		class="relative z-10 flex h-[min(820px,92vh)] w-[min(1240px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
 		role="dialog"
 		aria-modal="true"
-		aria-label="External application review"
+		aria-label="Agent application session"
 		tabindex="-1"
 		use:trapFocus={{ onEscape: onClose }}
 		transition:fly={modalTransition}
-		onclick={(e) => e.stopPropagation()}
-		onkeydown={(e) => e.stopPropagation()}
 	>
-		<div class="flex flex-shrink-0 items-start justify-between border-b border-border-subtle px-5 py-4">
-			<div>
-				<h2 class="text-[13px] font-semibold text-text-primary">
-					Approval needed{status.title ? ` — ${status.title}` : ''}
-				</h2>
+		<!-- Header -->
+		<header
+			class="flex flex-shrink-0 items-center gap-3 border-b border-border-subtle px-4 py-3"
+		>
+			<div class="min-w-0 flex-1">
+				<div class="flex items-center gap-2">
+					<h2 class="truncate text-[13px] font-semibold text-text-primary">
+						{status.title ?? 'External application'}
+					</h2>
+					<span class="shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium {phaseClass}">
+						{phaseLabel}
+					</span>
+				</div>
 				<p class="text-[11px] text-text-muted">
-					Review the browser below. You can take over to fix anything, then approve or reject.
+					Watch the agent fill the form. Take over the browser any time, or steer it in chat.
 				</p>
 			</div>
-		</div>
+			{#if status.active}
+				<button
+					type="button"
+					class="flex h-7 items-center gap-1.5 rounded-md border border-danger-border bg-danger-bg px-2.5 text-xs font-medium text-danger-500 transition-colors hover:bg-surface-overlay disabled:opacity-50"
+					onclick={stop}
+					disabled={stopping}
+				>
+					<Square size={11} fill="currentColor" />
+					Stop
+				</button>
+			{/if}
+			<button
+				type="button"
+				class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-faint hover:bg-surface-overlay hover:text-text-muted focus-visible:outline-none"
+				onclick={onClose}
+				aria-label="Close"
+			>
+				<X size={14} />
+			</button>
+		</header>
 
-		{#if status.summary}
-			<div class="flex-shrink-0 border-b border-border-subtle px-5 py-3">
-				<p class="text-[12px] leading-relaxed text-text-secondary">{status.summary}</p>
+		<!-- Body: browser + chat -->
+		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
+			<!-- Live browser -->
+			<div class="min-h-0 flex-1 bg-black md:border-r md:border-border-subtle">
+				<iframe class="h-full w-full border-0" src="/vnc" title="Agent browser"></iframe>
 			</div>
-		{/if}
 
-		<div class="w-full overflow-hidden bg-black" style="aspect-ratio: 1280/800;">
-			<iframe class="h-full w-full border-0" src="/vnc" title="Server browser"></iframe>
-		</div>
+			<!-- Chat rail -->
+			<aside
+				class="flex h-72 shrink-0 flex-col bg-surface-sidebar md:h-auto md:w-[360px]"
+			>
+				<div bind:this={scroller} class="flex-1 space-y-3 overflow-y-auto px-3.5 py-4">
+					{#if messages.length === 0}
+						<p class="px-1 pt-6 text-center text-[12px] text-text-faint">
+							The agent will report progress here.
+						</p>
+					{/if}
+					{#each messages as m (m.id)}
+						<div
+							class="flex flex-col {m.role === 'user' ? 'items-end' : 'items-start'}"
+							in:fly={{ y: 6, duration: 160 }}
+						>
+							<div
+								class="max-w-[88%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed whitespace-pre-wrap break-words {m.role ===
+								'user'
+									? 'bg-surface-hover text-text-primary'
+									: 'bg-surface-overlay text-text-secondary'}"
+							>
+								{m.text}
+							</div>
+							<span class="mt-1 px-1 text-[10px] text-text-faint">
+								{m.role === 'user' ? 'You' : 'Agent'} · {timeOf(m.ts)}
+							</span>
+						</div>
+					{/each}
+					{#if status.phase === 'working'}
+						<div class="flex items-center gap-1.5 px-1 pt-1" in:fade={{ duration: 120 }}>
+							<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-500"></span>
+							<span class="text-[11px] text-text-muted">Agent is working…</span>
+						</div>
+					{/if}
+				</div>
 
-		<div class="flex flex-shrink-0 items-center justify-end gap-2 px-5 py-3">
-			<button
-				type="button"
-				class="cursor-pointer rounded-md border border-danger-border bg-danger-bg px-3 py-1.5 text-[12px] font-medium text-danger-500 hover:bg-surface-overlay disabled:opacity-50"
-				onclick={() => decide('reject')}
-				disabled={submitting || !status.awaitingApproval}
-			>
-				Reject
-			</button>
-			<button
-				type="button"
-				class="cursor-pointer rounded-md bg-accent-500 px-3 py-1.5 text-[12px] font-medium text-accent-text hover:bg-accent-600 disabled:opacity-50"
-				onclick={() => decide('approve')}
-				disabled={submitting || !status.awaitingApproval}
-			>
-				Approve and continue
-			</button>
+				<!-- Composer -->
+				<div class="flex-shrink-0 border-t border-border-subtle p-2.5">
+					{#if status.active}
+						<div class="mb-2 flex flex-wrap gap-1.5">
+							{#each QUICK_REPLIES as reply (reply)}
+								<button
+									type="button"
+									class="rounded-full border border-border-default bg-surface-overlay px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary disabled:opacity-40"
+									onclick={() => send(reply)}
+									disabled={sending}
+								>
+									{reply}
+								</button>
+							{/each}
+						</div>
+					{/if}
+					<div
+						class="flex items-end gap-2 rounded-md border border-border-default bg-surface-base px-2.5 py-1.5 focus-within:border-border-strong"
+					>
+						<textarea
+							class="max-h-28 min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[12.5px] text-text-primary placeholder:text-text-placeholder focus:outline-none"
+							rows="1"
+							placeholder={status.active ? 'Tell the agent how to proceed…' : 'No active session'}
+							bind:value={draft}
+							onkeydown={onInputKeydown}
+							disabled={!status.active || sending}
+						></textarea>
+						<button
+							type="button"
+							class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-500 text-accent-text transition-colors hover:bg-accent-600 disabled:opacity-40"
+							onclick={() => send(draft)}
+							disabled={!status.active || sending || !draft.trim()}
+							aria-label="Send message"
+						>
+							<ArrowUp size={15} />
+						</button>
+					</div>
+				</div>
+			</aside>
 		</div>
 	</div>
 </div>

@@ -78,10 +78,10 @@ class AppState {
 	});
 	externalApply = $state<ExternalApplyStatus>({
 		active: false,
-		awaitingApproval: false,
 		jobId: null,
 		title: null,
-		summary: null
+		phase: 'idle',
+		messages: []
 	});
 	settings = $state<AppSettings>(defaultSettings());
 	resumes = $state<string[]>([]);
@@ -91,6 +91,7 @@ class AppState {
 	private autoApplyTimer: ReturnType<typeof setInterval> | null = null;
 	private executionTimer: ReturnType<typeof setInterval> | null = null;
 	private backgroundTimer: ReturnType<typeof setInterval> | null = null;
+	private externalApplyTimer: ReturnType<typeof setInterval> | null = null;
 
 	async init() {
 		try {
@@ -178,8 +179,29 @@ class AppState {
 	async refreshExternalApply() {
 		try {
 			this.externalApply = await getExternalApplyStatus();
+			if (this.externalApply.active) this.startExternalApplyPolling();
+			else this.stopExternalApplyPolling();
 		} catch (e) {
 			console.error('Failed to refresh external-apply status:', e);
+		}
+	}
+
+	startExternalApplyPolling() {
+		if (this.externalApplyTimer !== null) return;
+		this.externalApplyTimer = setInterval(async () => {
+			try {
+				this.externalApply = await getExternalApplyStatus();
+				if (!this.externalApply.active) this.stopExternalApplyPolling();
+			} catch (e) {
+				console.error('External-apply poll failed:', e);
+			}
+		}, 2000);
+	}
+
+	stopExternalApplyPolling() {
+		if (this.externalApplyTimer !== null) {
+			clearInterval(this.externalApplyTimer);
+			this.externalApplyTimer = null;
 		}
 	}
 

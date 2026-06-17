@@ -243,8 +243,12 @@ export function getExternalApplyStatus(): Promise<ExternalApplyStatus> {
 	return get('/external-apply');
 }
 
-export function decideExternalApply(decision: 'approve' | 'reject'): Promise<{ ok: boolean }> {
-	return post('/external-apply/decide', { decision });
+export function sendExternalApplyMessage(text: string): Promise<{ ok: boolean }> {
+	return post('/external-apply/message', { text });
+}
+
+export function stopExternalApply(): Promise<{ ok: boolean }> {
+	return post('/external-apply/stop');
 }
 
 export function startExecution(): Promise<{ ok: boolean }> {

@@ -139,10 +139,19 @@ export interface ExecutionStatus {
 	config: DiscoverConfig | null;
 }
 
+export type ExternalApplyPhase = 'idle' | 'working' | 'waiting' | 'submitted' | 'failed';
+
+export interface ExternalApplyMessage {
+	id: string;
+	role: 'agent' | 'user';
+	text: string;
+	ts: number;
+}
+
 export interface ExternalApplyStatus {
 	active: boolean;
-	awaitingApproval: boolean;
 	jobId: number | null;
 	title: string | null;
-	summary: string | null;
+	phase: ExternalApplyPhase;
+	messages: ExternalApplyMessage[];
 }
