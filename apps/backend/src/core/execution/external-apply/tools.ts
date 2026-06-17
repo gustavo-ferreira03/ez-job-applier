@@ -19,8 +19,8 @@ export interface JobToolContext {
     ensureVnc: () => Promise<void>;
 }
 
-function textResult(text: string) {
-    return { content: [{ type: "text" as const, text }], details: undefined };
+function textResult(text: string, terminate = false) {
+    return { content: [{ type: "text" as const, text }], details: undefined, terminate };
 }
 
 async function inlineSnapshots(stdout: string, workDir: string): Promise<string> {
@@ -47,6 +47,11 @@ export function createExternalApplyTools(jc: JobToolContext) {
         async execute(_id, params) {
             if (jc.aborted) {
                 return textResult("This application was rejected by the user. Stop and call finish with status='aborted'.");
+            }
+            try {
+                await jc.ensureVnc();
+            } catch (e) {
+                return textResult(`Could not start the browser display: ${String(e)}`);
             }
             const userArgs = [...params.args];
             if (userArgs[0] === "open" && !userArgs.includes("--headed")) userArgs.push("--headed");
@@ -88,6 +93,7 @@ export function createExternalApplyTools(jc: JobToolContext) {
             jc.aborted = true;
             return textResult(
                 "REJECTED by the user. Stop immediately: call finish with status='aborted' and perform no further browser actions.",
+                true,
             );
         },
     });
@@ -106,7 +112,7 @@ export function createExternalApplyTools(jc: JobToolContext) {
                 );
             }
             jc.finishStatus = params.status;
-            return textResult("Recorded.");
+            return textResult("Recorded.", true);
         },
     });
 
