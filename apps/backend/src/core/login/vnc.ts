@@ -6,6 +6,8 @@ import { hasLinkedInSession } from "../../providers/linkedin/services/status";
 const DISPLAY_START = 99;
 const DISPLAY_END = 109;
 export const VNC_PORT = 5900;
+export const SCREEN_WIDTH = 1280;
+export const SCREEN_HEIGHT = 800;
 
 let xvfbProc: ChildProcess | null = null;
 let x11vncProc: ChildProcess | null = null;
@@ -72,7 +74,7 @@ export async function startVncStack(): Promise<void> {
     for (let display = DISPLAY_START; display <= DISPLAY_END; display += 1) {
         activeDisplay = `:${display}`;
         try {
-            xvfbProc = await spawnWithOutput("Xvfb", [activeDisplay, "-screen", "0", "1280x800x24"], x11Env());
+            xvfbProc = await spawnWithOutput("Xvfb", [activeDisplay, "-screen", "0", `${SCREEN_WIDTH}x${SCREEN_HEIGHT}x24`], x11Env());
             break;
         } catch (e) {
             lastError = e;

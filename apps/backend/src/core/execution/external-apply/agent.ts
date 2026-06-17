@@ -6,7 +6,21 @@ import type { ResumeInput } from "resume-ci";
 import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf } from "../../resumes/pdf";
+import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../../login/vnc";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
+
+async function writeBrowserConfig(workDir: string): Promise<void> {
+    const config = {
+        browser: {
+            browserName: "chromium",
+            launchOptions: { args: ["--window-position=0,0", `--window-size=${SCREEN_WIDTH},${SCREEN_HEIGHT}`] },
+            contextOptions: { viewport: null },
+        },
+    };
+    const dir = path.join(workDir, ".playwright");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "cli.config.json"), JSON.stringify(config, null, 2));
+}
 
 const SKILLS_DIR = process.env.CLAUDE_SKILLS_DIR ?? path.join(os.homedir(), ".claude", "skills");
 
@@ -56,6 +70,7 @@ export async function runExternalApply(
 
     const workDir = path.join(os.tmpdir(), `ext-apply-${jobId}-${Date.now()}`);
     await fs.mkdir(workDir, { recursive: true });
+    await writeBrowserConfig(workDir);
 
     try {
         const resume = await loadResume(ctx, jobId);
