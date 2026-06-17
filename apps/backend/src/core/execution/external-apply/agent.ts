@@ -7,6 +7,7 @@ import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf } from "../../resumes/pdf";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../../login/vnc";
+import { sessionFilePath } from "../../../providers/linkedin/browser";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
 import { registerSession, postAgentMessage } from "./state";
 
@@ -95,6 +96,8 @@ export async function runExternalApply(
             jobId,
             workDir,
             session: `ext-${jobId}`,
+            sessionStatePath: sessionFilePath,
+            stateLoaded: false,
             aborted: false,
             approvedOnce: false,
             finishStatus: null,

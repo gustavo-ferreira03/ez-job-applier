@@ -6,7 +6,41 @@ import type { BrowserContext } from "playwright-core";
 let activeContext: BrowserContext | null = null;
 
 const storageDir = path.resolve("storage");
-const sessionFilePath = path.join(storageDir, "linkedin-session.json");
+export const sessionFilePath = path.join(storageDir, "linkedin-session.json");
+
+type BrowserStorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
+
+function isLinkedInDomain(value: string): boolean {
+    return value.toLowerCase().includes("linkedin.com");
+}
+
+async function readExistingState(): Promise<BrowserStorageState | null> {
+    try {
+        return JSON.parse(await fs.readFile(sessionFilePath, "utf8")) as BrowserStorageState;
+    } catch {
+        return null;
+    }
+}
+
+function cookieKey(cookie: BrowserStorageState["cookies"][number]): string {
+    return `${cookie.name}\n${cookie.domain}\n${cookie.path}`;
+}
+
+function mergeLinkedInState(existing: BrowserStorageState | null, current: BrowserStorageState): BrowserStorageState {
+    const nonLinkedInCookies = existing?.cookies.filter((cookie) => !isLinkedInDomain(cookie.domain)) ?? [];
+    const linkedinCookies = current.cookies.filter((cookie) => isLinkedInDomain(cookie.domain));
+    const cookies = new Map<string, BrowserStorageState["cookies"][number]>();
+    for (const cookie of nonLinkedInCookies) cookies.set(cookieKey(cookie), cookie);
+    for (const cookie of linkedinCookies) cookies.set(cookieKey(cookie), cookie);
+
+    const nonLinkedInOrigins = existing?.origins.filter((origin) => !isLinkedInDomain(origin.origin)) ?? [];
+    const linkedinOrigins = current.origins.filter((origin) => isLinkedInDomain(origin.origin));
+    const origins = new Map<string, BrowserStorageState["origins"][number]>();
+    for (const origin of nonLinkedInOrigins) origins.set(origin.origin, origin);
+    for (const origin of linkedinOrigins) origins.set(origin.origin, origin);
+
+    return { cookies: [...cookies.values()], origins: [...origins.values()] };
+}
 
 async function existingSessionFile(): Promise<string | undefined> {
     try {
@@ -82,14 +116,7 @@ export async function saveLinkedinSession(context = activeContext): Promise<void
     await fs.mkdir(storageDir, { recursive: true });
 
     const state = await context.storageState();
-    state.cookies = state.cookies.filter((cookie) =>
-        cookie.domain.toLowerCase().includes("linkedin.com"),
-    );
-    state.origins = state.origins.filter((origin) =>
-        origin.origin.toLowerCase().includes("linkedin.com"),
-    );
-
-    await fs.writeFile(sessionFilePath, JSON.stringify(state), "utf-8");
+    await fs.writeFile(sessionFilePath, JSON.stringify(mergeLinkedInState(await readExistingState(), state)), "utf-8");
 }
 
 export async function closeLinkedinContext(context = activeContext): Promise<void> {

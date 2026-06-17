@@ -13,6 +13,8 @@ export interface JobToolContext {
     jobId: number;
     workDir: string;
     session: string;
+    sessionStatePath: string;
+    stateLoaded: boolean;
     aborted: boolean;
     approvedOnce: boolean;
     finishStatus: "submitted" | "aborted" | null;
@@ -35,6 +37,33 @@ async function inlineSnapshots(stdout: string, workDir: string): Promise<string>
     }
 }
 
+async function runPlaywright(jc: JobToolContext, args: string[]) {
+    return execFileAsync("playwright-cli", [`-s=${jc.session}`, ...args], {
+        cwd: jc.workDir,
+        env: { ...process.env, DISPLAY: getActiveDisplay() },
+        timeout: 120_000,
+        maxBuffer: 8 * 1024 * 1024,
+    });
+}
+
+async function ensureLoadedState(jc: JobToolContext): Promise<void> {
+    if (jc.stateLoaded) return;
+    await runPlaywright(jc, ["open", "about:blank", "--headed"]);
+    try {
+        await fs.access(jc.sessionStatePath);
+        await runPlaywright(jc, ["state-load", jc.sessionStatePath]);
+    } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    }
+    jc.stateLoaded = true;
+}
+
+async function saveState(jc: JobToolContext): Promise<void> {
+    if (!jc.stateLoaded) return;
+    await fs.mkdir(path.dirname(jc.sessionStatePath), { recursive: true });
+    await runPlaywright(jc, ["state-save", jc.sessionStatePath]);
+}
+
 export function createExternalApplyTools(jc: JobToolContext) {
     const browser = defineTool({
         name: "browser",
@@ -54,15 +83,14 @@ export function createExternalApplyTools(jc: JobToolContext) {
                 return textResult(`Could not start the browser display: ${String(e)}`);
             }
             const userArgs = [...params.args];
+            if (userArgs[0] === "state-load" || userArgs[0] === "state-save") {
+                return textResult("Storage state is managed automatically. Use the browser normally.");
+            }
             if (userArgs[0] === "open" && !userArgs.includes("--headed")) userArgs.push("--headed");
-            const args = [`-s=${jc.session}`, ...userArgs];
             try {
-                const { stdout, stderr } = await execFileAsync("playwright-cli", args, {
-                    cwd: jc.workDir,
-                    env: { ...process.env, DISPLAY: getActiveDisplay() },
-                    timeout: 120_000,
-                    maxBuffer: 8 * 1024 * 1024,
-                });
+                await ensureLoadedState(jc);
+                const { stdout, stderr } = await runPlaywright(jc, userArgs);
+                await saveState(jc).catch((e) => console.error("[external-apply] failed to save browser state:", e));
                 const out = await inlineSnapshots(`${stdout}${stderr ? `\n${stderr}` : ""}`.trim(), jc.workDir);
                 return textResult(out || "(no output)");
             } catch (e) {
@@ -98,6 +126,7 @@ export function createExternalApplyTools(jc: JobToolContext) {
         async execute(_id, params) {
             await jc.ensureVnc();
             const resolution = await askUser(params.question);
+            await saveState(jc).catch((e) => console.error("[external-apply] failed to save browser state:", e));
             if (resolution.kind === "stop") {
                 jc.aborted = true;
                 return textResult(
