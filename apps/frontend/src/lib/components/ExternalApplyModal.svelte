@@ -122,7 +122,7 @@
 	></button>
 
 	<div
-		class="relative z-10 flex max-h-[92vh] w-[min(1560px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
+		class="relative z-10 flex max-h-[92vh] w-[min(1640px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Agent application session"
@@ -169,7 +169,7 @@
 		</header>
 
 		<!-- Body: browser + chat -->
-		<div class="grid min-h-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_360px]">
+		<div class="grid min-h-0 overflow-hidden md:grid-cols-[minmax(0,1280px)_360px]">
 			<!-- Live browser -->
 			<div class="aspect-[1280/800] min-h-0 w-full overflow-hidden bg-black md:border-r md:border-border-subtle">
 				{#if status.active}
