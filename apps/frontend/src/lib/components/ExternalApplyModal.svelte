@@ -122,7 +122,7 @@
 	></button>
 
 	<div
-		class="relative z-10 flex max-h-[92vh] w-[min(1640px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
+		class="relative z-10 flex h-[min(820px,92vh)] w-[min(1240px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Agent application session"
@@ -169,9 +169,9 @@
 		</header>
 
 		<!-- Body: browser + chat -->
-		<div class="grid min-h-0 overflow-hidden md:grid-cols-[minmax(0,1280px)_360px]">
+		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
 			<!-- Live browser -->
-			<div class="aspect-[1280/800] min-h-0 w-full overflow-hidden bg-black md:border-r md:border-border-subtle">
+			<div class="min-h-0 flex-1 bg-black md:border-r md:border-border-subtle">
 				{#if status.active}
 					<iframe class="h-full w-full border-0" src="/vnc" title="Agent browser"></iframe>
 				{:else}
@@ -183,7 +183,7 @@
 
 			<!-- Chat rail -->
 			<aside
-				class="flex h-72 min-h-0 shrink-0 flex-col bg-surface-sidebar md:h-auto md:max-h-[calc(92vh-57px)] md:w-[360px]"
+				class="flex h-72 shrink-0 flex-col bg-surface-sidebar md:h-auto md:w-[360px]"
 			>
 				<div bind:this={scroller} class="flex-1 space-y-3 overflow-y-auto px-3.5 py-4">
 					{#if messages.length === 0}
