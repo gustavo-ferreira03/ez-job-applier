@@ -89,6 +89,7 @@ async function processQueue(
         if (deferredJobIds.has(jobId)) continue;
         const job = await ctx.jobRepo.getById(jobId);
         if (!job) continue;
+        if (job.applicationUrl != null) continue;
         const appRec = await ctx.appRepo.get(job.provider, job.jobId);
         if (!appRec) continue;
 
@@ -147,6 +148,7 @@ async function processQueue(
         if (deferredJobIds.has(jobId)) continue;
         const job = await ctx.jobRepo.getById(jobId);
         if (!job) continue;
+        if (job.applicationUrl != null) continue;
         const appRec = await ctx.appRepo.get(job.provider, job.jobId);
         if (!appRec) continue;
 

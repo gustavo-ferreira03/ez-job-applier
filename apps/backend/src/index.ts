@@ -24,9 +24,11 @@ import { createExecutionRouter } from "./routes/execution";
 import resumesRouter from "./routes/resumes";
 import { createResumeMasterRouter } from "./routes/resume-master";
 import { createSettingsRouter } from "./routes/settings";
+import { createExternalApplyRouter } from "./routes/external-apply";
 import databaseRouter from "./routes/database";
 import { startExecution, registerWorker } from "./core/execution/manager";
 import { createAutoAnswerWorker } from "./core/execution/auto-answer-worker";
+import { createExternalApplyWorker } from "./core/execution/external-apply/worker";
 import { VNC_PORT } from "./core/login/vnc";
 import type { AppContext } from "./core/context";
 
@@ -34,6 +36,7 @@ const providerRegistry = new ProviderRegistry();
 providerRegistry.register(linkedinProvider);
 
 registerWorker(createAutoAnswerWorker);
+registerWorker(createExternalApplyWorker);
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(moduleDir, "..");
@@ -86,6 +89,7 @@ app.route("/", createExecutionRouter(ctx));
 app.route("/", resumesRouter);
 app.route("/", createResumeMasterRouter(ctx));
 app.route("/", createSettingsRouter(ctx));
+app.route("/", createExternalApplyRouter(ctx));
 app.route("/", databaseRouter);
 
 app.doc("/openapi", {
