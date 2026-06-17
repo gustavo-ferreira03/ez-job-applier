@@ -4,7 +4,8 @@ import {
 	getAutoApplyStatus,
 	getAppSettings,
 	listExecutions,
-	getExecutionStatus
+	getExecutionStatus,
+	getExternalApplyStatus
 } from './api';
 import type {
 	AppSettings,
@@ -12,7 +13,8 @@ import type {
 	DiscoverConfig,
 	Execution,
 	JobSummary,
-	ExecutionStatus
+	ExecutionStatus,
+	ExternalApplyStatus
 } from './types';
 
 function defaultConfig(): DiscoverConfig {
@@ -73,6 +75,13 @@ class AppState {
 		cycleMaxMs: 3_600_000,
 		intervalMs: 14_400_000,
 		config: null
+	});
+	externalApply = $state<ExternalApplyStatus>({
+		active: false,
+		awaitingApproval: false,
+		jobId: null,
+		title: null,
+		summary: null
 	});
 	settings = $state<AppSettings>(defaultSettings());
 	resumes = $state<string[]>([]);
@@ -166,11 +175,20 @@ class AppState {
 		}
 	}
 
+	async refreshExternalApply() {
+		try {
+			this.externalApply = await getExternalApplyStatus();
+		} catch (e) {
+			console.error('Failed to refresh external-apply status:', e);
+		}
+	}
+
 	startBackgroundPolling() {
 		if (this.backgroundTimer !== null) return;
 		this.backgroundTimer = setInterval(async () => {
 			await this.refreshJobs();
 			await this.refreshExecutions();
+			await this.refreshExternalApply();
 		}, 5000);
 	}
 }

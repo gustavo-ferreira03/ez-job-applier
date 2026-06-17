@@ -138,3 +138,11 @@ export interface ExecutionStatus {
 	intervalMs: number;
 	config: DiscoverConfig | null;
 }
+
+export interface ExternalApplyStatus {
+	active: boolean;
+	awaitingApproval: boolean;
+	jobId: number | null;
+	title: string | null;
+	summary: string | null;
+}

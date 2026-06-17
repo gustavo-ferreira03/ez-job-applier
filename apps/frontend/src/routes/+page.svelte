@@ -8,6 +8,7 @@
 	import DiscoveriesView from '$lib/components/DiscoveriesView.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
 	import LoginModal from '$lib/components/LoginModal.svelte';
+	import ExternalApplyModal from '$lib/components/ExternalApplyModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { appState } from '$lib/state.svelte';
 	import { startExecution, stopExecution, pauseExecution, resumeExecution } from '$lib/api';
@@ -18,6 +19,8 @@
 	let selectedJob = $state<{ job: JobSummary; tab: KanbanTab } | null>(null);
 	let loginModalOpen = $state(false);
 	let wasActionNeeded = $state(false);
+	let externalApplyModalOpen = $state(false);
+	let wasAwaitingApproval = $state(false);
 
 	onMount(() => appState.init());
 
@@ -26,6 +29,13 @@
 		if (actionNeeded && !wasActionNeeded) loginModalOpen = true;
 		if (!actionNeeded && wasActionNeeded) loginModalOpen = false;
 		wasActionNeeded = actionNeeded;
+	});
+
+	$effect(() => {
+		const awaiting = appState.externalApply.awaitingApproval;
+		if (awaiting && !wasAwaitingApproval) externalApplyModalOpen = true;
+		if (!awaiting && wasAwaitingApproval) externalApplyModalOpen = false;
+		wasAwaitingApproval = awaiting;
 	});
 
 	function openJob(job: JobSummary, tab: KanbanTab) {
@@ -198,6 +208,14 @@
 	<LoginModal
 		onClose={() => {
 			loginModalOpen = false;
+		}}
+	/>
+{/if}
+
+{#if externalApplyModalOpen}
+	<ExternalApplyModal
+		onClose={() => {
+			externalApplyModalOpen = false;
 		}}
 	/>
 {/if}

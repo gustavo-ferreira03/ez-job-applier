@@ -6,6 +6,7 @@ import type {
 	JobDetail,
 	JobSummary,
 	ExecutionStatus,
+	ExternalApplyStatus,
 	LlmSettings
 } from './types';
 
@@ -236,6 +237,14 @@ export function clearDatabase(): Promise<{ ok: boolean }> {
 // Loop eterno
 export function getExecutionStatus(): Promise<ExecutionStatus> {
 	return get('/execution');
+}
+
+export function getExternalApplyStatus(): Promise<ExternalApplyStatus> {
+	return get('/external-apply');
+}
+
+export function decideExternalApply(decision: 'approve' | 'reject'): Promise<{ ok: boolean }> {
+	return post('/external-apply/decide', { decision });
 }
 
 export function startExecution(): Promise<{ ok: boolean }> {
