@@ -32,7 +32,11 @@ export const linkedinProvider: IJobProvider = {
 
     async createSession(): Promise<IJobProviderSession> {
         const { advanced: { browserVisible, searchLocale } } = await getSettings();
-        const context = await openLinkedinContext({ visible: browserVisible, searchLocale });
+        const context = await openLinkedinContext({
+            visible: browserVisible,
+            searchLocale,
+            display: process.env.LINKEDIN_BROWSER_DISPLAY,
+        });
 
         let discoveryPage;
         let applyPage;

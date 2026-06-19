@@ -4,5 +4,6 @@ declare module '@novnc/novnc' {
 		scaleViewport: boolean;
 		resizeSession: boolean;
 		sendCredentials(credentials: { password: string }): void;
+		disconnect(): void;
 	}
 }

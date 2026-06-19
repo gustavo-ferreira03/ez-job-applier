@@ -5,6 +5,7 @@ services:
       args:
         PUBLIC_API_URL: ${PUBLIC_API_URL}
     init: true
+    shm_size: "1gb"
     restart: unless-stopped
     ports:
       - "3001:3001"

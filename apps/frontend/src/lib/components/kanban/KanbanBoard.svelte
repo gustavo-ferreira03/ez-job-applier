@@ -50,6 +50,7 @@
 	let rejecting = $state(false);
 	let submitAllOpen = $state(false);
 	let submittingAll = $state(false);
+	let retryingAll = $state(false);
 	let addOpen = $state(false);
 
 	const columns: KanbanColumnDef[] = [
@@ -92,7 +93,8 @@
 			statuses: ['FAILED'],
 			defaultTab: 'actions' as KanbanTab,
 			headerClass: 'text-status-failed-text',
-			canRejectAll: true
+			canRejectAll: true,
+			canRetryAll: true
 		},
 		{
 			id: 'rejected',
@@ -131,21 +133,42 @@
 		);
 	}
 
+	function retryableJobs(): JobSummary[] {
+		return jobs.filter((j) => j.status === 'FAILED' && !j.processing && matchesTagFilter(j));
+	}
+
 	const submittableCount = $derived(submittableJobs().length);
 
 	async function confirmSubmitAll() {
 		if (submittingAll) return;
 		submittingAll = true;
 		try {
-			const result = await api.approveJobs(submittableJobs().map((j) => j.id));
-			toastState.show(
-				`${result.approved} ${result.approved === 1 ? 'job queued' : 'jobs queued'} for submission`,
-				'success'
+			const jobs = submittableJobs();
+			const agentReview = new Set(
+				appState.externalApply.sessions
+					.filter((s) => s.active && s.phase === 'review')
+					.map((s) => s.jobId)
 			);
+			const agentJobs = jobs.filter((j) => agentReview.has(j.id));
+			const queueJobs = jobs.filter((j) => !agentReview.has(j.id));
+
+			await Promise.all(agentJobs.map((j) => api.sendExternalApplyMessage(j.id, 'Submit it')));
+			let queued = 0;
+			if (queueJobs.length > 0) {
+				const result = await api.approveJobs(queueJobs.map((j) => j.id));
+				queued = result.approved;
+			}
+
+			const parts: string[] = [];
+			if (agentJobs.length > 0)
+				parts.push(`${agentJobs.length} ${agentJobs.length === 1 ? 'agent told' : 'agents told'} to submit`);
+			if (queued > 0) parts.push(`${queued} ${queued === 1 ? 'job queued' : 'jobs queued'}`);
+			toastState.show(parts.join(', ') || 'Nothing to submit', 'success');
 			submitAllOpen = false;
 			await appState.refreshJobs();
+			await appState.refreshExternalApply();
 		} catch {
-			toastState.show('Failed to queue jobs', 'error');
+			toastState.show('Failed to submit jobs', 'error');
 		} finally {
 			submittingAll = false;
 		}
@@ -166,6 +189,25 @@
 			toastState.show('Failed to reject jobs', 'error');
 		} finally {
 			rejecting = false;
+		}
+	}
+
+	async function retryAllFailed() {
+		if (retryingAll) return;
+		const retryable = retryableJobs();
+		if (retryable.length === 0) return;
+		retryingAll = true;
+		try {
+			await Promise.all(retryable.map((job) => api.retryJob(job.id)));
+			toastState.show(
+				`${retryable.length} ${retryable.length === 1 ? 'job queued' : 'jobs queued'} for retry`,
+				'success'
+			);
+			await appState.refreshJobs();
+		} catch {
+			toastState.show('Failed to retry jobs', 'error');
+		} finally {
+			retryingAll = false;
 		}
 	}
 </script>
@@ -211,10 +253,11 @@
 				onRejectAll={(column) => {
 					rejectColumn = column;
 				}}
-				onSubmitAll={() => {
-					submitAllOpen = true;
-				}}
-				onAdd={() => {
+					onSubmitAll={() => {
+						submitAllOpen = true;
+					}}
+					onRetryAll={retryAllFailed}
+					onAdd={() => {
 					addOpen = true;
 				}}
 			/>

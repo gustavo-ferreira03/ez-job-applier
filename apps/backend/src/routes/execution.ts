@@ -11,13 +11,14 @@ export function createExecutionRouter(ctx: AppContext): OpenAPIHono {
         const ex = await ctx.executionRepo.getActive();
         if (!ex) {
             const settings = await getSettings();
-            return c.json({ active: false, running: false, paused: false, actionNeeded: false, nextRunAt: null, cycleMaxMs: settings.advanced.cycleMaxMs, intervalMs: settings.advanced.intervalMs, config: null });
+            return c.json({ active: false, running: false, paused: false, actionNeeded: false, vncSessionId: null, nextRunAt: null, cycleMaxMs: settings.advanced.cycleMaxMs, intervalMs: settings.advanced.intervalMs, config: null });
         }
         return c.json({
             active: true,
             running: ex.status === "running",
             paused: ex.status === "paused",
             actionNeeded: ex.status === "action_needed",
+            vncSessionId: manager.getExecutionVncSessionId(),
             nextRunAt: ex.nextRunAt,
             cycleMaxMs: ex.cycleMaxMs,
             intervalMs: ex.intervalMs,

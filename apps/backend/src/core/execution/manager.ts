@@ -5,8 +5,7 @@ import type { IJobProviderSession } from "../interfaces";
 import { runCycle } from "./cycle";
 import { isWithinSchedule, nextScheduleOpen } from "./schedule";
 import { getSettings } from "../../repositories/settings";
-import { startVncStack, stopVncStack, openLoginBrowser, waitForLogin } from "../login/vnc";
-import { acquireVnc, releaseVnc } from "../login/vnc-lock";
+import { startVncStack, stopVncStack, openLoginBrowser, waitForLogin, type VncSession } from "../login/vnc";
 
 export type WorkerFactory = (ctx: AppContext, shouldStop: () => boolean) => { run(): Promise<void>; wake(): void };
 
@@ -23,10 +22,14 @@ let _stopFlag = false;
 let _wake: (() => void) | null = null;
 let _activeSession: IJobProviderSession | null = null;
 let _activeWorkers: { wake(): void }[] = [];
+let _loginVncSessionId: string | null = null;
+let _executionVncSessionId: string | null = null;
 
 function wakeUp(): void { _wake?.(); _wake = null; }
 
 export function wakeExecution(): void { wakeUp(); }
+
+export function getExecutionVncSessionId(): string | null { return _loginVncSessionId ?? _executionVncSessionId; }
 
 function interruptibleSleep(ms: number): Promise<void> {
     return new Promise<void>((resolve) => {
@@ -118,7 +121,15 @@ async function runForever(
             await ctx.executionRepo.setStatus(id, "running", null);
             let easyApplyLimited = false;
             let cycleErrored = false;
+            let executionVncSession: VncSession | null = null;
+            const prevLinkedinDisplay = process.env.LINKEDIN_BROWSER_DISPLAY;
             try {
+                const settings = await getSettings();
+                if (settings.advanced.browserVisible) {
+                    executionVncSession = await startVncStack("linkedin");
+                    _executionVncSessionId = executionVncSession.id;
+                    process.env.LINKEDIN_BROWSER_DISPLAY = executionVncSession.display;
+                }
                 const result = await runCycle(id, config, cycleMaxMs, ctx, () => _stopFlag, (s) => { _activeSession = s; });
                 easyApplyLimited = result.easyApplyLimited;
             } catch (e) {
@@ -131,6 +142,11 @@ async function runForever(
                     continue;
                 }
                 console.error("[execution] cycle error:", e);
+            } finally {
+                if (prevLinkedinDisplay !== undefined) process.env.LINKEDIN_BROWSER_DISPLAY = prevLinkedinDisplay;
+                else delete process.env.LINKEDIN_BROWSER_DISPLAY;
+                stopVncStack(executionVncSession);
+                _executionVncSessionId = null;
             }
 
             if (_stopFlag) break;
@@ -167,30 +183,34 @@ function isAuthError(msg: string): boolean {
 }
 
 async function handleActionNeeded(id: string, ctx: AppContext): Promise<boolean> {
-    await acquireVnc();
+    let vncSession: VncSession | null = null;
     try {
         try {
-            await startVncStack();
+            vncSession = await startVncStack("login");
+            _loginVncSessionId = vncSession.id;
         } catch (e) {
             console.error("[login] VNC stack failed to start (is x11vnc installed?):", e);
             return false;
         }
         let loginContext;
         try {
-            loginContext = await openLoginBrowser();
+            loginContext = await openLoginBrowser(vncSession);
         } catch (e) {
             console.error("[login] failed to open login browser:", e);
-            stopVncStack();
+            stopVncStack(vncSession);
+            _loginVncSessionId = null;
             return false;
         }
         await ctx.executionRepo.setStatus(id, "action_needed");
         const loggedIn = await waitForLogin(loginContext, () => _stopFlag);
-        stopVncStack();
+        stopVncStack(vncSession);
+        _loginVncSessionId = null;
         if (loggedIn) {
             console.log("[login] session restored — resuming execution");
         }
         return loggedIn;
     } finally {
-        releaseVnc();
+        if (vncSession) stopVncStack(vncSession);
+        _loginVncSessionId = null;
     }
 }

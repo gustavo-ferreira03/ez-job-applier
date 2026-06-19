@@ -6,12 +6,15 @@
 	let screen: HTMLDivElement;
 
 	const base = PUBLIC_API_URL;
-	const wsUrl = base.replace(/^http/, 'ws') + '/vnc-ws';
 
 	onMount(() => {
+		const session = new URLSearchParams(window.location.search).get('session');
+		if (!session) return;
+		const wsUrl = `${base.replace(/^http/, 'ws')}/vnc-ws/${encodeURIComponent(session)}`;
 		const rfb = new RFB(screen, wsUrl);
 		rfb.scaleViewport = true;
 		rfb.addEventListener('credentialsrequired', () => rfb.sendCredentials({ password: '' }));
+		return () => rfb.disconnect();
 	});
 </script>
 

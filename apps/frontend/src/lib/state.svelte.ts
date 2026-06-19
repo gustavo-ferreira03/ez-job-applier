@@ -71,17 +71,14 @@ class AppState {
 		running: false,
 		paused: false,
 		actionNeeded: false,
+		vncSessionId: null,
 		nextRunAt: null,
 		cycleMaxMs: 3_600_000,
 		intervalMs: 14_400_000,
 		config: null
 	});
 	externalApply = $state<ExternalApplyStatus>({
-		active: false,
-		jobId: null,
-		title: null,
-		phase: 'idle',
-		messages: []
+		sessions: []
 	});
 	settings = $state<AppSettings>(defaultSettings());
 	resumes = $state<string[]>([]);
@@ -95,14 +92,15 @@ class AppState {
 
 	async init() {
 		try {
-			const [jobsRes, resumesRes, autoApplyRes, settingsRes, executionsRes, execRes] =
+			const [jobsRes, resumesRes, autoApplyRes, settingsRes, executionsRes, execRes, externalApplyRes] =
 				await Promise.all([
 					listJobs(),
 					getResumes(),
 					getAutoApplyStatus(),
 					getAppSettings(),
 					listExecutions(),
-					getExecutionStatus()
+					getExecutionStatus(),
+					getExternalApplyStatus()
 				]);
 			this.jobs = jobsRes.jobs;
 			this.resumes = resumesRes.resumes;
@@ -111,8 +109,10 @@ class AppState {
 			this.settings = settingsRes;
 			this.executions = executionsRes.executions;
 			this.execution = execRes;
+			this.externalApply = externalApplyRes;
 			if (autoApplyRes.running) this.startAutoApplyPolling();
 			if (execRes.active) this.startExecutionPolling();
+			if (externalApplyRes.sessions.some((session) => session.active)) this.startExternalApplyPolling();
 			this.startBackgroundPolling();
 		} catch (e) {
 			console.error('Failed to load state:', e);
@@ -179,7 +179,7 @@ class AppState {
 	async refreshExternalApply() {
 		try {
 			this.externalApply = await getExternalApplyStatus();
-			if (this.externalApply.active) this.startExternalApplyPolling();
+			if (this.externalApply.sessions.some((session) => session.active)) this.startExternalApplyPolling();
 			else this.stopExternalApplyPolling();
 		} catch (e) {
 			console.error('Failed to refresh external-apply status:', e);
@@ -191,7 +191,7 @@ class AppState {
 		this.externalApplyTimer = setInterval(async () => {
 			try {
 				this.externalApply = await getExternalApplyStatus();
-				if (!this.externalApply.active) this.stopExternalApplyPolling();
+				if (!this.externalApply.sessions.some((session) => session.active)) this.stopExternalApplyPolling();
 			} catch (e) {
 				console.error('External-apply poll failed:', e);
 			}

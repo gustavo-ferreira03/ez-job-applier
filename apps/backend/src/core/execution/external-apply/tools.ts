@@ -1,106 +1,30 @@
-import { execFile } from "node:child_process";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { promisify } from "node:util";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@earendil-works/pi-ai";
-import { getActiveDisplay } from "../../login/vnc";
+import type { VncSession } from "../../login/vnc";
 import { askUser, postAgentMessage } from "./state";
-
-const execFileAsync = promisify(execFile);
+import { rememberAgentFact } from "./memory";
 
 export interface JobToolContext {
     jobId: number;
     workDir: string;
-    session: string;
-    sessionStatePath: string;
-    stateLoaded: boolean;
+    vncSession: VncSession | null;
+    toolCalls: number;
     aborted: boolean;
     approvedOnce: boolean;
     finishStatus: "submitted" | "aborted" | null;
-    ensureVnc: () => Promise<void>;
+    ensureVnc: () => Promise<VncSession>;
 }
 
 function textResult(text: string, terminate = false) {
     return { content: [{ type: "text" as const, text }], details: undefined, terminate };
 }
 
-async function inlineSnapshots(stdout: string, workDir: string): Promise<string> {
-    const match = stdout.match(/\[Snapshot\]\(([^)]+)\)/);
-    if (!match) return stdout;
-    try {
-        const file = path.isAbsolute(match[1]) ? match[1] : path.join(workDir, match[1]);
-        const snapshot = await fs.readFile(file, "utf8");
-        return `${stdout}\n\nSnapshot:\n${snapshot}`;
-    } catch {
-        return stdout;
-    }
-}
-
-async function runPlaywright(jc: JobToolContext, args: string[]) {
-    return execFileAsync("playwright-cli", [`-s=${jc.session}`, ...args], {
-        cwd: jc.workDir,
-        env: { ...process.env, DISPLAY: getActiveDisplay() },
-        timeout: 120_000,
-        maxBuffer: 8 * 1024 * 1024,
-    });
-}
-
-async function ensureLoadedState(jc: JobToolContext): Promise<void> {
-    if (jc.stateLoaded) return;
-    await runPlaywright(jc, ["open", "about:blank", "--headed"]);
-    try {
-        await fs.access(jc.sessionStatePath);
-        await runPlaywright(jc, ["state-load", jc.sessionStatePath]);
-    } catch (e) {
-        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
-    }
-    jc.stateLoaded = true;
-}
-
-async function saveState(jc: JobToolContext): Promise<void> {
-    if (!jc.stateLoaded) return;
-    await fs.mkdir(path.dirname(jc.sessionStatePath), { recursive: true });
-    await runPlaywright(jc, ["state-save", jc.sessionStatePath]);
+function isFinalSubmitQuestion(question: string, nextAction: string): boolean {
+    if (nextAction === "final_submit") return true;
+    return /\b(submit|enviar|finalizar|mandar)\b|\bapply\s+(now|button|application)\b|\b(clicar|click)\b.*\b(submit|apply|enviar|finalizar)\b/i.test(question);
 }
 
 export function createExternalApplyTools(jc: JobToolContext) {
-    const browser = defineTool({
-        name: "browser",
-        label: "browser",
-        description:
-            "Drive the browser by running a playwright-cli command. `args` is the argument array, e.g. [\"open\", \"https://...\"], [\"snapshot\"], [\"click\", \"e15\"], [\"fill\", \"e7\", \"text\"], [\"upload\", \"/abs/file.pdf\"].",
-        parameters: Type.Object({
-            args: Type.Array(Type.String(), { description: "playwright-cli arguments" }),
-        }),
-        async execute(_id, params) {
-            if (jc.aborted) {
-                return textResult("This application was rejected by the user. Stop and call finish with status='aborted'.");
-            }
-            try {
-                await jc.ensureVnc();
-            } catch (e) {
-                return textResult(`Could not start the browser display: ${String(e)}`);
-            }
-            const userArgs = [...params.args];
-            if (userArgs[0] === "state-load" || userArgs[0] === "state-save") {
-                return textResult("Storage state is managed automatically. Use the browser normally.");
-            }
-            if (userArgs[0] === "open" && !userArgs.includes("--headed")) userArgs.push("--headed");
-            try {
-                await ensureLoadedState(jc);
-                const { stdout, stderr } = await runPlaywright(jc, userArgs);
-                await saveState(jc).catch((e) => console.error("[external-apply] failed to save browser state:", e));
-                const out = await inlineSnapshots(`${stdout}${stderr ? `\n${stderr}` : ""}`.trim(), jc.workDir);
-                return textResult(out || "(no output)");
-            } catch (e) {
-                const err = e as { stdout?: string; stderr?: string; message?: string };
-                const detail = [err.stdout, err.stderr, err.message].filter(Boolean).join("\n").trim();
-                return textResult(`playwright-cli failed:\n${detail || "unknown error"}`);
-            }
-        },
-    });
-
     const say = defineTool({
         name: "say",
         label: "say",
@@ -110,7 +34,8 @@ export function createExternalApplyTools(jc: JobToolContext) {
             message: Type.String({ description: "A short progress update for the user" }),
         }),
         async execute(_id, params) {
-            postAgentMessage(params.message);
+            jc.toolCalls += 1;
+            postAgentMessage(jc.jobId, params.message);
             return textResult("Posted.");
         },
     });
@@ -119,14 +44,17 @@ export function createExternalApplyTools(jc: JobToolContext) {
         name: "ask_user",
         label: "ask_user",
         description:
-            "Ask the user a question in the chat and wait for their reply. Use when you need information you don't have, are unsure how to proceed, or want confirmation. You MUST call this and get a go-ahead before clicking the final submit/apply button. Returns the user's reply.",
+            "Ask the user a question in the chat and wait for their reply. Use when you need information you don't have, are unsure how to proceed, or want confirmation. You MUST call this and get a go-ahead before clicking the final submit/apply button. Set nextAction='final_submit' when the only remaining step is clicking the final submit/apply button; otherwise use nextAction='needs_input'. Set remember=true ONLY when the question is a reusable personal fact that will be the same on every future application (birthdate, CPF, phone, address, salary expectation, work authorization, years of experience); the answer is then saved so no future application asks it again. Leave remember off for job-specific questions (motivation for this company, consent tied to one posting). Returns the user's reply.",
         parameters: Type.Object({
             question: Type.String({ description: "What you need from the user" }),
+            nextAction: Type.Union([Type.Literal("needs_input"), Type.Literal("final_submit")]),
+            remember: Type.Optional(Type.Boolean({ description: "Save this answer for future applications (reusable personal facts only)" })),
         }),
         async execute(_id, params) {
-            await jc.ensureVnc();
-            const resolution = await askUser(params.question);
-            await saveState(jc).catch((e) => console.error("[external-apply] failed to save browser state:", e));
+            jc.toolCalls += 1;
+            jc.vncSession = await jc.ensureVnc();
+            const phase = isFinalSubmitQuestion(params.question, params.nextAction) ? "review" : "waiting";
+            const resolution = await askUser(jc.jobId, params.question, phase);
             if (resolution.kind === "stop") {
                 jc.aborted = true;
                 return textResult(
@@ -134,7 +62,8 @@ export function createExternalApplyTools(jc: JobToolContext) {
                     true,
                 );
             }
-            jc.approvedOnce = true;
+            if (params.remember) void rememberAgentFact(params.question, resolution.text);
+            if (phase === "review") jc.approvedOnce = true;
             return textResult(`The user replied: ${resolution.text}`);
         },
     });
@@ -147,6 +76,7 @@ export function createExternalApplyTools(jc: JobToolContext) {
             status: Type.Union([Type.Literal("submitted"), Type.Literal("aborted")]),
         }),
         async execute(_id, params) {
+            jc.toolCalls += 1;
             if (params.status === "submitted" && !jc.approvedOnce) {
                 return textResult(
                     "You must use ask_user to get the user's go-ahead before submitting. Ask first.",
@@ -157,5 +87,5 @@ export function createExternalApplyTools(jc: JobToolContext) {
         },
     });
 
-    return [browser, say, ask_user, finish];
+    return [say, ask_user, finish];
 }

@@ -12,15 +12,20 @@ export function createExternalApplyRouter(_ctx: AppContext): OpenAPIHono {
 
     router.post("/external-apply/message", async (c) => {
         const body = await c.req.json().catch(() => ({}));
+        const jobId = Number(body?.jobId);
         const text = typeof body?.text === "string" ? body.text : "";
+        if (!Number.isInteger(jobId)) throw new HTTPException(400, { message: "jobId is required" });
         if (!text.trim()) throw new HTTPException(400, { message: "text is required" });
-        const ok = sendUserMessage(text);
+        const ok = await sendUserMessage(jobId, text);
         if (!ok) throw new HTTPException(409, { message: "No active agent session" });
         return c.json({ ok: true });
     });
 
-    router.post("/external-apply/stop", (c) => {
-        const ok = stopExternalApply();
+    router.post("/external-apply/stop", async (c) => {
+        const body = await c.req.json().catch(() => ({}));
+        const jobId = Number(body?.jobId);
+        if (!Number.isInteger(jobId)) throw new HTTPException(400, { message: "jobId is required" });
+        const ok = stopExternalApply(jobId);
         if (!ok) throw new HTTPException(409, { message: "No active agent session" });
         return c.json({ ok: true });
     });

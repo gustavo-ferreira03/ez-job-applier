@@ -1,67 +1,81 @@
 import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
-import { startVncStack, stopVncStack } from "../../login/vnc";
-import { acquireVnc, releaseVnc } from "../../login/vnc-lock";
+import { startVncStack, stopVncStack, type VncSession } from "../../login/vnc";
 import { runExternalApply } from "./agent";
-import { beginJob, endJob, type ExternalApplyPhase } from "./state";
+import {
+    beginJob,
+    endJob,
+    isExternalApplyActive,
+    releaseWorkingSlotReservation,
+    tryReserveWorkingSlot,
+    workingExternalApplySlots,
+    MAX_WORKING_EXTERNAL_APPLY,
+    type ExternalApplyPhase,
+} from "./state";
 
-async function processOne(jobId: number, ctx: AppContext): Promise<void> {
+type ProcessOutcome = "done" | "retryable";
+
+async function processOne(jobId: number, ctx: AppContext): Promise<ProcessOutcome> {
     const job = await ctx.jobRepo.getById(jobId);
-    if (!job || job.applicationUrl == null) return;
+    if (!job || job.applicationUrl == null) return "done";
 
-    let vncStarted = false;
-    const ensureVnc = async (): Promise<void> => {
-        if (vncStarted) return;
-        await acquireVnc();
-        try {
-            await startVncStack();
-            vncStarted = true;
-        } catch (e) {
-            releaseVnc();
-            throw e;
-        }
+    let vncSession: VncSession | null = null;
+    const ensureVnc = async (): Promise<VncSession> => {
+        if (vncSession) return vncSession;
+        vncSession = await startVncStack("external-apply");
+        return vncSession;
     };
 
     let terminal = false;
     let statusChain: Promise<void> = Promise.resolve();
-    const writeStatus = (status: "FOUND" | "NEEDS_INPUT" | "READY_FOR_REVIEW" | "FAILED", error?: string): Promise<void> => {
+    const writeStatus = (status: "NEEDS_INPUT" | "READY_FOR_REVIEW" | "SUBMITTED" | "FAILED", error?: string): Promise<void> => {
         statusChain = statusChain.then(() =>
-            ctx.appRepo.upsert(job.provider, job.jobId, status, undefined, error).then(() => {}).catch(() => {}),
+            ctx.appRepo.get(job.provider, job.jobId)
+                .then((application) => {
+                    if (application?.status === "REJECTED") return;
+                    return ctx.appRepo.upsert(job.provider, job.jobId, status, undefined, error).then(() => {});
+                })
+                .catch(() => {}),
         );
         return statusChain;
     };
 
     const onPhase = (phase: ExternalApplyPhase): void => {
         if (terminal) return;
-        if (phase === "working") writeStatus("FOUND");
-        else if (phase === "waiting") writeStatus("NEEDS_INPUT");
+        if (phase === "waiting") writeStatus("NEEDS_INPUT");
+        else if (phase === "review") writeStatus("READY_FOR_REVIEW");
     };
 
     const tag = `[external-apply] "${job.title}" @ ${job.company}`;
     try {
-        await ensureVnc();
-        beginJob(jobId, job.title, onPhase);
+        const session = await ensureVnc();
+        beginJob(jobId, job.title, session.id, onPhase);
         const result = await runExternalApply(ctx, jobId, ensureVnc);
         terminal = true;
         if (result.status === "submitted") {
-            await writeStatus("READY_FOR_REVIEW");
-            endJob("submitted");
-            console.log(`${tag}: submitted → review`);
+            await writeStatus("SUBMITTED");
+            endJob(jobId, "submitted");
+            console.log(`${tag}: submitted`);
+            return "done";
+        } else if (result.status === "stalled") {
+            await writeStatus("NEEDS_INPUT", result.error ?? "Agent stopped before submitting");
+            endJob(jobId, "failed");
+            console.log(`${tag}: stalled${result.error ? ` — ${result.error}` : ""}`);
+            return "retryable";
         } else {
             await writeStatus("FAILED", result.error ?? "Not submitted");
-            endJob("failed");
+            endJob(jobId, "failed");
             console.log(`${tag}: ${result.status}${result.error ? ` — ${result.error}` : ""}`);
+            return "done";
         }
     } catch (e) {
         terminal = true;
         await writeStatus("FAILED", String(e));
-        endJob("failed");
+        endJob(jobId, "failed");
         console.error(`${tag}: error`, e);
+        return "done";
     } finally {
-        if (vncStarted) {
-            stopVncStack();
-            releaseVnc();
-        }
+        stopVncStack(vncSession);
     }
 }
 
@@ -75,18 +89,25 @@ export function createExternalApplyWorker(ctx: AppContext, shouldStop: () => boo
         });
     }
 
-    async function resetOrphans(): Promise<void> {
-        for (const jobId of await ctx.appRepo.listIdsByStatus("NEEDS_INPUT")) {
-            const job = await ctx.jobRepo.getById(jobId);
-            if (job?.applicationUrl != null) {
-                await ctx.appRepo.upsert(job.provider, job.jobId, "FOUND").catch(() => {});
-            }
-        }
-    }
-
     async function run(): Promise<void> {
-        await resetOrphans();
         const attempted = new Set<number>();
+        const inFlight = new Set<number>();
+
+        const launch = (jobId: number): void => {
+            if (!tryReserveWorkingSlot(jobId)) return;
+            attempted.add(jobId);
+            inFlight.add(jobId);
+            processOne(jobId, ctx)
+                .then((outcome) => {
+                    if (outcome === "retryable") attempted.delete(jobId);
+                })
+                .catch((e) => console.error(`[external-apply] worker crashed for job ${jobId}:`, e))
+                .finally(() => {
+                    releaseWorkingSlotReservation(jobId);
+                    inFlight.delete(jobId);
+                    wake();
+                });
+        };
 
         while (!shouldStop()) {
             const exec = await ctx.executionRepo.getActive();
@@ -101,24 +122,31 @@ export function createExternalApplyWorker(ctx: AppContext, shouldStop: () => boo
                 continue;
             }
 
-            const found = await ctx.appRepo.listIdsByStatus("FOUND");
+            const candidateIds = [
+                ...await ctx.appRepo.listIdsByStatus("FOUND"),
+                ...await ctx.appRepo.listIdsByStatus("NEEDS_INPUT"),
+                ...await ctx.appRepo.listIdsByStatus("READY_FOR_REVIEW"),
+            ];
             const pending: number[] = [];
-            for (const jobId of found) {
+            for (const jobId of new Set(candidateIds)) {
                 if (attempted.has(jobId)) continue;
+                if (inFlight.has(jobId) || isExternalApplyActive(jobId)) continue;
                 const job = await ctx.jobRepo.getById(jobId);
                 if (job?.applicationUrl != null) pending.push(jobId);
             }
 
-            if (pending.length === 0) {
+            const capacity = MAX_WORKING_EXTERNAL_APPLY - workingExternalApplySlots();
+            if (pending.length === 0 || capacity <= 0) {
                 await workerSleep(30_000);
                 continue;
             }
 
-            for (const jobId of pending) {
+            for (const jobId of pending.slice(0, capacity)) {
                 if (shouldStop()) break;
-                attempted.add(jobId);
-                await processOne(jobId, ctx);
+                launch(jobId);
             }
+
+            await workerSleep(1_000);
         }
     }
 

@@ -100,7 +100,7 @@ export function approveJobs(ids: number[]): Promise<{ approved: number }> {
 	return post('/jobs/approve', { ids });
 }
 
-export function reprocessJob(jobId: number): Promise<{ ok: boolean }> {
+export function retryJob(jobId: number): Promise<{ ok: boolean }> {
 	return post(`/jobs/${jobId}/reprocess`);
 }
 
@@ -243,12 +243,12 @@ export function getExternalApplyStatus(): Promise<ExternalApplyStatus> {
 	return get('/external-apply');
 }
 
-export function sendExternalApplyMessage(text: string): Promise<{ ok: boolean }> {
-	return post('/external-apply/message', { text });
+export function sendExternalApplyMessage(jobId: number, text: string): Promise<{ ok: boolean }> {
+	return post('/external-apply/message', { jobId, text });
 }
 
-export function stopExternalApply(): Promise<{ ok: boolean }> {
-	return post('/external-apply/stop');
+export function stopExternalApply(jobId: number): Promise<{ ok: boolean }> {
+	return post('/external-apply/stop', { jobId });
 }
 
 export function startExecution(): Promise<{ ok: boolean }> {

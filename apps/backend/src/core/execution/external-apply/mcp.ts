@@ -1,0 +1,138 @@
+import path from "node:path";
+import fs from "node:fs/promises";
+import { createRequire } from "node:module";
+import { buildLaunchOptions } from "cloakbrowser";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { defineTool } from "@earendil-works/pi-coding-agent";
+import { Type } from "@earendil-works/pi-ai";
+import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../../login/vnc";
+import type { JobToolContext } from "./tools";
+
+const require = createRequire(import.meta.url);
+const MCP_CLI = path.join(path.dirname(require.resolve("@playwright/mcp/package.json")), "cli.js");
+
+const ALLOWED_TOOLS = new Set([
+    "browser_navigate",
+    "browser_navigate_back",
+    "browser_snapshot",
+    "browser_click",
+    "browser_type",
+    "browser_fill_form",
+    "browser_select_option",
+    "browser_hover",
+    "browser_press_key",
+    "browser_file_upload",
+    "browser_wait_for",
+    "browser_handle_dialog",
+    "browser_tabs",
+]);
+
+export interface BrowserMcp {
+    client: Client;
+    tools: { name: string; description?: string; inputSchema: unknown }[];
+    close: () => Promise<void>;
+}
+
+export async function launchBrowserMcp(opts: { workDir: string; display: string; storageStatePath?: string }): Promise<BrowserMcp> {
+    const lo = await buildLaunchOptions({ locale: "pt-BR" });
+    const config = {
+        browser: {
+            browserName: "chromium",
+            launchOptions: {
+                executablePath: lo.executablePath,
+                headless: false,
+                ignoreDefaultArgs: lo.ignoreDefaultArgs,
+                args: [...(lo.args ?? []), "--window-position=0,0", `--window-size=${SCREEN_WIDTH},${SCREEN_HEIGHT}`],
+            },
+        },
+    };
+    const cfgPath = path.join(opts.workDir, "mcp-config.json");
+    await fs.writeFile(cfgPath, JSON.stringify(config));
+
+    const args = [MCP_CLI, "--config", cfgPath, "--isolated"];
+    if (opts.storageStatePath) {
+        try {
+            await fs.access(opts.storageStatePath);
+            args.push("--storage-state", opts.storageStatePath);
+        } catch {
+            // no saved session yet — start fresh
+        }
+    }
+
+    const transport = new StdioClientTransport({
+        command: process.execPath,
+        args,
+        cwd: opts.workDir,
+        env: { ...process.env, DISPLAY: opts.display } as Record<string, string>,
+        stderr: "ignore",
+    });
+    const client = new Client({ name: "external-apply", version: "1.0.0" });
+    await client.connect(transport);
+    const { tools } = await client.listTools();
+    return {
+        client,
+        tools: tools as BrowserMcp["tools"],
+        close: async () => {
+            await client.close().catch(() => {});
+        },
+    };
+}
+
+function inlineSnapshots(text: string, workDir: string): Promise<string> {
+    const refs = [...text.matchAll(/\[Snapshot\]\(([^)]+)\)/g)].map((m) => m[1]);
+    if (refs.length === 0) return Promise.resolve(text);
+    return Promise.all(
+        refs.map(async (ref) => {
+            try {
+                const file = path.isAbsolute(ref) ? ref : path.join(workDir, ref);
+                return await fs.readFile(file, "utf8");
+            } catch {
+                return null;
+            }
+        }),
+    ).then((snaps) => {
+        const body = snaps.filter(Boolean).join("\n");
+        return body ? `${text}\n\nSnapshot:\n${body}` : text;
+    });
+}
+
+async function renderMcpResult(res: { content?: unknown }, workDir: string): Promise<string> {
+    const content = Array.isArray(res.content) ? (res.content as { type?: string; text?: string }[]) : [];
+    const text = content
+        .filter((c) => c.type === "text" && typeof c.text === "string")
+        .map((c) => c.text)
+        .join("\n")
+        .trim();
+    return inlineSnapshots(text, workDir);
+}
+
+export function bridgeBrowserTools(mcp: BrowserMcp, jc: JobToolContext) {
+    return mcp.tools
+        .filter((t) => ALLOWED_TOOLS.has(t.name))
+        .map((t) =>
+            defineTool({
+                name: t.name,
+                label: t.name,
+                description: t.description ?? t.name,
+                parameters: Type.Unsafe<Record<string, unknown>>(t.inputSchema as Parameters<typeof Type.Unsafe>[0]),
+                async execute(_id, params) {
+                    jc.toolCalls += 1;
+                    if (jc.aborted) {
+                        return {
+                            content: [{ type: "text" as const, text: "This application was rejected by the user. Stop and call finish with status='aborted'." }],
+                            details: undefined,
+                            terminate: false,
+                        };
+                    }
+                    try {
+                        const res = await mcp.client.callTool({ name: t.name, arguments: (params ?? {}) as Record<string, unknown> });
+                        const text = await renderMcpResult(res as { content?: unknown }, jc.workDir);
+                        return { content: [{ type: "text" as const, text: text || "(no output)" }], details: undefined, terminate: false };
+                    } catch (e) {
+                        return { content: [{ type: "text" as const, text: `browser tool failed: ${String(e)}` }], details: undefined, terminate: false };
+                    }
+                },
+            }),
+        );
+}

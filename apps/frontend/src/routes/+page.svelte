@@ -11,15 +11,16 @@
 	import ExternalApplyModal from '$lib/components/ExternalApplyModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { appState } from '$lib/state.svelte';
-	import { startExecution, stopExecution, pauseExecution, resumeExecution } from '$lib/api';
+	import { startExecution, stopExecution, resumeExecution } from '$lib/api';
 	import { toastState } from '$lib/toast.svelte';
 	import type { JobSummary, KanbanTab, Page } from '$lib/types';
 
 	let activePage = $state<Page>('pipeline');
 	let selectedJob = $state<{ job: JobSummary; tab: KanbanTab } | null>(null);
 	let loginModalOpen = $state(false);
+	let browserModalOpen = $state(false);
 	let wasActionNeeded = $state(false);
-	let externalApplyModalOpen = $state(false);
+	let externalApplyJobId = $state<number | null>(null);
 
 	onMount(() => appState.init());
 
@@ -30,12 +31,11 @@
 		wasActionNeeded = actionNeeded;
 	});
 
+	$effect(() => {
+		if (!appState.execution.running || !appState.execution.vncSessionId) browserModalOpen = false;
+	});
+
 	function openJob(job: JobSummary, tab: KanbanTab) {
-		const agent = appState.externalApply;
-		if (agent.jobId === job.id && agent.messages.length > 0) {
-			externalApplyModalOpen = true;
-			return;
-		}
 		selectedJob = { job, tab };
 	}
 
@@ -65,16 +65,6 @@
 			toastState.show('Execution stopped', 'success');
 		} catch {
 			toastState.show('Failed to stop execution', 'error');
-		}
-	}
-
-	async function handlePauseExecution() {
-		try {
-			await pauseExecution();
-			appState.execution = { ...appState.execution, paused: true };
-			toastState.show('Execution paused', 'success');
-		} catch {
-			toastState.show('Failed to pause execution', 'error');
 		}
 	}
 
@@ -128,10 +118,12 @@
 		}}
 		onStartExecution={handleStartExecution}
 		onStopExecution={handleStopExecution}
-		onPauseExecution={handlePauseExecution}
 		onResumeExecution={handleResumeExecution}
 		onOpenLogin={() => {
 			loginModalOpen = true;
+		}}
+		onOpenBrowser={() => {
+			browserModalOpen = true;
 		}}
 	/>
 
@@ -192,6 +184,9 @@
 				<JobModal
 					job={selectedJob.job}
 					initialTab={selectedJob.tab}
+					onOpenAgent={(jobId) => {
+						externalApplyJobId = jobId;
+					}}
 					onClose={() => {
 						selectedJob = null;
 					}}
@@ -201,18 +196,31 @@
 	</div>
 </div>
 
-{#if loginModalOpen}
+{#if loginModalOpen && appState.execution.vncSessionId}
 	<LoginModal
+		vncSessionId={appState.execution.vncSessionId}
 		onClose={() => {
 			loginModalOpen = false;
 		}}
 	/>
 {/if}
 
-{#if externalApplyModalOpen}
-	<ExternalApplyModal
+{#if browserModalOpen && appState.execution.vncSessionId}
+	<LoginModal
+		vncSessionId={appState.execution.vncSessionId}
+		title="LinkedIn browser"
+		description="Live browser used for LinkedIn discovery and Easy Apply."
 		onClose={() => {
-			externalApplyModalOpen = false;
+			browserModalOpen = false;
+		}}
+	/>
+{/if}
+
+{#if externalApplyJobId !== null}
+	<ExternalApplyModal
+		jobId={externalApplyJobId}
+		onClose={() => {
+			externalApplyJobId = null;
 		}}
 	/>
 {/if}

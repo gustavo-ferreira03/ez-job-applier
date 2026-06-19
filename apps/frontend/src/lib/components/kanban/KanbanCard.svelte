@@ -14,12 +14,9 @@
 	let { job, defaultTab, onOpen }: Props = $props();
 
 	const loading = $derived(job.processing && job.about === null);
-	const agentPhase = $derived(
-		appState.externalApply.active && appState.externalApply.jobId === job.id
-			? appState.externalApply.phase
-			: null
-	);
-	const agentActive = $derived(agentPhase === 'working' || agentPhase === 'waiting');
+	const agentSession = $derived(appState.externalApply.sessions.find((session) => session.jobId === job.id));
+	const agentPhase = $derived(agentSession?.active ? agentSession.phase : null);
+	const agentWorking = $derived(agentPhase === 'working');
 
 	function relativeDate(iso: string): string {
 		const diff = Date.now() - new Date(iso).getTime();
@@ -36,7 +33,7 @@
 	transition:fly={cardTransition}
 	aria-label="Loading job"
 >
-	<div class="animate-pulse">
+	<div class="activity-skeleton">
 		<div class="h-3.5 w-full rounded bg-border-strong"></div>
 		<div class="mt-2 h-3 w-1/2 rounded bg-border-strong"></div>
 		<div class="mt-3 flex gap-1.5">
@@ -50,8 +47,8 @@
 <button
 	type="button"
 	class="w-full shrink-0 cursor-pointer rounded-md bg-surface-raised p-2.5 text-left focus-visible:outline-none
-		{job.processing || agentActive
-		? 'animate-pulse-border border-2 border-accent-500'
+		{job.processing || agentWorking
+		? 'activity-pulse-border border-2 border-accent-500'
 		: 'border border-border-subtle transition-colors duration-100 hover:border-border-default'}"
 	onclick={() => onOpen(job, defaultTab)}
 	transition:fly={cardTransition}
@@ -59,9 +56,9 @@
 	<!-- Title -->
 	<div class="flex items-center justify-between gap-2">
 		<p class="min-w-0 truncate text-sm font-medium text-text-primary">{job.title}</p>
-		{#if job.processing}
+		{#if job.processing || agentWorking}
 			<svg
-				class="h-3.5 w-3.5 shrink-0 animate-spin text-accent-500"
+				class="activity-spin h-3.5 w-3.5 shrink-0 text-accent-500"
 				viewBox="0 0 24 24"
 				fill="none"
 			>
@@ -112,13 +109,19 @@
 				<span
 					class="rounded-sm bg-execution-bg px-1.5 py-0.5 text-xs font-medium text-execution-text"
 				>
-					Applying…
+					Working
 				</span>
 			{:else if agentPhase === 'waiting'}
 				<span
 					class="rounded-sm bg-status-input-bg px-1.5 py-0.5 text-xs font-medium text-status-input-text"
 				>
 					Agent needs you
+				</span>
+			{:else if agentPhase === 'review'}
+				<span
+					class="rounded-sm bg-status-review-bg px-1.5 py-0.5 text-xs font-medium text-status-review-text"
+				>
+					Ready to submit
 				</span>
 			{:else if job.unansweredCount > 0}
 				<span

@@ -25,6 +25,7 @@
 	interface Props {
 		job: JobSummary;
 		initialTab?: KanbanTab;
+		onOpenAgent?: (jobId: number) => void;
 		onClose: () => void;
 	}
 
@@ -35,7 +36,7 @@
 		{ id: 'actions', label: 'Actions' }
 	];
 
-	let { job, initialTab = 'info', onClose }: Props = $props();
+	let { job, initialTab = 'info', onOpenAgent, onClose }: Props = $props();
 
 	let detail = $state<JobDetail | null>(null);
 	let loadError = $state(false);
@@ -112,7 +113,8 @@
 	}
 
 	function selectedResumePreviewUrl(): string | null {
-		if (selectedResume === 'tailored') return tailored ? api.tailorPreviewUrl(job.id, tailorVersion) : null;
+		if (selectedResume === 'tailored')
+			return tailored ? api.tailorPreviewUrl(job.id, tailorVersion) : null;
 		if (selectedResume) return api.resumePreviewUrl(selectedResume);
 		return appState.defaultResume ? api.resumePreviewUrl(appState.defaultResume) : null;
 	}
@@ -146,11 +148,7 @@
 
 	function handleDialogClick(e: MouseEvent) {
 		const target = e.target as Node;
-		if (
-			tailorMenuOpen &&
-			!tailorMenuRef?.contains(target) &&
-			!tailorButtonRef?.contains(target)
-		) {
+		if (tailorMenuOpen && !tailorMenuRef?.contains(target) && !tailorButtonRef?.contains(target)) {
 			tailorMenuOpen = false;
 		}
 		e.stopPropagation();
@@ -175,6 +173,14 @@
 	);
 	const hasActions = $derived(ACTION_STATUSES.includes(job.status));
 	const selectedPreviewUrl = $derived(selectedResumePreviewUrl());
+	const agentSession = $derived(
+		appState.externalApply.sessions.find((session) => session.jobId === job.id)
+	);
+	const agentActive = $derived(agentSession?.active ?? false);
+	const externalApplication = $derived((detail?.applicationUrl ?? job.applicationUrl) != null);
+	const externalAgentAction = $derived(
+		externalApplication && (job.status === 'NEEDS_INPUT' || job.status === 'READY_FOR_REVIEW')
+	);
 
 	async function handleSaveAnswers() {
 		if (busy) return;
@@ -203,7 +209,8 @@
 		busy = true;
 		notice = 'Queueing application...';
 		try {
-			const resumeFilename = selectedResume && selectedResume !== 'tailored' ? selectedResume : undefined;
+			const resumeFilename =
+				selectedResume && selectedResume !== 'tailored' ? selectedResume : undefined;
 			await api.applyToJob(job.id, collectCurrentAnswers(), resumeFilename);
 			toastState.show('Application queued', 'success');
 			onClose();
@@ -231,18 +238,18 @@
 		}
 	}
 
-	async function handleReprocess() {
+	async function handleRetry() {
 		if (busy) return;
 		busy = true;
-		notice = 'Moving to Found...';
+		notice = 'Retrying...';
 		try {
-			await api.reprocessJob(job.id);
-			toastState.show('Job moved to Found', 'success');
+			await api.retryJob(job.id);
+			toastState.show('Job queued for retry', 'success');
 			onClose();
 			await appState.refreshJobs();
 		} catch {
 			notice = '';
-			toastState.show('Failed to reprocess job', 'error');
+			toastState.show('Failed to retry job', 'error');
 		} finally {
 			busy = false;
 		}
@@ -328,7 +335,51 @@
 	{/if}
 {/snippet}
 
-<div class="z-modal fixed inset-0 flex items-start justify-center bg-black/70 p-0 sm:p-4">
+{#snippet actionPanel(
+	title: string,
+	body: string,
+	tone: 'neutral' | 'review' | 'success' | 'danger'
+)}
+	<div
+		class="mb-5 rounded-md border px-3 py-2.5 {tone === 'review'
+			? 'border-status-review-border bg-status-review-bg'
+			: tone === 'success'
+				? 'border-status-submitted-border bg-status-submitted-bg'
+				: tone === 'danger'
+					? 'border-danger-border bg-danger-bg'
+					: 'border-border-subtle bg-surface-overlay'}"
+	>
+		<p
+			class="text-sm font-medium {tone === 'review'
+				? 'text-status-review-text'
+				: tone === 'success'
+					? 'text-status-submitted-text'
+					: tone === 'danger'
+						? 'text-danger-500'
+						: 'text-text-secondary'}"
+		>
+			{title}
+		</p>
+		<p
+			class="mt-1 text-[13px] leading-relaxed {tone === 'danger'
+				? 'text-danger-500'
+				: 'text-text-faint'}"
+		>
+			{body}
+		</p>
+	</div>
+{/snippet}
+
+{#snippet actionSection(title: string, body?: string)}
+	<div class="mb-3">
+		<h3 class="text-[13px] font-semibold text-text-primary">{title}</h3>
+		{#if body}
+			<p class="mt-1 text-[12px] leading-relaxed text-text-faint">{body}</p>
+		{/if}
+	</div>
+{/snippet}
+
+<div class="fixed inset-0 z-modal flex items-start justify-center bg-black/70 p-0 sm:p-4">
 	<button class="absolute inset-0 cursor-default" type="button" aria-label="Close" onclick={onClose}
 	></button>
 
@@ -354,6 +405,29 @@
 					</p>
 					<div class="mt-2 flex items-center gap-2">
 						<StatusBadge status={job.status} size="sm" />
+						{#if agentSession && onOpenAgent}
+							<button
+								type="button"
+								class="flex cursor-pointer items-center gap-1 rounded-sm border border-border-default bg-surface-overlay px-1.5 py-0.5 text-xs font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-primary focus-visible:outline-none"
+								onclick={() => onOpenAgent?.(job.id)}
+							>
+								{#if agentActive}
+									<LoaderCircle
+										size={11}
+										class="activity-spin text-accent-500"
+										aria-hidden="true"
+									/>
+								{/if}
+								Agent session
+							</button>
+						{:else if externalAgentAction}
+							<span
+								class="flex items-center gap-1 rounded-sm border border-border-default bg-surface-overlay px-1.5 py-0.5 text-xs font-medium text-text-faint"
+							>
+								<LoaderCircle size={11} class="activity-spin text-text-faint" aria-hidden="true" />
+								Waiting for agent
+							</span>
+						{/if}
 						{#if job.url}
 							<a
 								href={job.url}
@@ -397,12 +471,12 @@
 			</div>
 		</div>
 
-		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-6 scroll-pb-28">
+		<div class="min-h-0 flex-1 scroll-pb-28 overflow-y-auto overscroll-contain p-4 pb-6">
 			{#if loadError}
 				<p class="text-sm text-danger-600">Failed to load job details.</p>
 			{:else if !detail}
 				<div class="flex items-center justify-center py-16 text-text-faint">
-					<LoaderCircle size={20} class="animate-spin" aria-label="Loading" />
+					<LoaderCircle size={20} class="activity-spin" aria-label="Loading" />
 				</div>
 			{:else}
 				{#key activeTab}
@@ -480,14 +554,23 @@
 								</div>
 							{/if}
 						{:else if job.status === 'FOUND'}
-							<p class="mb-3 text-sm text-text-muted">
-								Open the application form to extract the questions.
-							</p>
-							<p class="text-[13px] text-text-faint">
-								This will open a browser and may take a few seconds.
-							</p>
+							{@render actionPanel(
+								'Ready to inspect',
+								'This job has been found but no application questions have been extracted yet. Start the next execution cycle to inspect the form, or reject it if it is not worth applying to.',
+								'neutral'
+							)}
 						{:else if job.status === 'NEEDS_INPUT'}
-							{#if unanswered.length > 0}
+							{#if externalApplication}
+								{@render actionPanel(
+									'Agent needs your input',
+									'Open the agent session and answer there so it can continue from the live application browser.',
+									'neutral'
+								)}
+							{:else if unanswered.length > 0}
+								{@render actionSection(
+									'Missing answers',
+									'Answer every required question before queueing this application.'
+								)}
 								<div class="mb-5 space-y-3">
 									{#each unanswered as item (questionKey(item))}
 										{@const q = item.question}
@@ -504,7 +587,7 @@
 
 							{#if answered.length > 0}
 								<div>
-									<h3 class="mb-2 text-[13px] font-semibold text-text-primary">Already answered</h3>
+									{@render actionSection('Already answered')}
 									<div class="space-y-1.5">
 										{#each answered as item (questionKey(item))}
 											{@const q = item.question}
@@ -517,7 +600,17 @@
 								</div>
 							{/if}
 						{:else if job.status === 'READY_FOR_REVIEW'}
-							{#if detail.questions.length > 0}
+							{#if externalApplication}
+								{@render actionPanel(
+									'Ready for agent review',
+									'Review the live browser and approve the final submit inside the agent session.',
+									'review'
+								)}
+							{:else if detail.questions.length > 0}
+								{@render actionSection(
+									'Review answers',
+									'Confirm the answers and resume before queueing the application.'
+								)}
 								<div class="mb-5 space-y-3">
 									{#each questions as item (questionKey(item))}
 										{@const q = item.question}
@@ -533,12 +626,11 @@
 							{/if}
 
 							<div>
-								<label
-									class="mb-1 block text-[13px] font-medium text-text-secondary"
-									for="resume-select"
-								>
-									Resume
-								</label>
+								{@render actionSection(
+									'Resume',
+									'Select the resume that should be used when this application is submitted.'
+								)}
+								<label class="sr-only" for="resume-select"> Resume </label>
 								<div class="flex flex-col gap-2 sm:flex-row sm:items-center">
 									<select
 										id="resume-select"
@@ -556,91 +648,109 @@
 										{/each}
 									</select>
 
-										{#if selectedPreviewUrl}
-											<a
-												href={selectedPreviewUrl}
-												target="_blank"
-												rel="noopener"
-												class="inline-flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none sm:h-8"
-											>
-												<ExternalLink size={13} aria-hidden="true" />
-												Preview
-											</a>
-										{:else}
-											<button
-												type="button"
-												disabled
-												class="inline-flex h-11 cursor-not-allowed items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted opacity-40 sm:h-8"
-											>
-												<ExternalLink size={13} aria-hidden="true" />
-												Preview
-											</button>
-										{/if}
+									{#if selectedPreviewUrl}
+										<a
+											href={selectedPreviewUrl}
+											target="_blank"
+											rel="noopener"
+											class="inline-flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none sm:h-8"
+										>
+											<ExternalLink size={13} aria-hidden="true" />
+											Preview
+										</a>
+									{:else}
+										<button
+											type="button"
+											disabled
+											class="inline-flex h-11 cursor-not-allowed items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted opacity-40 sm:h-8"
+										>
+											<ExternalLink size={13} aria-hidden="true" />
+											Preview
+										</button>
+									{/if}
 
-										<div class="w-full sm:w-auto">
-											<button
-												bind:this={tailorButtonRef}
-												type="button"
-												class="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium whitespace-nowrap text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-auto"
-												disabled={tailoring || masterOptions.length === 0}
-												aria-haspopup="menu"
-												aria-expanded={tailorMenuOpen}
-												title={masterOptions.length === 0 ? 'Create a master resume in Settings first' : 'Choose master resume to tailor from'}
-												onclick={toggleTailorMenu}
-											>
-												<Sparkles size={13} aria-hidden="true" />
-												{tailoring ? 'Tailoring…' : 'Tailor resume'}
-												<ChevronDown size={13} aria-hidden="true" />
-											</button>
+									<div class="w-full sm:w-auto">
+										<button
+											bind:this={tailorButtonRef}
+											type="button"
+											class="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium whitespace-nowrap text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-auto"
+											disabled={tailoring || masterOptions.length === 0}
+											aria-haspopup="menu"
+											aria-expanded={tailorMenuOpen}
+											title={masterOptions.length === 0
+												? 'Create a master resume in Settings first'
+												: 'Choose master resume to tailor from'}
+											onclick={toggleTailorMenu}
+										>
+											<Sparkles size={13} aria-hidden="true" />
+											{tailoring ? 'Tailoring…' : 'Tailor resume'}
+											<ChevronDown size={13} aria-hidden="true" />
+										</button>
 
-											{#if tailorMenuOpen && masterOptions.length > 0}
-												<div
-													bind:this={tailorMenuRef}
-													role="menu"
-													class="t-dropdown is-open z-modal fixed overflow-y-auto rounded-md border border-border-default bg-surface-raised p-1 shadow-[var(--shadow-modal)]"
-													style={tailorMenuStyle}
+										{#if tailorMenuOpen && masterOptions.length > 0}
+											<div
+												bind:this={tailorMenuRef}
+												role="menu"
+												class="t-dropdown is-open fixed z-modal overflow-y-auto rounded-md border border-border-default bg-surface-raised p-1 shadow-[var(--shadow-modal)]"
+												style={tailorMenuStyle}
+											>
+												<p class="px-2 py-1 text-[10px] font-medium text-text-faint">
+													Choose tailoring source
+												</p>
+												<button
+													type="button"
+													role="menuitem"
+													class="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-left text-xs text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none sm:min-h-8 sm:py-1.5 sm:text-[11px]"
+													onclick={() => handleTailor()}
 												>
-													<p class="px-2 py-1 text-[10px] font-medium text-text-faint">Choose tailoring source</p>
+													<Sparkles
+														size={12}
+														class="flex-shrink-0 text-text-faint"
+														aria-hidden="true"
+													/>
+													<span class="min-w-0 flex-1 truncate">Auto-select best match</span>
+													<span class="flex-shrink-0 text-[9px] font-bold text-text-faint">AI</span>
+												</button>
+												{#each masterOptions as m (m)}
 													<button
 														type="button"
 														role="menuitem"
+														title={m}
 														class="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-left text-xs text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none sm:min-h-8 sm:py-1.5 sm:text-[11px]"
-														onclick={() => handleTailor()}
+														onclick={() => handleTailor(m)}
 													>
-														<Sparkles size={12} class="flex-shrink-0 text-text-faint" aria-hidden="true" />
-														<span class="min-w-0 flex-1 truncate">Auto-select best match</span>
-														<span class="flex-shrink-0 text-[9px] font-bold text-text-faint">AI</span>
+														<FileText
+															size={12}
+															class="flex-shrink-0 text-text-faint"
+															aria-hidden="true"
+														/>
+														<span class="min-w-0 flex-1 truncate">{m}</span>
 													</button>
-													{#each masterOptions as m (m)}
-														<button
-															type="button"
-															role="menuitem"
-															title={m}
-															class="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-left text-xs text-text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none sm:min-h-8 sm:py-1.5 sm:text-[11px]"
-															onclick={() => handleTailor(m)}
-														>
-															<FileText size={12} class="flex-shrink-0 text-text-faint" aria-hidden="true" />
-															<span class="min-w-0 flex-1 truncate">{m}</span>
-														</button>
-													{/each}
-												</div>
-											{/if}
-										</div>
+												{/each}
+											</div>
+										{/if}
 									</div>
 								</div>
+							</div>
 						{:else if job.status === 'APPROVED'}
-							<p class="text-sm text-text-muted">Application queued.</p>
+							{@render actionPanel(
+								'Application queued',
+								'This job is queued for the next execution cycle. No manual action is needed right now.',
+								'success'
+							)}
 						{:else if job.status === 'FAILED'}
-							{#if detail.errorMessage}
-								<div class="mb-3 rounded-md bg-danger-bg px-3 py-2 text-[13px] text-danger-600">
-									{detail.errorMessage}
-								</div>
-							{/if}
-							<p class="text-sm text-text-muted">
-								This application failed. Click Reprocess to try again.
-							</p>
+							{@render actionPanel(
+								'Application stopped',
+								detail.errorMessage ??
+									'Retry this job to send it back through the application flow.',
+								'danger'
+							)}
 						{:else}
-							<p class="text-sm text-text-faint">No action available.</p>
+							{@render actionPanel(
+								'No action available',
+								'This job does not have an available action in its current state.',
+								'neutral'
+							)}
 						{/if}
 					</div>
 				{/key}
@@ -655,7 +765,9 @@
 					class="min-h-4 text-[13px] text-text-faint {notice ? 'block' : 'hidden sm:block'}"
 					aria-live="polite">{notice}</span
 				>
-				<div class="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:w-auto sm:justify-end">
+				<div
+					class="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:w-auto sm:justify-end"
+				>
 					{#if ACTION_STATUSES.includes(job.status)}
 						<button
 							type="button"
@@ -668,7 +780,25 @@
 					{/if}
 
 					{#if job.status === 'NEEDS_INPUT'}
-						{#if unanswered.length > 0}
+						{#if externalApplication}
+							{#if agentSession && onOpenAgent}
+								<button
+									type="button"
+									class="h-11 w-full cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none sm:h-8 sm:w-auto"
+									onclick={() => onOpenAgent?.(job.id)}
+								>
+									Open agent session
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="h-11 w-full cursor-wait rounded-md bg-surface-overlay px-3 text-sm font-medium text-text-faint sm:h-8 sm:w-auto"
+									disabled
+								>
+									Agent restarting…
+								</button>
+							{/if}
+						{:else if unanswered.length > 0}
 							<button
 								type="button"
 								class="h-11 w-full cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-auto"
@@ -687,23 +817,43 @@
 								{busy ? 'Queueing...' : 'Submit application'}
 							</button>
 						{/if}
-				{:else if job.status === 'READY_FOR_REVIEW'}
-						<button
-							type="button"
-							class="h-11 w-full cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-auto"
-							disabled={busy || !canApply}
-							onclick={handleApply}
-						>
-							{busy ? 'Queueing...' : 'Submit application'}
-						</button>
-				{:else if job.status === 'FAILED'}
+					{:else if job.status === 'READY_FOR_REVIEW'}
+						{#if externalApplication}
+							{#if agentSession && onOpenAgent}
+								<button
+									type="button"
+									class="h-11 w-full cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none sm:h-8 sm:w-auto"
+									onclick={() => onOpenAgent?.(job.id)}
+								>
+									Review with agent
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="h-11 w-full cursor-wait rounded-md bg-surface-overlay px-3 text-sm font-medium text-text-faint sm:h-8 sm:w-auto"
+									disabled
+								>
+									Agent restarting…
+								</button>
+							{/if}
+						{:else}
+							<button
+								type="button"
+								class="h-11 w-full cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-auto"
+								disabled={busy || !canApply}
+								onclick={handleApply}
+							>
+								{busy ? 'Queueing...' : 'Submit application'}
+							</button>
+						{/if}
+					{:else if job.status === 'FAILED'}
 						<button
 							type="button"
 							class="h-11 w-full cursor-pointer rounded-md bg-accent-500 px-3 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-accent-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-auto"
 							disabled={busy || job.processing}
-							onclick={handleReprocess}
+							onclick={handleRetry}
 						>
-							{busy ? 'Reprocessing...' : 'Reprocess'}
+							{busy ? 'Retrying...' : 'Retry'}
 						</button>
 					{/if}
 				</div>

@@ -5,10 +5,18 @@
 	import X from '@lucide/svelte/icons/x';
 
 	interface Props {
+		vncSessionId: string;
+		title?: string;
+		description?: string;
 		onClose: () => void;
 	}
 
-	let { onClose }: Props = $props();
+	let {
+		vncSessionId,
+		title = 'LinkedIn login required',
+		description = 'Log in in the window below. The system will resume automatically.',
+		onClose
+	}: Props = $props();
 
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
@@ -17,13 +25,13 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="z-modal fixed inset-0 flex items-start justify-center bg-black/70 p-4">
+<div class="z-modal fixed inset-0 flex items-center justify-center bg-black/70 p-4">
 	<button class="absolute inset-0 cursor-default" type="button" aria-label="Close" onclick={onClose}
 	></button>
 
 	<div
-		class="relative z-10 mt-8 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised pb-1 shadow-[var(--shadow-modal)]"
-		style="max-height: calc(100vh - 80px)"
+		class="relative z-10 flex w-[min(900px,100%)] flex-col rounded-lg border border-border-default bg-surface-raised pb-1 shadow-[var(--shadow-modal)]"
+		style="max-height: calc(100vh - 32px)"
 		role="dialog"
 		aria-modal="true"
 		aria-label="LinkedIn login"
@@ -37,9 +45,9 @@
 			class="flex flex-shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4"
 		>
 			<div>
-				<h2 class="text-[13px] font-semibold text-text-primary">LinkedIn login required</h2>
+				<h2 class="text-[13px] font-semibold text-text-primary">{title}</h2>
 				<p class="text-[11px] text-text-muted">
-					Log in in the window below. The system will resume automatically.
+					{description}
 				</p>
 			</div>
 			<button
@@ -53,7 +61,7 @@
 		</div>
 
 		<div class="w-full overflow-hidden bg-black" style="aspect-ratio: 1280/800;">
-			<iframe class="h-full w-full border-0" src="/vnc" title="Server browser"></iframe>
+			<iframe class="h-full w-full border-0" src={`/vnc?session=${encodeURIComponent(vncSessionId)}`} title="Server browser"></iframe>
 		</div>
 	</div>
 </div>

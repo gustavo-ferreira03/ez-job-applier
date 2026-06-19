@@ -1,5 +1,6 @@
 import type { AppContext } from "../context";
 import type { ApplicationStatus } from "../types";
+import { stopExternalApply } from "../execution/external-apply/state";
 
 const REJECTABLE_STATUSES = new Set<ApplicationStatus>([
     "FOUND",
@@ -20,10 +21,12 @@ export async function rejectJob(jobId: number, ctx: AppContext): Promise<void> {
 
     if (application) {
         await ctx.appRepo.updateStatus(application.id, "REJECTED");
+        stopExternalApply(jobId);
         return;
     }
 
     await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED");
+    stopExternalApply(jobId);
 }
 
 export async function rejectJobsByIds(ids: number[], ctx: AppContext): Promise<number> {
@@ -38,6 +41,7 @@ export async function rejectJobsByIds(ids: number[], ctx: AppContext): Promise<n
         } else {
             await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED");
         }
+        stopExternalApply(id);
         rejected += 1;
     }
     return rejected;

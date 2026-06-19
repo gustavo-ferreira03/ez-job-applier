@@ -12,12 +12,22 @@
 	import Square from '@lucide/svelte/icons/square';
 
 	interface Props {
+		jobId: number;
 		onClose: () => void;
 	}
 
-	let { onClose }: Props = $props();
+	let { jobId, onClose }: Props = $props();
 
-	const status = $derived(appState.externalApply);
+	const status = $derived(
+		appState.externalApply.sessions.find((session) => session.jobId === jobId) ?? {
+			active: false,
+			jobId,
+			title: 'External application',
+			vncSessionId: null,
+			phase: 'idle' as const,
+			messages: []
+		}
+	);
 	const messages = $derived(status.messages);
 
 	let draft = $state('');
@@ -25,6 +35,14 @@
 	let stopping = $state(false);
 	let scroller = $state<HTMLDivElement>();
 	let composer = $state<HTMLTextAreaElement>();
+	let stickToBottom = $state(true);
+	let mobilePane = $state<'browser' | 'chat'>('browser');
+
+	const needsAttention = $derived(status.phase === 'waiting' || status.phase === 'review');
+
+	$effect(() => {
+		if (needsAttention) mobilePane = 'chat';
+	});
 
 	const QUICK_REPLIES = ['Continue', 'Submit it', 'Looks good'];
 
@@ -33,6 +51,7 @@
 			{
 				working: 'Working',
 				waiting: 'Waiting for you',
+				review: 'Ready for review',
 				submitted: 'Submitted',
 				failed: 'Stopped',
 				idle: 'Idle'
@@ -45,8 +64,9 @@
 			{
 				working: 'bg-execution-bg text-execution-text',
 				waiting: 'bg-status-input-bg text-status-input-text',
+				review: 'bg-status-review-bg text-status-review-text',
 				submitted: 'bg-status-submitted-bg text-status-submitted-text',
-				failed: 'bg-danger-bg text-danger-500',
+				failed: 'bg-status-failed-bg text-status-failed-text',
 				idle: 'bg-surface-hover text-text-muted'
 			} as const
 		)[status.phase]
@@ -55,10 +75,17 @@
 	$effect(() => {
 		void messages.length;
 		void status.phase;
+		void mobilePane;
+		if (!stickToBottom) return;
 		tick().then(() => {
 			if (scroller) scroller.scrollTop = scroller.scrollHeight;
 		});
 	});
+
+	function onScroll() {
+		if (!scroller) return;
+		stickToBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 48;
+	}
 
 	$effect(() => {
 		void draft;
@@ -76,7 +103,7 @@
 		if (!value || sending) return;
 		sending = true;
 		try {
-			await sendExternalApplyMessage(value);
+			await sendExternalApplyMessage(jobId, value);
 			draft = '';
 			await tick();
 			resizeComposer();
@@ -91,7 +118,7 @@
 	async function stop() {
 		stopping = true;
 		try {
-			await stopExternalApply();
+			await stopExternalApply(jobId);
 			await appState.refreshExternalApply();
 		} catch (e) {
 			toastState.show(e instanceof Error ? e.message : String(e), 'error');
@@ -114,16 +141,17 @@
 	function timeOf(ts: number): string {
 		return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 	}
+
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="z-modal fixed inset-0 flex items-center justify-center bg-black/70 p-4">
+<div class="z-modal fixed inset-0 flex items-stretch justify-center bg-black/70 p-0 sm:items-center sm:p-4">
 	<button class="absolute inset-0 cursor-default" type="button" aria-label="Close" onclick={onClose}
 	></button>
 
 	<div
-		class="relative z-10 flex h-[min(820px,92vh)] w-[min(1240px,96vw)] flex-col overflow-hidden rounded-lg border border-border-default bg-surface-raised shadow-[var(--shadow-modal)]"
+		class="external-apply-dialog relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden border border-border-default bg-surface-raised shadow-[var(--shadow-modal)] sm:h-[min(820px,92vh)] sm:w-[min(1240px,96vw)] sm:rounded-lg"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Agent application session"
@@ -133,10 +161,10 @@
 	>
 		<!-- Header -->
 		<header
-			class="flex flex-shrink-0 items-center gap-3 border-b border-border-subtle px-4 py-3"
+			class="flex flex-shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3"
 		>
 			<div class="min-w-0 flex-1">
-				<div class="flex items-center gap-2">
+				<div class="flex min-w-0 flex-wrap items-center gap-2">
 					<h2 class="truncate text-[13px] font-semibold text-text-primary">
 						{status.title ?? 'External application'}
 					</h2>
@@ -144,7 +172,7 @@
 						{phaseLabel}
 					</span>
 				</div>
-				<p class="text-[11px] text-text-muted">
+				<p class="hidden text-[11px] text-text-muted sm:block">
 					Watch the agent fill the form. Take over the browser any time, or steer it in chat.
 				</p>
 			</div>
@@ -169,24 +197,70 @@
 			</button>
 		</header>
 
+		<div class="flex-shrink-0 border-b border-border-subtle bg-surface-raised px-3 py-2 md:hidden">
+			<div
+				class="flex gap-1 rounded-lg border border-border-subtle bg-surface-sidebar p-1"
+				role="tablist"
+				aria-label="Agent session panes"
+			>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={mobilePane === 'browser'}
+					class="min-w-0 flex-1 cursor-pointer rounded-md px-3 py-2 text-center transition-colors duration-150 focus-visible:outline-none {mobilePane ===
+					'browser'
+						? 'bg-surface-hover text-text-primary shadow-[inset_0_0_0_1px_var(--color-border-default)]'
+						: 'text-text-muted hover:bg-surface-overlay hover:text-text-secondary'}"
+					onclick={() => {
+						mobilePane = 'browser';
+					}}
+				>
+					<span class="block truncate text-[12px] font-semibold">Browser</span>
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={mobilePane === 'chat'}
+					class="min-w-0 flex-1 cursor-pointer rounded-md px-3 py-2 text-center transition-colors duration-150 focus-visible:outline-none {mobilePane ===
+					'chat'
+						? 'bg-surface-hover text-text-primary shadow-[inset_0_0_0_1px_var(--color-border-default)]'
+						: 'text-text-muted hover:bg-surface-overlay hover:text-text-secondary'}"
+					onclick={() => {
+						mobilePane = 'chat';
+					}}
+				>
+					<span class="flex items-center justify-center gap-1.5 truncate text-[12px] font-semibold">
+						Chat
+						{#if needsAttention}
+							<span class="h-1.5 w-1.5 rounded-full bg-status-input-text" aria-hidden="true"></span>
+						{/if}
+					</span>
+				</button>
+			</div>
+		</div>
+
 		<!-- Body: browser + chat -->
 		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
 			<!-- Live browser -->
-			<div class="min-h-0 flex-1 bg-black md:border-r md:border-border-subtle">
-				{#if status.active}
-					<iframe class="h-full w-full border-0" src="/vnc" title="Agent browser"></iframe>
+			<div class="min-h-0 flex-1 bg-black md:border-r md:border-border-subtle {mobilePane === 'browser' ? 'block' : 'hidden'} md:block">
+				{#if status.active && status.vncSessionId}
+					<iframe class="h-full w-full border-0" src={`/vnc?session=${encodeURIComponent(status.vncSessionId)}`} title="Agent browser"></iframe>
+				{:else if status.active}
+					<div class="flex h-full items-center justify-center px-6 text-center text-[12px] text-text-faint">
+						Starting isolated browser session…
+					</div>
 				{:else}
 					<div class="flex h-full items-center justify-center px-6 text-center text-[12px] text-text-faint">
-						The browser session has ended. The conversation is shown on the right.
+						The browser session has ended. The conversation remains in the chat.
 					</div>
 				{/if}
 			</div>
 
 			<!-- Chat rail -->
 			<aside
-				class="flex h-72 shrink-0 flex-col bg-surface-sidebar md:h-auto md:w-[360px]"
+				class="min-h-0 flex-1 flex-col bg-surface-sidebar {mobilePane === 'chat' ? 'flex' : 'hidden'} md:flex md:h-auto md:w-[360px] md:flex-none"
 			>
-				<div bind:this={scroller} class="flex-1 space-y-3 overflow-y-auto px-3.5 py-4">
+				<div bind:this={scroller} onscroll={onScroll} class="flex-1 space-y-3 overflow-y-auto px-3.5 py-4">
 					{#if messages.length === 0}
 						<p class="px-1 pt-6 text-center text-[12px] text-text-faint">
 							The agent will report progress here.
@@ -212,7 +286,7 @@
 					{/each}
 					{#if status.phase === 'working'}
 						<div class="flex items-center gap-1.5 px-1 pt-1" in:fade={{ duration: 120 }}>
-							<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-500"></span>
+							<span class="activity-pulse-dot h-1.5 w-1.5 rounded-full bg-accent-500"></span>
 							<span class="text-[11px] text-text-muted">Agent is working…</span>
 						</div>
 					{/if}
@@ -264,6 +338,15 @@
 </div>
 
 <style>
+	@media (max-width: 639px) {
+		.external-apply-dialog {
+			padding-top: env(safe-area-inset-top);
+			padding-right: env(safe-area-inset-right);
+			padding-bottom: env(safe-area-inset-bottom);
+			padding-left: env(safe-area-inset-left);
+		}
+	}
+
 	.chat-rich :global(p + p),
 	.chat-rich :global(p + ul),
 	.chat-rich :global(p + ol),
@@ -328,4 +411,5 @@
 		background: transparent;
 		padding: 0;
 	}
+
 </style>

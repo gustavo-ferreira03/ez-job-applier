@@ -42,7 +42,8 @@
 		<p class="mt-2 text-sm text-text-muted">
 			{#if reviewCount > 0}
 				{reviewCount}
-				{reviewCount === 1 ? 'job' : 'jobs'} will be queued for submission on the next execution cycle.
+				{reviewCount === 1 ? 'job' : 'jobs'} ready for review will be submitted. Agent sessions submit
+				right away; the rest are queued for the next execution cycle.
 			{:else}
 				There are no ready-for-review jobs to submit right now.
 			{/if}

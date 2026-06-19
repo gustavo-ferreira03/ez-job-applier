@@ -11,10 +11,11 @@
 		onOpenJob: (job: JobSummary, tab: KanbanTab) => void;
 		onRejectAll?: (column: KanbanColumnDef) => void;
 		onSubmitAll?: () => void;
+		onRetryAll?: () => void;
 		onAdd?: () => void;
 	}
 
-	let { column, jobs, onOpenJob, onRejectAll, onSubmitAll, onAdd }: Props = $props();
+	let { column, jobs, onOpenJob, onRejectAll, onSubmitAll, onRetryAll, onAdd }: Props = $props();
 	let menuOpen = $state(false);
 	let menuClosing = $state(false);
 	let menuStyle = $state('');
@@ -61,6 +62,11 @@
 		onSubmitAll?.();
 	}
 
+	function handleRetryAll() {
+		closeMenu();
+		onRetryAll?.();
+	}
+
 	function handleWindowClick(e: MouseEvent) {
 		if ((menuOpen || menuClosing) && menuRef && !menuRef.contains(e.target as Node)) {
 			closeMenu();
@@ -90,7 +96,7 @@
 					<Plus size={14} aria-hidden="true" />
 				</button>
 			{/if}
-			{#if column.canRejectAll}
+			{#if column.canRejectAll || column.canRetryAll || column.canSubmitAll}
 				<div class="relative" bind:this={menuRef}>
 					<button
 						bind:this={menuButtonRef}
@@ -110,6 +116,15 @@
 						class:is-open={menuOpen}
 						class:is-closing={menuClosing}
 					>
+						{#if column.canRetryAll}
+							<button
+								type="button"
+								class="w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-150 hover:bg-surface-overlay hover:text-text-primary focus-visible:outline-none"
+								onclick={handleRetryAll}
+							>
+								Retry all
+							</button>
+						{/if}
 						{#if column.canSubmitAll}
 							<button
 								type="button"
@@ -119,13 +134,15 @@
 								Submit all
 							</button>
 						{/if}
-						<button
-							type="button"
-							class="w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-150 hover:bg-surface-overlay hover:text-text-primary focus-visible:outline-none"
-							onclick={handleRejectAll}
-						>
-							Reject all
-						</button>
+						{#if column.canRejectAll}
+							<button
+								type="button"
+								class="w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-150 hover:bg-surface-overlay hover:text-text-primary focus-visible:outline-none"
+								onclick={handleRejectAll}
+							>
+								Reject all
+							</button>
+						{/if}
 					</div>
 				</div>
 			{/if}

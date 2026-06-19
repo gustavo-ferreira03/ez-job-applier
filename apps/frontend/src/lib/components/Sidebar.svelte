@@ -8,24 +8,24 @@
 	interface Props {
 		activePage: Page;
 		execution: ExecutionStatus;
-		onNavigate: (page: Page) => void;
-		onStartExecution: () => void;
-		onStopExecution: () => void;
-		onPauseExecution: () => void;
-		onResumeExecution: () => void;
-		onOpenLogin: () => void;
-	}
+	onNavigate: (page: Page) => void;
+	onStartExecution: () => void;
+	onStopExecution: () => void;
+	onResumeExecution: () => void;
+	onOpenLogin: () => void;
+	onOpenBrowser: () => void;
+}
 
 	let {
 		activePage,
 		execution,
-		onNavigate,
-		onStartExecution,
-		onStopExecution,
-		onPauseExecution,
-		onResumeExecution,
-		onOpenLogin
-	}: Props = $props();
+	onNavigate,
+	onStartExecution,
+	onStopExecution,
+	onResumeExecution,
+	onOpenLogin,
+	onOpenBrowser
+}: Props = $props();
 
 	function fmtCountdown(isoStr: string): string {
 		const secs = Math.max(0, Math.round((new Date(isoStr).getTime() - Date.now()) / 1000));
@@ -88,17 +88,18 @@
 					onclick={onOpenLogin}
 					title="Open login panel"
 				>
-					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-status-input-text"></span>
+					<span class="activity-pulse-dot h-1.5 w-1.5 rounded-full bg-status-input-text"></span>
 					Login required
 				</button>
 			{:else if execution.running}
 				<button
 					type="button"
-					class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none md:w-full"
-					onclick={onPauseExecution}
-					title="Pause"
+					class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md bg-execution-bg px-2.5 py-2 text-[13px] font-semibold text-execution-text transition-opacity duration-150 hover:opacity-80 focus-visible:outline-none disabled:cursor-default disabled:hover:opacity-100 md:w-full"
+					onclick={execution.vncSessionId ? onOpenBrowser : undefined}
+					disabled={!execution.vncSessionId}
+					title={execution.vncSessionId ? 'Open LinkedIn browser' : 'Running headless'}
 				>
-					<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-execution-text"></span>
+					<span class="activity-pulse-dot h-1.5 w-1.5 rounded-full bg-execution-text"></span>
 					Running
 				</button>
 			{:else if execution.paused}

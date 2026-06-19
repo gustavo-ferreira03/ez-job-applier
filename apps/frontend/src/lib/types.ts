@@ -122,6 +122,7 @@ export interface KanbanColumn {
 	headerClass: string;
 	canRejectAll?: boolean;
 	canSubmitAll?: boolean;
+	canRetryAll?: boolean;
 	canAdd?: boolean;
 	columnClass?: string;
 }
@@ -133,13 +134,14 @@ export interface ExecutionStatus {
 	running: boolean;
 	paused: boolean;
 	actionNeeded: boolean;
+	vncSessionId: string | null;
 	nextRunAt: string | null;
 	cycleMaxMs: number;
 	intervalMs: number;
 	config: DiscoverConfig | null;
 }
 
-export type ExternalApplyPhase = 'idle' | 'working' | 'waiting' | 'submitted' | 'failed';
+export type ExternalApplyPhase = 'idle' | 'working' | 'waiting' | 'review' | 'submitted' | 'failed';
 
 export interface ExternalApplyMessage {
 	id: string;
@@ -148,10 +150,15 @@ export interface ExternalApplyMessage {
 	ts: number;
 }
 
-export interface ExternalApplyStatus {
+export interface ExternalApplySessionStatus {
 	active: boolean;
-	jobId: number | null;
-	title: string | null;
+	jobId: number;
+	title: string;
+	vncSessionId: string | null;
 	phase: ExternalApplyPhase;
 	messages: ExternalApplyMessage[];
+}
+
+export interface ExternalApplyStatus {
+	sessions: ExternalApplySessionStatus[];
 }

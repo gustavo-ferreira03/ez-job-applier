@@ -29,7 +29,7 @@ import databaseRouter from "./routes/database";
 import { startExecution, registerWorker } from "./core/execution/manager";
 import { createAutoAnswerWorker } from "./core/execution/auto-answer-worker";
 import { createExternalApplyWorker } from "./core/execution/external-apply/worker";
-import { VNC_PORT } from "./core/login/vnc";
+import { getVncSession } from "./core/login/vnc";
 import type { AppContext } from "./core/context";
 
 const providerRegistry = new ProviderRegistry();
@@ -100,8 +100,15 @@ app.doc("/openapi", {
 
 app.get("/docs", apiReference({ url: "/openapi", theme: "saturn" }));
 const wss = new WebSocketServer({ noServer: true });
-wss.on("connection", (ws) => {
-    const vnc = net.createConnection(VNC_PORT, "127.0.0.1");
+wss.on("connection", (ws, req) => {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const sessionId = url.pathname.split("/").filter(Boolean)[1];
+    const session = sessionId ? getVncSession(sessionId) : null;
+    if (!session) {
+        ws.close(1008, "Unknown VNC session");
+        return;
+    }
+    const vnc = net.createConnection(session.port, "127.0.0.1");
     ws.on("message", (data) => { if (vnc.writable) vnc.write(data as Buffer); });
     vnc.on("data", (data) => { if (ws.readyState === ws.OPEN) ws.send(data); });
     const cleanup = () => { ws.terminate(); vnc.destroy(); };
@@ -117,7 +124,7 @@ const server = serve({ fetch: app.fetch, port: 3000 }, (info) => {
 
 server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "/", "http://localhost");
-    if (url.pathname === "/vnc-ws") {
+    if (url.pathname.startsWith("/vnc-ws/")) {
         wss.handleUpgrade(req, socket as net.Socket, head, (ws) => {
             wss.emit("connection", ws, req);
         });
