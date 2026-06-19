@@ -7,6 +7,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@earendil-works/pi-ai";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../../login/vnc";
+import type { BrowserStorageState } from "../../../providers/linkedin/browser";
 import type { JobToolContext } from "./tools";
 
 const require = createRequire(import.meta.url);
@@ -50,7 +51,7 @@ export async function launchBrowserMcp(opts: { workDir: string; display: string;
     const cfgPath = path.join(opts.workDir, "mcp-config.json");
     await fs.writeFile(cfgPath, JSON.stringify(config));
 
-    const args = [MCP_CLI, "--config", cfgPath, "--isolated"];
+    const args = [MCP_CLI, "--config", cfgPath, "--isolated", "--caps", "storage"];
     if (opts.storageStatePath) {
         try {
             await fs.access(opts.storageStatePath);
@@ -77,6 +78,17 @@ export async function launchBrowserMcp(opts: { workDir: string; display: string;
             await client.close().catch(() => {});
         },
     };
+}
+
+export async function saveBrowserMcpStorageState(mcp: BrowserMcp, workDir: string): Promise<BrowserStorageState | null> {
+    const statePath = path.join(workDir, "external-storage-state.json");
+    try {
+        await mcp.client.callTool({ name: "browser_storage_state", arguments: { filename: statePath } });
+        return JSON.parse(await fs.readFile(statePath, "utf8")) as BrowserStorageState;
+    } catch (e) {
+        console.error("[external-apply] failed to save browser storage state:", e);
+        return null;
+    }
 }
 
 function inlineSnapshots(text: string, workDir: string): Promise<string> {

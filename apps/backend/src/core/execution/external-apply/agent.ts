@@ -7,9 +7,9 @@ import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf } from "../../resumes/pdf";
 import { type VncSession } from "../../login/vnc";
-import { sessionFilePath } from "../../../providers/linkedin/browser";
+import { saveExternalBrowserState, sessionFilePath } from "../../../providers/linkedin/browser";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
-import { launchBrowserMcp, bridgeBrowserTools, type BrowserMcp } from "./mcp";
+import { launchBrowserMcp, bridgeBrowserTools, saveBrowserMcpStorageState, type BrowserMcp } from "./mcp";
 import { registerSession, postAgentMessage } from "./state";
 import { loadAgentMemory, formatAgentMemory } from "./memory";
 
@@ -183,7 +183,11 @@ export async function runExternalApply(
         postAgentMessage(jobId, "I stopped before completing and could not recover automatically. Please retry this application.");
         return { status: "stalled", error: "The agent stopped before submitting" };
     } finally {
-        if (mcp) await mcp.close().catch(() => {});
+        if (mcp) {
+            const state = await saveBrowserMcpStorageState(mcp, workDir);
+            if (state) await saveExternalBrowserState(state).catch((e) => console.error("[external-apply] failed to persist external browser state:", e));
+            await mcp.close().catch(() => {});
+        }
         await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
     }
 }

@@ -1,4 +1,5 @@
 import { launchContext } from "cloakbrowser";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -116,11 +117,36 @@ function writeQueued(fn: () => Promise<void>): Promise<void> {
     return saveQueue;
 }
 
+async function writeStorageState(state: BrowserStorageState): Promise<void> {
+    await fs.mkdir(storageDir, { recursive: true });
+    const tempPath = path.join(storageDir, `.linkedin-session-${process.pid}-${randomUUID()}.tmp`);
+    try {
+        await fs.writeFile(tempPath, JSON.stringify(state), "utf-8");
+        await fs.rename(tempPath, sessionFilePath);
+    } catch (e) {
+        await fs.rm(tempPath, { force: true }).catch(() => undefined);
+        throw e;
+    }
+}
+
 export async function saveSharedBrowserState(current: BrowserStorageState, hosts: Iterable<string>): Promise<void> {
     await writeQueued(async () => {
-        await fs.mkdir(storageDir, { recursive: true });
-        await fs.writeFile(sessionFilePath, JSON.stringify(mergeScopedState(await readExistingState(), current, hosts)), "utf-8");
+        await writeStorageState(mergeScopedState(await readExistingState(), current, hosts));
     });
+}
+
+export async function saveExternalBrowserState(current: BrowserStorageState): Promise<void> {
+    const hosts = new Set<string>();
+    for (const cookie of current.cookies) {
+        const host = normalizeHost(cookie.domain);
+        if (host && !isLinkedInDomain(host)) hosts.add(host);
+    }
+    for (const origin of current.origins) {
+        const host = originHost(origin.origin);
+        if (host && !isLinkedInDomain(host)) hosts.add(host);
+    }
+    if (hosts.size === 0) return;
+    await saveSharedBrowserState(current, hosts);
 }
 
 async function existingSessionFile(): Promise<string | undefined> {
@@ -206,8 +232,7 @@ export async function saveLinkedinSession(context = activeContext): Promise<void
     if (!context) return;
     const state = await context.storageState();
     await writeQueued(async () => {
-        await fs.mkdir(storageDir, { recursive: true });
-        await fs.writeFile(sessionFilePath, JSON.stringify(mergeLinkedInState(await readExistingState(), state)), "utf-8");
+        await writeStorageState(mergeLinkedInState(await readExistingState(), state));
     });
 }
 
