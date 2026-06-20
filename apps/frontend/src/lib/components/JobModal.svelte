@@ -12,6 +12,7 @@
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
 	import { trapFocus } from '$lib/focusTrap';
+	import { formatExactDateTime, formatFoundAt } from '$lib/dates';
 	import StatusBadge from './StatusBadge.svelte';
 	import type { ApplicationStatus, JobDetail, JobSummary, KanbanTab } from '$lib/types';
 
@@ -402,6 +403,9 @@
 						{job.company}
 						{#if job.location}
 							· {job.location}{/if}
+					</p>
+					<p class="mt-1 text-[12px] text-text-faint" title={`Found ${formatExactDateTime(job.createdAt)}`}>
+						Found {formatFoundAt(job.createdAt)}
 					</p>
 					<div class="mt-2 flex items-center gap-2">
 						<StatusBadge status={job.status} size="sm" />

@@ -3,6 +3,7 @@
 	import { cardTransition } from '$lib/transitions';
 	import { tagStyle } from '$lib/tags';
 	import { appState } from '$lib/state.svelte';
+	import { formatExactDateTime, formatFoundAt } from '$lib/dates';
 	import type { JobSummary, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -18,13 +19,6 @@
 	const agentPhase = $derived(agentSession?.active ? agentSession.phase : null);
 	const agentWorking = $derived(agentPhase === 'working');
 
-	function relativeDate(iso: string): string {
-		const diff = Date.now() - new Date(iso).getTime();
-		const days = Math.floor(diff / 86_400_000);
-		if (days === 0) return 'today';
-		if (days === 1) return '1d';
-		return `${days}d`;
-	}
 </script>
 
 {#if loading}
@@ -137,7 +131,9 @@
 				</span>
 			{/if}
 		</div>
-		<span class="text-xs text-text-muted">{relativeDate(job.createdAt)}</span>
+		<span class="shrink-0 text-xs text-text-muted" title={`Found ${formatExactDateTime(job.createdAt)}`}
+			>{formatFoundAt(job.createdAt)}</span
+		>
 	</div>
 </button>
 {/if}

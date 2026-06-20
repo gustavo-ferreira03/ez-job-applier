@@ -4,6 +4,7 @@
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import StatusBadge from './StatusBadge.svelte';
 	import { contentTransition } from '$lib/transitions';
+	import { formatExactDateTime, formatFoundAt } from '$lib/dates';
 	import type { ApplicationStatus, JobSummary, KanbanTab } from '$lib/types';
 
 	interface Props {
@@ -55,14 +56,6 @@
 
 		selected.clear();
 		for (const job of filtered) selected.add(job.id);
-	}
-
-	function relativeDate(iso: string): string {
-		const diff = Date.now() - new Date(iso).getTime();
-		const days = Math.floor(diff / 86_400_000);
-		if (days === 0) return 'today';
-		if (days === 1) return '1d';
-		return `${days}d`;
 	}
 
 	const allStatuses: ApplicationStatus[] = [
@@ -204,7 +197,9 @@
 						<td class="px-3 py-2.5 text-text-muted">{job.company}</td>
 						<td class="px-3 py-2.5 text-text-muted">{job.location || 'Not listed'}</td>
 						<td class="px-3 py-2.5"><StatusBadge status={job.status} size="sm" /></td>
-						<td class="px-3 py-2.5 text-text-faint">{relativeDate(job.createdAt)}</td>
+						<td class="px-3 py-2.5 text-text-faint" title={`Found ${formatExactDateTime(job.createdAt)}`}>
+							{formatFoundAt(job.createdAt)}
+						</td>
 					</tr>
 				{/each}
 
