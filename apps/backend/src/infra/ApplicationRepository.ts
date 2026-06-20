@@ -3,6 +3,7 @@ import type { Db } from "../db/client";
 import { jobs, applications, applicationQuestions } from "../db/schema";
 import type { IAppRepo, ApplicationRecord } from "../core/ports";
 import type { ApplicationQuestion, ApplicationStatus } from "../core/types";
+import { applicationStatusChanged } from "../core/events";
 
 function serializeOptions(options: string[] | undefined): string {
     return JSON.stringify(options ?? []);
@@ -88,6 +89,7 @@ export class ApplicationRepository implements IAppRepo {
                 },
             });
 
+        applicationStatusChanged.emit({ jobId: jobRow.id, status });
         return (await this.get(provider, externalId))!;
     }
 
@@ -96,6 +98,12 @@ export class ApplicationRepository implements IAppRepo {
             .update(applications)
             .set({ status, errorMessage: errorMessage ?? null, updatedAt: new Date().toISOString() })
             .where(eq(applications.id, id));
+        const [row] = await this.db
+            .select({ jobId: applications.jobId })
+            .from(applications)
+            .where(eq(applications.id, id))
+            .limit(1);
+        if (row) applicationStatusChanged.emit({ jobId: row.jobId, status });
     }
 
     async replaceQuestions(appId: number, questions: ApplicationQuestion[]): Promise<void> {

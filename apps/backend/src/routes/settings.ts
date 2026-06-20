@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-ai/oauth";
 import { getSettings, updateSettings, type LlmSettings } from "../repositories/settings";
 import { wakeExecution } from "../core/execution/manager";
+import { syncTelegramBot, startPairing, getPairingStatus } from "../infra/telegram/notifier";
 import type { AppContext } from "../core/context";
 
 type OAuthState = {
@@ -42,8 +43,15 @@ export function createSettingsRouter(ctx: AppContext) {
         const body = await c.req.json();
         const updated = await updateSettings(body);
         if (body?.advanced?.schedule !== undefined) wakeExecution();
+        if (body?.advanced?.telegram !== undefined) {
+            await syncTelegramBot(ctx).catch((e) => console.error("[telegram] sync after settings failed:", e));
+        }
         return c.json(updated);
     });
+
+    router.get("/settings/telegram", async (c) => c.json(await getPairingStatus()));
+
+    router.post("/settings/telegram/pair", async (c) => c.json({ code: startPairing() }));
 
     router.get("/settings/llm", async (c) => {
         const settings = await getSettings();

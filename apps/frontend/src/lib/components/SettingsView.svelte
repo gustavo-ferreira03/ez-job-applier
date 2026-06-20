@@ -17,7 +17,8 @@
 		DiscoverConfig,
 		LlmSettings,
 		ScheduleDay,
-		ScheduleSettings
+		ScheduleSettings,
+		TelegramStatus
 	} from '$lib/types';
 	import { appState } from '$lib/state.svelte';
 	import { toastState } from '$lib/toast.svelte';
@@ -87,6 +88,8 @@
 	let providersModalOpen = $state(false);
 	let scheduleModalOpen = $state(false);
 	let clearConfirming = $state(false);
+	let telegramStatus = $state<TelegramStatus | null>(null);
+	let telegramPairingCode = $state<string | null>(null);
 	let settingsDebounce: ReturnType<typeof setTimeout> | null = null;
 	let pendingSettingsPatch: SettingsPatch = {};
 	let filterCriteriaDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -207,6 +210,7 @@
 	onMount(() => {
 		refreshLlmSettings();
 		loadMasters();
+		loadTelegram();
 	});
 
 	onDestroy(() => {
@@ -452,6 +456,36 @@
 		scheduleSettingsPatch({
 			advanced: { externalApplyConcurrency: Math.max(1, Math.min(4, Math.round(n))) }
 		});
+	}
+
+	async function loadTelegram() {
+		try {
+			telegramStatus = await api.getTelegramStatus();
+		} catch {
+			toastState.show('Failed to load Telegram status', 'error');
+		}
+	}
+
+	async function saveTelegram(enabled: boolean, botToken: string) {
+		const telegram = { ...appState.settings.advanced.telegram, enabled, botToken };
+		await saveSettingsPatch({ advanced: { telegram } });
+		await loadTelegram();
+	}
+
+	function setTelegramEnabled(enabled: boolean) {
+		saveTelegram(enabled, appState.settings.advanced.telegram.botToken);
+	}
+
+	function setTelegramToken(botToken: string) {
+		saveTelegram(appState.settings.advanced.telegram.enabled, botToken);
+	}
+
+	async function pairTelegram() {
+		try {
+			telegramPairingCode = (await api.startTelegramPairing()).code;
+		} catch {
+			toastState.show('Failed to start pairing', 'error');
+		}
 	}
 
 	let schedule = $derived(appState.settings.advanced.schedule);
@@ -1382,6 +1416,67 @@
 								Each runs a full browser; higher is faster but uses more RAM.
 							</p>
 						</div>
+					</div>
+				</section>
+
+				<section>
+					<div class="mb-3">
+						<h3 class="text-[13px] font-semibold text-text-primary">Telegram notifications</h3>
+						<p class="mt-1 text-[11px] text-text-faint">
+							Get a message when an application needs your input or a submit approval, and
+							reply straight from Telegram.
+						</p>
+					</div>
+
+					<div
+						class="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3"
+					>
+						<label class="flex items-center justify-between gap-3">
+							<span class="text-[12px] font-medium text-text-primary">Enable Telegram alerts</span>
+							<input
+								type="checkbox"
+								checked={appState.settings.advanced.telegram.enabled}
+								onchange={(e) => setTelegramEnabled((e.target as HTMLInputElement).checked)}
+							/>
+						</label>
+
+						<div>
+							<label
+								class="mb-1 block text-[12px] font-medium text-text-primary"
+								for="telegram-token">Bot token</label
+							>
+							<input
+								id="telegram-token"
+								type="password"
+								placeholder="123456:ABC-..."
+								class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+								value={appState.settings.advanced.telegram.botToken}
+								onchange={(e) => setTelegramToken((e.target as HTMLInputElement).value)}
+							/>
+							<p class="mt-1 text-[11px] text-text-faint">
+								Create a bot with @BotFather and paste its token.
+							</p>
+						</div>
+
+						<div class="flex items-center justify-between gap-3">
+							<p class="text-[12px] text-text-secondary">
+								{telegramStatus?.paired ? 'Paired ✓' : 'Not paired'}
+							</p>
+							<button
+								type="button"
+								class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-raised px-3 text-[12px] font-medium text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-text-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+								disabled={!telegramStatus?.hasToken}
+								onclick={pairTelegram}
+							>
+								{telegramStatus?.paired ? 'Re-pair' : 'Pair'}
+							</button>
+						</div>
+
+						{#if telegramPairingCode}
+							<p class="text-[12px] text-text-primary">
+								Message your bot: <span class="font-mono">/start {telegramPairingCode}</span>
+							</p>
+						{/if}
 					</div>
 				</section>
 

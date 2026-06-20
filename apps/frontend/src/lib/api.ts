@@ -7,7 +7,8 @@ import type {
 	JobSummary,
 	ExecutionStatus,
 	ExternalApplyStatus,
-	LlmSettings
+	LlmSettings,
+	TelegramStatus
 } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
@@ -134,6 +135,14 @@ export function updateAppSettings(patch: Partial<AppSettings>): Promise<AppSetti
 		if (!r.ok) throw new Error(`${r.status} PATCH /settings`);
 		return r.json() as Promise<AppSettings>;
 	});
+}
+
+export function getTelegramStatus(): Promise<TelegramStatus> {
+	return get('/settings/telegram');
+}
+
+export function startTelegramPairing(): Promise<{ code: string }> {
+	return post('/settings/telegram/pair');
 }
 
 // Auto-apply

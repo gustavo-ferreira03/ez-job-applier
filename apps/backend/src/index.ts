@@ -31,6 +31,7 @@ import { createAutoAnswerWorker } from "./core/execution/auto-answer-worker";
 import { createExternalApplyWorker } from "./core/execution/external-apply/worker";
 import { getVncSession } from "./core/login/vnc";
 import { noteVncConnect, noteVncDisconnect } from "./core/execution/external-apply/state";
+import { syncTelegramBot } from "./infra/telegram/notifier";
 import type { AppContext } from "./core/context";
 
 const providerRegistry = new ProviderRegistry();
@@ -55,6 +56,7 @@ const ctx: AppContext = {
     modelRegistry,
     llm: new PiLlmClient(modelRegistry),
 };
+syncTelegramBot(ctx).catch((e) => console.error("[telegram] initial sync failed:", e));
 const activeExecution = await ctx.executionRepo.getActive();
 if (activeExecution) {
     startExecution(activeExecution.config, ctx, {

@@ -94,7 +94,18 @@ export interface AppSettings {
 		intervalMs: number;
 		externalApplyConcurrency: number;
 		schedule: ScheduleSettings;
+		telegram: {
+			enabled: boolean;
+			botToken: string;
+			chatId: string | null;
+		};
 	};
+}
+
+export interface TelegramStatus {
+	paired: boolean;
+	hasToken: boolean;
+	enabled: boolean;
 }
 
 export interface ScheduleDay {

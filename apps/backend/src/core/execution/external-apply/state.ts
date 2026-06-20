@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { agentAttention } from "../../events";
 
 export type ExternalApplyPhase = "idle" | "working" | "waiting" | "review" | "submitted" | "failed";
 
@@ -281,8 +282,10 @@ export function postAgentMessage(jobId: number, text: string): void {
 
 export function askUser(jobId: number, question: string, phase: "waiting" | "review" = "waiting"): Promise<AskResolution> {
     const session = requireSession(jobId);
-    if (question.trim()) push(session, "agent", question.trim());
+    const trimmed = question.trim();
+    if (trimmed) push(session, "agent", trimmed);
     setPhase(session, phase);
+    agentAttention.emit({ jobId, title: session.status.title, question: trimmed, phase });
     return new Promise<AskResolution>((resolve) => {
         session.pendingAsk = resolve;
     });
