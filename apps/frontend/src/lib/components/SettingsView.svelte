@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Bell from '@lucide/svelte/icons/bell';
+	import BellOff from '@lucide/svelte/icons/bell-off';
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -1431,14 +1433,49 @@
 					<div
 						class="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3"
 					>
-						<label class="flex items-center justify-between gap-3">
-							<span class="text-[12px] font-medium text-text-primary">Enable Telegram alerts</span>
-							<input
-								type="checkbox"
-								checked={appState.settings.advanced.telegram.enabled}
-								onchange={(e) => setTelegramEnabled((e.target as HTMLInputElement).checked)}
-							/>
-						</label>
+						<button
+							type="button"
+							class="flex w-full cursor-pointer items-center justify-between gap-4 text-left focus-visible:outline-none"
+							onclick={() =>
+								setTelegramEnabled(!appState.settings.advanced.telegram.enabled)}
+						>
+							<div class="flex items-center gap-3">
+								{#if appState.settings.advanced.telegram.enabled}
+									<Bell
+										size={15}
+										strokeWidth={1.75}
+										class="flex-shrink-0 text-accent-500"
+										aria-hidden="true"
+									/>
+								{:else}
+									<BellOff
+										size={15}
+										strokeWidth={1.75}
+										class="flex-shrink-0 text-text-faint"
+										aria-hidden="true"
+									/>
+								{/if}
+								<div>
+									<p class="text-[12px] font-medium text-text-primary">Enable Telegram alerts</p>
+									<p class="text-[11px] text-text-faint">
+										{appState.settings.advanced.telegram.enabled ? 'Alerts on' : 'Alerts off'}
+									</p>
+								</div>
+							</div>
+							<div
+								class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {appState
+									.settings.advanced.telegram.enabled
+									? 'bg-accent-500'
+									: 'border border-border-default bg-surface-overlay'}"
+							>
+								<span
+									class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {appState
+										.settings.advanced.telegram.enabled
+										? 'left-[18px]'
+										: 'left-[3px]'}"
+								></span>
+							</div>
+						</button>
 
 						<div>
 							<label
