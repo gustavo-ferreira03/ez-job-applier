@@ -24,34 +24,6 @@ function isLinkedInDomain(value: string): boolean {
     return value.toLowerCase().includes("linkedin.com");
 }
 
-function hasLinkedInAuth(state: BrowserStorageState | null): boolean {
-    return state?.cookies.some((cookie) => cookie.name === "li_at" && isLinkedInDomain(cookie.domain)) ?? false;
-}
-
-function normalizeHost(value: string): string {
-    return value.toLowerCase().replace(/^\./, "");
-}
-
-function hostMatches(host: string, candidates: Iterable<string>): boolean {
-    const normalizedHost = normalizeHost(host);
-    for (const candidate of candidates) {
-        const normalizedCandidate = normalizeHost(candidate);
-        if (!normalizedCandidate) continue;
-        if (normalizedHost === normalizedCandidate) return true;
-        if (normalizedHost.endsWith(`.${normalizedCandidate}`)) return true;
-        if (normalizedCandidate.endsWith(`.${normalizedHost}`)) return true;
-    }
-    return false;
-}
-
-function originHost(origin: string): string | null {
-    try {
-        return new URL(origin).hostname;
-    } catch {
-        return null;
-    }
-}
-
 async function readExistingState(): Promise<BrowserStorageState | null> {
     try {
         return JSON.parse(await fs.readFile(sessionFilePath, "utf8")) as BrowserStorageState;
@@ -80,38 +52,6 @@ function mergeLinkedInState(existing: BrowserStorageState | null, current: Brows
     return { cookies: [...cookies.values()], origins: [...origins.values()] };
 }
 
-function mergeScopedState(
-    existing: BrowserStorageState | null,
-    current: BrowserStorageState,
-    hosts: Iterable<string>,
-): BrowserStorageState {
-    const preserveLinkedInAuth = hasLinkedInAuth(existing) && !hasLinkedInAuth(current);
-    const hostList = [...hosts]
-        .map(normalizeHost)
-        .filter((host) => host && !(preserveLinkedInAuth && isLinkedInDomain(host)));
-    if (hostList.length === 0) return existing ?? { cookies: [], origins: [] };
-
-    const preservedCookies = existing?.cookies.filter((cookie) => !hostMatches(cookie.domain, hostList)) ?? [];
-    const scopedCookies = current.cookies.filter((cookie) => hostMatches(cookie.domain, hostList));
-    const cookies = new Map<string, BrowserStorageState["cookies"][number]>();
-    for (const cookie of preservedCookies) cookies.set(cookieKey(cookie), cookie);
-    for (const cookie of scopedCookies) cookies.set(cookieKey(cookie), cookie);
-
-    const preservedOrigins = existing?.origins.filter((origin) => {
-        const host = originHost(origin.origin);
-        return !host || !hostMatches(host, hostList);
-    }) ?? [];
-    const scopedOrigins = current.origins.filter((origin) => {
-        const host = originHost(origin.origin);
-        return host ? hostMatches(host, hostList) : false;
-    });
-    const origins = new Map<string, BrowserStorageState["origins"][number]>();
-    for (const origin of preservedOrigins) origins.set(origin.origin, origin);
-    for (const origin of scopedOrigins) origins.set(origin.origin, origin);
-
-    return { cookies: [...cookies.values()], origins: [...origins.values()] };
-}
-
 function writeQueued(fn: () => Promise<void>): Promise<void> {
     saveQueue = saveQueue.then(fn, fn);
     return saveQueue;
@@ -127,26 +67,6 @@ async function writeStorageState(state: BrowserStorageState): Promise<void> {
         await fs.rm(tempPath, { force: true }).catch(() => undefined);
         throw e;
     }
-}
-
-export async function saveSharedBrowserState(current: BrowserStorageState, hosts: Iterable<string>): Promise<void> {
-    await writeQueued(async () => {
-        await writeStorageState(mergeScopedState(await readExistingState(), current, hosts));
-    });
-}
-
-export async function saveExternalBrowserState(current: BrowserStorageState): Promise<void> {
-    const hosts = new Set<string>();
-    for (const cookie of current.cookies) {
-        const host = normalizeHost(cookie.domain);
-        if (host && !isLinkedInDomain(host)) hosts.add(host);
-    }
-    for (const origin of current.origins) {
-        const host = originHost(origin.origin);
-        if (host && !isLinkedInDomain(host)) hosts.add(host);
-    }
-    if (hosts.size === 0) return;
-    await saveSharedBrowserState(current, hosts);
 }
 
 async function existingSessionFile(): Promise<string | undefined> {
