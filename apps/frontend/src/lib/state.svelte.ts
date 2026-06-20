@@ -46,7 +46,7 @@ function defaultSettings(): AppSettings {
 			cycleMaxMs: 3_600_000,
 			intervalMs: 14_400_000,
 			externalApplyConcurrency: 1,
-			telegram: { enabled: false, botToken: '', chatId: null },
+			telegram: { enabled: false, botToken: '', chatId: null, pairingCode: null, pairingExpiresAt: null },
 			schedule: {
 				enabled: false,
 				timezone: 'America/Sao_Paulo',

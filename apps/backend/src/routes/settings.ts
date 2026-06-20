@@ -51,7 +51,7 @@ export function createSettingsRouter(ctx: AppContext) {
 
     router.get("/settings/telegram", async (c) => c.json(await getPairingStatus()));
 
-    router.post("/settings/telegram/pair", async (c) => c.json({ code: startPairing() }));
+    router.post("/settings/telegram/pair", async (c) => c.json({ code: await startPairing() }));
 
     router.get("/settings/llm", async (c) => {
         const settings = await getSettings();

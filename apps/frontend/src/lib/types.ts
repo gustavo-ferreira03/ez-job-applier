@@ -98,6 +98,8 @@ export interface AppSettings {
 			enabled: boolean;
 			botToken: string;
 			chatId: string | null;
+			pairingCode: string | null;
+			pairingExpiresAt: string | null;
 		};
 	};
 }

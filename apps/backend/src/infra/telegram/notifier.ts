@@ -16,7 +16,6 @@ let botRef: TelegramBot | null = null;
 let chatIdRef: number | null = null;
 let tokenRef: string | null = null;
 let ctxRef: AppContext | null = null;
-let pairingCode: string | null = null;
 let subscribed = false;
 
 const STALE = "This request is no longer available.";
@@ -128,14 +127,21 @@ async function handleEasyApplyForm(ctx: AppContext, action: Extract<PendingActio
 function buildHandlers(ctx: AppContext): TelegramHandlers {
     return {
         async onStart(code, chatId) {
-            if (!pairingCode || code !== pairingCode) {
+            const settings = await getSettings();
+            const tg = settings.advanced.telegram;
+            const expiresAt = tg.pairingExpiresAt ? Date.parse(tg.pairingExpiresAt) : 0;
+            const expired = !expiresAt || expiresAt < Date.now();
+            if (!tg.pairingCode || code.toLowerCase() !== tg.pairingCode.toLowerCase() || expired) {
                 if (botRef) await botRef.sendPlain(chatId, "Invalid or expired pairing code.");
                 return;
             }
-            const settings = await getSettings();
-            await updateSettings({ advanced: { ...settings.advanced, telegram: { ...settings.advanced.telegram, chatId: String(chatId) } } });
+            await updateSettings({
+                advanced: {
+                    ...settings.advanced,
+                    telegram: { ...tg, chatId: String(chatId), pairingCode: null, pairingExpiresAt: null },
+                },
+            });
             chatIdRef = chatId;
-            pairingCode = null;
             if (botRef) await botRef.sendPlain(chatId, "Paired. You'll get application alerts here.");
         },
 
@@ -198,9 +204,20 @@ function buildHandlers(ctx: AppContext): TelegramHandlers {
     };
 }
 
-export function startPairing(): string {
-    pairingCode = crypto.randomBytes(3).toString("hex");
-    return pairingCode;
+export async function startPairing(): Promise<string> {
+    const settings = await getSettings();
+    const code = crypto.randomBytes(3).toString("hex");
+    await updateSettings({
+        advanced: {
+            ...settings.advanced,
+            telegram: {
+                ...settings.advanced.telegram,
+                pairingCode: code,
+                pairingExpiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+            },
+        },
+    });
+    return code;
 }
 
 export async function getPairingStatus(): Promise<{ paired: boolean; hasToken: boolean; enabled: boolean }> {
