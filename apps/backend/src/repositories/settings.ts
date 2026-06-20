@@ -40,6 +40,12 @@ export interface GeneralSettings {
     blockedCompanies: string[];
 }
 
+export interface TelegramSettings {
+    enabled: boolean;
+    botToken: string;
+    chatId: string | null;
+}
+
 export interface AdvancedSettings {
     browserVisible: boolean;
     searchLocale: "pt-BR" | "en-US";
@@ -47,6 +53,7 @@ export interface AdvancedSettings {
     intervalMs: number;
     externalApplyConcurrency: number;
     schedule: ScheduleSettings;
+    telegram: TelegramSettings;
 }
 
 const defaults: AppSettings = {
@@ -73,6 +80,7 @@ const defaults: AppSettings = {
         cycleMaxMs: 3_600_000,
         intervalMs: 14_400_000,
         externalApplyConcurrency: 1,
+        telegram: { enabled: false, botToken: "", chatId: null },
         schedule: {
             enabled: false,
             timezone: "America/Sao_Paulo",
