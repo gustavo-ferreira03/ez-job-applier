@@ -482,15 +482,20 @@
 		saveTelegram(appState.settings.advanced.telegram.enabled, botToken);
 	}
 
+	async function copyText(text: string): Promise<boolean> {
+		if (!window.isSecureContext || !navigator.clipboard) return false;
+		await navigator.clipboard.writeText(text);
+		return true;
+	}
+
 	async function pairTelegram() {
 		try {
 			const code = (await api.startTelegramPairing()).code;
 			telegramPairingCode = code;
-			try {
-				await navigator.clipboard.writeText(`/start ${code}`);
+			if (await copyText(`/start ${code}`)) {
 				toastState.show('Telegram pairing command copied', 'success');
-			} catch {
-				toastState.show('Pairing started, but clipboard copy failed', 'error');
+			} else {
+				toastState.show('Copy the pairing command below', 'default');
 			}
 		} catch {
 			toastState.show('Failed to start pairing', 'error');
@@ -1514,6 +1519,22 @@
 							</button>
 						</div>
 
+						{#if telegramPairingCode}
+							<div>
+								<label
+									class="mb-1 block text-[11px] font-medium text-text-faint"
+									for="telegram-pair-command">Pairing command</label
+								>
+								<input
+									id="telegram-pair-command"
+									readonly
+									class="h-8 w-full select-all rounded-md border border-border-default bg-surface-raised px-2.5 font-mono text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+									value={`/start ${telegramPairingCode}`}
+									onclick={(e) => (e.currentTarget as HTMLInputElement).select()}
+								/>
+							</div>
+						{/if}
+
 					</div>
 				</section>
 
@@ -1523,39 +1544,38 @@
 					<div
 						class="rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3"
 					>
-						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-							<div class="min-w-0">
-								<div class="flex flex-wrap items-center gap-2">
+						<div class="flex flex-col gap-3">
+							<button
+								type="button"
+								class="flex w-full cursor-pointer items-center justify-between gap-4 text-left focus-visible:outline-none"
+								aria-label={schedule.enabled ? 'Disable schedule' : 'Enable schedule'}
+								aria-pressed={schedule.enabled}
+								onclick={() => setScheduleEnabled(!schedule.enabled)}
+							>
+								<div class="min-w-0">
 									<p class="text-[12px] font-medium text-text-primary">Automation window</p>
+									<p class="mt-1 text-[11px] text-text-faint">{scheduleSummary}</p>
 								</div>
-								<p class="mt-1 max-w-xl text-[12px] leading-snug text-text-faint">
-									Choose specific days and times for automation to run.
-								</p>
-							</div>
-							<div class="flex flex-shrink-0 items-center gap-2">
-								<button
-									type="button"
-									class="h-8 cursor-pointer rounded-md border border-border-default bg-surface-raised px-3 text-[12px] font-medium text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-text-primary focus-visible:outline-none"
-									onclick={() => (scheduleModalOpen = true)}
-								>
-									Edit
-								</button>
-								<button
-									type="button"
-									class="relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors duration-150 focus-visible:outline-none {schedule.enabled
+								<div
+									class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-150 {schedule.enabled
 										? 'bg-accent-500'
-										: 'border border-border-default bg-surface-raised'}"
-									aria-label={schedule.enabled ? 'Disable schedule' : 'Enable schedule'}
-									aria-pressed={schedule.enabled}
-									onclick={() => setScheduleEnabled(!schedule.enabled)}
+										: 'border border-border-default bg-surface-overlay'}"
 								>
 									<span
 										class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {schedule.enabled
 											? 'left-[18px]'
 											: 'left-[3px]'}"
 									></span>
-								</button>
-							</div>
+								</div>
+							</button>
+
+							<button
+								type="button"
+								class="h-8 w-fit cursor-pointer rounded-md border border-border-default bg-surface-raised px-3 text-[12px] font-medium text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-text-primary focus-visible:outline-none"
+								onclick={() => (scheduleModalOpen = true)}
+							>
+								Edit window
+							</button>
 						</div>
 
 						{#if schedule.enabled && (scheduleActiveDays === 0 || scheduleHasInvalid)}
