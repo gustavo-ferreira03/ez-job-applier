@@ -1349,10 +1349,10 @@
 						</div>
 					</button>
 
-					<div class="mt-4 grid gap-4 sm:grid-cols-3">
+					<div class="mt-4 grid gap-4 sm:grid-cols-2">
 						<div>
 							<h4 class="mb-1 text-[12px] font-medium text-text-primary">Search language</h4>
-							<div class="flex overflow-hidden rounded-lg border border-border-default">
+							<div class="flex overflow-hidden rounded-md border border-border-default">
 								{#each [{ value: 'pt-BR', label: 'PT-BR' }, { value: 'en-US', label: 'EN-US' }] as opt (opt.value)}
 									<button
 										type="button"
@@ -1422,13 +1422,7 @@
 				</section>
 
 				<section>
-					<div class="mb-3">
-						<h3 class="text-[13px] font-semibold text-text-primary">Telegram notifications</h3>
-						<p class="mt-1 text-[11px] text-text-faint">
-							Get a message when an application needs your input or a submit approval, and
-							reply straight from Telegram.
-						</p>
-					</div>
+					<h3 class="mb-3 text-[13px] font-semibold text-text-primary">Telegram notifications</h3>
 
 					<div
 						class="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3"
@@ -1496,8 +1490,12 @@
 						</div>
 
 						<div class="flex items-center justify-between gap-3">
-							<p class="text-[12px] text-text-secondary">
-								{telegramStatus?.paired ? 'Paired ✓' : 'Not paired'}
+							<p
+								class="text-[12px] font-medium {telegramStatus?.paired
+									? 'text-success-500'
+									: 'text-text-faint'}"
+							>
+								{telegramStatus?.paired ? 'Paired' : 'Not paired'}
 							</p>
 							<button
 								type="button"
@@ -1518,17 +1516,10 @@
 				</section>
 
 				<section>
-					<div class="mb-3">
-						<div>
-							<h3 class="text-[13px] font-semibold text-text-primary">Schedule</h3>
-							<p class="mt-1 text-[11px] text-text-faint">
-								Choose exactly when automation is allowed to run.
-							</p>
-						</div>
-					</div>
+					<h3 class="mb-3 text-[13px] font-semibold text-text-primary">Schedule</h3>
 
 					<div
-						class="rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3 transition-colors duration-150 hover:border-border-default"
+						class="rounded-lg border border-border-subtle bg-surface-overlay px-4 py-3"
 					>
 						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div class="min-w-0">
@@ -1549,7 +1540,7 @@
 								</button>
 								<button
 									type="button"
-									class="relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition-colors duration-150 focus-visible:outline-none {schedule.enabled
+									class="relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors duration-150 focus-visible:outline-none {schedule.enabled
 										? 'bg-accent-500'
 										: 'border border-border-default bg-surface-raised'}"
 									aria-label={schedule.enabled ? 'Disable schedule' : 'Enable schedule'}
@@ -1557,9 +1548,9 @@
 									onclick={() => setScheduleEnabled(!schedule.enabled)}
 								>
 									<span
-										class="absolute h-4 w-4 rounded-full bg-white shadow transition-all duration-150 {schedule.enabled
-											? 'left-[24px]'
-											: 'left-[4px]'}"
+										class="absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-all duration-150 {schedule.enabled
+											? 'left-[18px]'
+											: 'left-[3px]'}"
 									></span>
 								</button>
 							</div>
