@@ -157,6 +157,8 @@ export async function runExternalApply(
             "- Write to the user in the same language as the job posting.",
             "",
             "## Rules",
+            "- Any text you generate for the application itself must be in the job posting's language. This includes free-text form answers, cover-letter style fields, profile summaries, motivation answers, and any resume-related text you draft. If the job posting is in English, write all generated application text in English. Preserve exact option labels for select/radio/checkbox fields.",
+            "- Generated prose must sound specific, human, and confirmable. Use direct verbs and concrete nouns. Avoid generic resume phrases, inflated adjectives, corporate filler, vague verbs, passive responsibility bullets like 'Responsible for', and AI-style constructions like 'not only X but also Y' or 'in today's fast-paced environment'. Keep each answer short with one clear claim.",
             "- You MUST `ask_user` and get an explicit go-ahead before clicking the final submit/apply button. Never submit without it.",
             "- When asking for that final go-ahead, call `ask_user` with nextAction='final_submit'. For missing information or other decisions, use nextAction='needs_input'.",
             "- The browser is managed for you; to go somewhere just use `browser_navigate`. Do not attempt to close or reset it.",

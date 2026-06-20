@@ -35,7 +35,8 @@ async function processOne(
 
     const system = `You are filling out a job application form on behalf of a candidate.
 Answer each question concisely and professionally based on the candidate's resume.
-Always write free-text answers in English, regardless of the language used in the form or resume.
+Write every generated free-text answer in the job posting's language. If the job posting is in English, answer everything in English. If the form options are fixed, preserve the exact option text instead of translating it.
+Generated prose must sound specific, human, and confirmable. Use direct verbs and concrete nouns. Avoid generic resume phrases, inflated adjectives, corporate filler, vague verbs, passive responsibility phrasing, and AI-style constructions like "not only X but also Y" or "in today's fast-paced environment". Keep each answer short with one clear claim.
 This application was submitted via LinkedIn job search.
 For select/radio fields, your answer must exactly match one of the provided options.
 For checkbox fields, you may select multiple options — return them comma-separated, each exactly matching one of the provided options (e.g. "Option A, Option C").
@@ -43,7 +44,19 @@ For number fields, output only digits and optionally one decimal point (e.g. '4'
 Return the label field EXACTLY as given, character for character.
 Leave the answer as empty string only if truly impossible to determine.${resumeText ? `\n\nResume:\n${resumeText}` : ""}`;
 
-    const prompt = `Fill in the following unanswered application questions:\n${questionList}`;
+    const prompt = [
+        "Fill in the following unanswered application questions.",
+        "Use the job posting below to infer the language for any generated free-text answer.",
+        "",
+        "# Job posting",
+        `Title: ${job.title}`,
+        `Company: ${job.company}${job.location ? ` (${job.location})` : ""}`,
+        ...(job.skills.length ? [`Required skills: ${job.skills.join(", ")}`] : []),
+        ...(job.about ? [`Description:\n${job.about}`] : []),
+        "",
+        "# Unanswered application questions",
+        questionList,
+    ].join("\n");
 
     let result: { answers: { label: string; answer: string }[] };
     try {
