@@ -1,7 +1,7 @@
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@earendil-works/pi-ai";
 import type { VncSession } from "../../login/vnc";
-import type { BrowserMcp } from "./mcp";
+import { takeBrowserScreenshot, type BrowserMcp } from "./mcp";
 import { askUser, postAgentMessage } from "./state";
 import { rememberAgentFact } from "./memory";
 
@@ -58,7 +58,8 @@ export function createExternalApplyTools(jc: JobToolContext) {
             jc.toolCalls += 1;
             jc.vncSession = await jc.ensureVnc();
             const phase = isFinalSubmitQuestion(params.question, params.nextAction) ? "review" : "waiting";
-            const resolution = await askUser(jc.jobId, params.question, phase);
+            const screenshotPath = jc.browser ? await takeBrowserScreenshot(jc.browser, jc.workDir, jc.jobId) : null;
+            const resolution = await askUser(jc.jobId, params.question, phase, screenshotPath ?? undefined);
             if (resolution.kind === "stop") {
                 jc.aborted = true;
                 return textResult(

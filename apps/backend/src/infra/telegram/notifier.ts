@@ -35,12 +35,12 @@ async function notifyEasyApply(ctx: AppContext, jobId: number, status: "NEEDS_IN
     if (status === "NEEDS_INPUT") {
         const unanswered = questions.filter((q) => !q.answer?.trim());
         const labels = unanswered.map((q) => q.label);
-        const messageId = await botRef.send(chatIdRef, formatEasyApplyForm(job.title, job.company, unanswered));
+        const messageId = await botRef.send(chatIdRef, formatEasyApplyForm(job, unanswered));
         rememberPending(messageId, { kind: "easyapply-form", jobId, labels });
         return;
     }
 
-    const messageId = await botRef.send(chatIdRef, formatEasyApplyReview(job.title, job.company, questions), [
+    const messageId = await botRef.send(chatIdRef, formatEasyApplyReview(job, questions), [
         { label: "Submit", data: `submit:${jobId}` },
         { label: "Reject", data: `reject:${jobId}` },
     ]);
@@ -49,15 +49,19 @@ async function notifyEasyApply(ctx: AppContext, jobId: number, status: "NEEDS_IN
 
 async function notifyAgent(payload: AgentAttention): Promise<void> {
     if (!botRef || chatIdRef === null) return;
-    const text = formatAgentMessage(payload.title, payload.question, payload.phase);
+    const job = await ctxRef?.jobRepo.getById(payload.jobId);
+    if (!job) return;
+    const text = formatAgentMessage(job, payload.question, payload.phase);
     if (payload.phase === "review") {
         const messageId = await botRef.send(chatIdRef, text, [
             { label: "Submit", data: `submit:${payload.jobId}` },
             { label: "Reject", data: `reject:${payload.jobId}` },
         ]);
+        if (payload.screenshotPath) await botRef.sendPhoto(chatIdRef, payload.screenshotPath, messageId).catch((e) => console.error("[telegram] screenshot send failed:", e));
         rememberPending(messageId, { kind: "agent-review", jobId: payload.jobId });
     } else {
         const messageId = await botRef.send(chatIdRef, text);
+        if (payload.screenshotPath) await botRef.sendPhoto(chatIdRef, payload.screenshotPath, messageId).catch((e) => console.error("[telegram] screenshot send failed:", e));
         rememberPending(messageId, { kind: "agent-ask", jobId: payload.jobId });
     }
 }

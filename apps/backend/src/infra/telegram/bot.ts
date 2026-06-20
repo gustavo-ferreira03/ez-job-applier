@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, InlineKeyboard, InputFile } from "grammy";
 
 export interface TelegramButton {
     label: string;
@@ -56,7 +56,19 @@ export class TelegramBot {
             keyboard = new InlineKeyboard();
             for (const button of buttons) keyboard.text(button.label, button.data);
         }
-        const message = await this.bot.api.sendMessage(chatId, text, keyboard ? { reply_markup: keyboard } : {});
+        const message = await this.bot.api.sendMessage(chatId, text, {
+            parse_mode: "HTML",
+            ...(keyboard ? { reply_markup: keyboard } : {}),
+        });
+        return message.message_id;
+    }
+
+    async sendPhoto(chatId: number, filePath: string, replyToMessageId?: number): Promise<number> {
+        const message = await this.bot.api.sendPhoto(
+            chatId,
+            new InputFile(filePath),
+            replyToMessageId ? { reply_parameters: { message_id: replyToMessageId } } : {},
+        );
         return message.message_id;
     }
 

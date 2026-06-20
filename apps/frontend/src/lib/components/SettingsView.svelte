@@ -484,7 +484,14 @@
 
 	async function pairTelegram() {
 		try {
-			telegramPairingCode = (await api.startTelegramPairing()).code;
+			const code = (await api.startTelegramPairing()).code;
+			telegramPairingCode = code;
+			try {
+				await navigator.clipboard.writeText(`/start ${code}`);
+				toastState.show('Telegram pairing command copied', 'success');
+			} catch {
+				toastState.show('Pairing started, but clipboard copy failed', 'error');
+			}
 		} catch {
 			toastState.show('Failed to start pairing', 'error');
 		}
@@ -1507,11 +1514,6 @@
 							</button>
 						</div>
 
-						{#if telegramPairingCode}
-							<p class="text-[12px] text-text-primary">
-								Message your bot: <span class="font-mono">/start {telegramPairingCode}</span>
-							</p>
-						{/if}
 					</div>
 				</section>
 

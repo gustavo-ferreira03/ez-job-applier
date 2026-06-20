@@ -30,6 +30,7 @@ export interface AgentAttention {
     title: string;
     question: string;
     phase: "waiting" | "review";
+    screenshotPath?: string;
 }
 
 export const applicationStatusChanged = new Emitter<ApplicationStatusChanged>();

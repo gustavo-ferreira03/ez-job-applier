@@ -280,12 +280,12 @@ export function postAgentMessage(jobId: number, text: string): void {
     if (session && text.trim()) push(session, "agent", text.trim());
 }
 
-export function askUser(jobId: number, question: string, phase: "waiting" | "review" = "waiting"): Promise<AskResolution> {
+export function askUser(jobId: number, question: string, phase: "waiting" | "review" = "waiting", screenshotPath?: string): Promise<AskResolution> {
     const session = requireSession(jobId);
     const trimmed = question.trim();
     if (trimmed) push(session, "agent", trimmed);
     setPhase(session, phase);
-    agentAttention.emit({ jobId, title: session.status.title, question: trimmed, phase });
+    agentAttention.emit({ jobId, title: session.status.title, question: trimmed, phase, screenshotPath });
     return new Promise<AskResolution>((resolve) => {
         session.pendingAsk = resolve;
     });

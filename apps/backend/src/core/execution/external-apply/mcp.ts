@@ -99,6 +99,19 @@ export async function saveBrowserMcpStorageState(mcp: BrowserMcp, workDir: strin
     }
 }
 
+export async function takeBrowserScreenshot(mcp: BrowserMcp, workDir: string, jobId: number): Promise<string | null> {
+    const filename = `telegram-screenshot-${jobId}-${Date.now()}.png`;
+    const filePath = path.join(workDir, filename);
+    try {
+        await mcp.client.callTool({ name: "browser_take_screenshot", arguments: { filename, type: "png" } });
+        await fs.access(filePath);
+        return filePath;
+    } catch (e) {
+        console.error("[external-apply] failed to capture Telegram screenshot:", e);
+        return null;
+    }
+}
+
 function inlineSnapshots(text: string, workDir: string): Promise<string> {
     const refs = [...text.matchAll(/\[Snapshot\]\(([^)]+)\)/g)].map((m) => m[1]);
     if (refs.length === 0) return Promise.resolve(text);
