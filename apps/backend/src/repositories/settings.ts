@@ -45,6 +45,7 @@ export interface AdvancedSettings {
     searchLocale: "pt-BR" | "en-US";
     cycleMaxMs: number;
     intervalMs: number;
+    externalApplyConcurrency: number;
     schedule: ScheduleSettings;
 }
 
@@ -71,6 +72,7 @@ const defaults: AppSettings = {
         searchLocale: "pt-BR",
         cycleMaxMs: 3_600_000,
         intervalMs: 14_400_000,
+        externalApplyConcurrency: 1,
         schedule: {
             enabled: false,
             timezone: "America/Sao_Paulo",

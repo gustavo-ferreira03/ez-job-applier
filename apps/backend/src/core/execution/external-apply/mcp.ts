@@ -32,11 +32,18 @@ const ALLOWED_TOOLS = new Set([
 export interface BrowserMcp {
     client: Client;
     tools: { name: string; description?: string; inputSchema: unknown }[];
+    fingerprintArgs: string[];
     close: () => Promise<void>;
 }
 
-export async function launchBrowserMcp(opts: { workDir: string; display: string; storageStatePath?: string }): Promise<BrowserMcp> {
-    const lo = await buildLaunchOptions({ locale: "pt-BR" });
+export async function launchBrowserMcp(opts: {
+    workDir: string;
+    display: string;
+    storageStatePath?: string;
+    fingerprintArgs?: string[];
+}): Promise<BrowserMcp> {
+    const lo = await buildLaunchOptions({ locale: "pt-BR", args: opts.fingerprintArgs });
+    const fingerprintArgs = (lo.args ?? []).filter((a) => a.startsWith("--fingerprint"));
     const config = {
         browser: {
             browserName: "chromium",
@@ -44,7 +51,7 @@ export async function launchBrowserMcp(opts: { workDir: string; display: string;
                 executablePath: lo.executablePath,
                 headless: false,
                 ignoreDefaultArgs: lo.ignoreDefaultArgs,
-                args: [...(lo.args ?? []), "--window-position=0,0", `--window-size=${SCREEN_WIDTH},${SCREEN_HEIGHT}`],
+                args: [...(lo.args ?? []), "--disable-dev-shm-usage", "--window-position=0,0", `--window-size=${SCREEN_WIDTH},${SCREEN_HEIGHT}`],
             },
         },
     };
@@ -74,6 +81,7 @@ export async function launchBrowserMcp(opts: { workDir: string; display: string;
     return {
         client,
         tools: tools as BrowserMcp["tools"],
+        fingerprintArgs,
         close: async () => {
             await client.close().catch(() => {});
         },
@@ -119,6 +127,15 @@ async function renderMcpResult(res: { content?: unknown }, workDir: string): Pro
     return inlineSnapshots(text, workDir);
 }
 
+function trackUrl(jc: JobToolContext, toolName: string, params: Record<string, unknown>, text: string): void {
+    if (toolName === "browser_navigate" && typeof params.url === "string") {
+        jc.lastUrl = params.url;
+        return;
+    }
+    const match = text.match(/Page URL:\s*(\S+)/);
+    if (match) jc.lastUrl = match[1];
+}
+
 export function bridgeBrowserTools(mcp: BrowserMcp, jc: JobToolContext) {
     return mcp.tools
         .filter((t) => ALLOWED_TOOLS.has(t.name))
@@ -137,9 +154,14 @@ export function bridgeBrowserTools(mcp: BrowserMcp, jc: JobToolContext) {
                             terminate: false,
                         };
                     }
+                    if (!jc.browser) {
+                        return { content: [{ type: "text" as const, text: "The browser is not ready yet. Wait and try again." }], details: undefined, terminate: false };
+                    }
+                    const args = (params ?? {}) as Record<string, unknown>;
                     try {
-                        const res = await mcp.client.callTool({ name: t.name, arguments: (params ?? {}) as Record<string, unknown> });
+                        const res = await jc.browser.client.callTool({ name: t.name, arguments: args });
                         const text = await renderMcpResult(res as { content?: unknown }, jc.workDir);
+                        trackUrl(jc, t.name, args, text);
                         return { content: [{ type: "text" as const, text: text || "(no output)" }], details: undefined, terminate: false };
                     } catch (e) {
                         return { content: [{ type: "text" as const, text: `browser tool failed: ${String(e)}` }], details: undefined, terminate: false };

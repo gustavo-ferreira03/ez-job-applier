@@ -251,6 +251,10 @@ export function stopExternalApply(jobId: number): Promise<{ ok: boolean }> {
 	return post('/external-apply/stop', { jobId });
 }
 
+export function resumeExternalApply(jobId: number): Promise<{ ok: boolean }> {
+	return post('/external-apply/resume', { jobId });
+}
+
 export function startExecution(): Promise<{ ok: boolean }> {
 	return post('/execution/start');
 }

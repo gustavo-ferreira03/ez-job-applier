@@ -30,6 +30,7 @@ import { startExecution, registerWorker } from "./core/execution/manager";
 import { createAutoAnswerWorker } from "./core/execution/auto-answer-worker";
 import { createExternalApplyWorker } from "./core/execution/external-apply/worker";
 import { getVncSession } from "./core/login/vnc";
+import { noteVncConnect, noteVncDisconnect } from "./core/execution/external-apply/state";
 import type { AppContext } from "./core/context";
 
 const providerRegistry = new ProviderRegistry();
@@ -109,12 +110,15 @@ wss.on("connection", (ws, req) => {
         return;
     }
     const vnc = net.createConnection(session.port, "127.0.0.1");
+    noteVncConnect(session.id);
+    let released = false;
+    const releaseWatcher = () => { if (!released) { released = true; noteVncDisconnect(session.id); } };
     ws.on("message", (data) => { if (vnc.writable) vnc.write(data as Buffer); });
     vnc.on("data", (data) => { if (ws.readyState === ws.OPEN) ws.send(data); });
-    const cleanup = () => { ws.terminate(); vnc.destroy(); };
-    ws.on("close", () => vnc.destroy());
+    const cleanup = () => { releaseWatcher(); ws.terminate(); vnc.destroy(); };
+    ws.on("close", () => { releaseWatcher(); vnc.destroy(); });
     ws.on("error", cleanup);
-    vnc.on("close", () => ws.terminate());
+    vnc.on("close", () => { releaseWatcher(); ws.terminate(); });
     vnc.on("error", cleanup);
 });
 

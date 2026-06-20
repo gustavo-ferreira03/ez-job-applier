@@ -45,6 +45,7 @@ function defaultSettings(): AppSettings {
 			searchLocale: 'pt-BR',
 			cycleMaxMs: 3_600_000,
 			intervalMs: 14_400_000,
+			externalApplyConcurrency: 1,
 			schedule: {
 				enabled: false,
 				timezone: 'America/Sao_Paulo',

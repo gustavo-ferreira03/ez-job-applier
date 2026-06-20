@@ -1,6 +1,7 @@
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@earendil-works/pi-ai";
 import type { VncSession } from "../../login/vnc";
+import type { BrowserMcp } from "./mcp";
 import { askUser, postAgentMessage } from "./state";
 import { rememberAgentFact } from "./memory";
 
@@ -13,6 +14,9 @@ export interface JobToolContext {
     approvedOnce: boolean;
     finishStatus: "submitted" | "aborted" | null;
     ensureVnc: () => Promise<VncSession>;
+    browser: BrowserMcp | null;
+    lastUrl: string | null;
+    fingerprintArgs: string[] | null;
 }
 
 function textResult(text: string, terminate = false) {

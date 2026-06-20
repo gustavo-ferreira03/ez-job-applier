@@ -4,7 +4,7 @@
 	import { modalTransition } from '$lib/transitions';
 	import { trapFocus } from '$lib/focusTrap';
 	import { appState } from '$lib/state.svelte';
-	import { sendExternalApplyMessage, stopExternalApply } from '$lib/api';
+	import { sendExternalApplyMessage, stopExternalApply, resumeExternalApply } from '$lib/api';
 	import { toastState } from '$lib/toast.svelte';
 	import { renderChatMarkdown } from '$lib/chatMarkdown';
 	import X from '@lucide/svelte/icons/x';
@@ -25,6 +25,7 @@
 			title: 'External application',
 			vncSessionId: null,
 			phase: 'idle' as const,
+			suspended: false,
 			messages: []
 		}
 	);
@@ -33,6 +34,8 @@
 	let draft = $state('');
 	let sending = $state(false);
 	let stopping = $state(false);
+	let resuming = $state(false);
+	let resumeAttempted = $state(false);
 	let scroller = $state<HTMLDivElement>();
 	let composer = $state<HTMLTextAreaElement>();
 	let stickToBottom = $state(true);
@@ -50,8 +53,8 @@
 		(
 			{
 				working: 'Working',
-				waiting: 'Waiting for you',
-				review: 'Ready for review',
+				waiting: 'Waiting',
+				review: 'Review',
 				submitted: 'Submitted',
 				failed: 'Stopped',
 				idle: 'Idle'
@@ -115,6 +118,26 @@
 		}
 	}
 
+	async function resume() {
+		if (resuming) return;
+		resuming = true;
+		try {
+			await resumeExternalApply(jobId);
+			await appState.refreshExternalApply();
+		} catch (e) {
+			toastState.show(e instanceof Error ? e.message : String(e), 'error');
+		} finally {
+			resuming = false;
+		}
+	}
+
+	$effect(() => {
+		if (status.active && status.suspended && !resumeAttempted && !resuming) {
+			resumeAttempted = true;
+			void resume();
+		}
+	});
+
 	async function stop() {
 		stopping = true;
 		try {
@@ -156,7 +179,7 @@
 		aria-modal="true"
 		aria-label="Agent application session"
 		tabindex="-1"
-		use:trapFocus={{ onEscape: onClose }}
+		use:trapFocus={{ onEscape: onClose, initialFocus: 'container' }}
 		transition:fly={modalTransition}
 	>
 		<!-- Header -->
@@ -164,11 +187,13 @@
 			class="flex flex-shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3"
 		>
 			<div class="min-w-0 flex-1">
-				<div class="flex min-w-0 flex-wrap items-center gap-2">
-					<h2 class="truncate text-[13px] font-semibold text-text-primary">
+				<div class="flex min-w-0 items-center gap-2">
+					<h2 class="min-w-0 truncate text-[13px] font-semibold text-text-primary">
 						{status.title ?? 'External application'}
 					</h2>
-					<span class="shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium {phaseClass}">
+					<span
+						class="shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] font-medium {phaseClass}"
+					>
 						{phaseLabel}
 					</span>
 				</div>
@@ -243,7 +268,24 @@
 		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
 			<!-- Live browser -->
 			<div class="min-h-0 flex-1 bg-black md:border-r md:border-border-subtle {mobilePane === 'browser' ? 'block' : 'hidden'} md:block">
-				{#if status.active && status.vncSessionId}
+				{#if status.active && status.suspended}
+					<div class="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+						<p class="text-[12px] text-text-faint">
+							{resuming
+								? 'Reopening the browser where it left off...'
+								: 'Paused to save resources while waiting for you. The progress was saved.'}
+						</p>
+						{#if !resuming}
+							<button
+								type="button"
+								class="rounded-md bg-accent-500 px-3 py-1.5 text-[12px] font-medium text-accent-text transition-colors hover:bg-accent-600"
+								onclick={resume}
+							>
+								Resume browser
+							</button>
+						{/if}
+					</div>
+				{:else if status.active && status.vncSessionId}
 					<iframe class="h-full w-full border-0" src={`/vnc?session=${encodeURIComponent(status.vncSessionId)}`} title="Agent browser"></iframe>
 				{:else if status.active}
 					<div class="flex h-full items-center justify-center px-6 text-center text-[12px] text-text-faint">

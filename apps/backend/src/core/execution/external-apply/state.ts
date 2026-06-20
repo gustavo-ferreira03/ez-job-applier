@@ -1,7 +1,19 @@
 import crypto from "node:crypto";
 
 export type ExternalApplyPhase = "idle" | "working" | "waiting" | "review" | "submitted" | "failed";
-export const MAX_WORKING_EXTERNAL_APPLY = 2;
+
+let maxWorkingExternalApply = 1;
+
+export function setMaxWorkingExternalApply(value: number): void {
+    const next = Math.max(1, Math.min(4, Math.floor(value)));
+    if (next === maxWorkingExternalApply) return;
+    maxWorkingExternalApply = next;
+    wakeWorkingWaiters();
+}
+
+export function getMaxWorkingExternalApply(): number {
+    return maxWorkingExternalApply;
+}
 
 export interface ChatMessage {
     id: string;
@@ -16,6 +28,7 @@ export interface ExternalApplySessionStatus {
     title: string;
     vncSessionId: string | null;
     phase: ExternalApplyPhase;
+    suspended: boolean;
     messages: ChatMessage[];
 }
 
@@ -25,9 +38,14 @@ export interface ExternalApplyStatus {
 
 export type AskResolution = { kind: "reply"; text: string } | { kind: "stop" };
 
+const HIBERNATE_IDLE_MS = 180_000;
+const MAX_RESUME_FAILURES = 3;
+
 interface SessionHandle {
     steer: (text: string) => void;
     abort: () => void;
+    suspend: () => Promise<void>;
+    resume: () => Promise<void>;
 }
 
 interface RuntimeSession {
@@ -36,6 +54,10 @@ interface RuntimeSession {
     handle: SessionHandle | null;
     onPhase: ((phase: ExternalApplyPhase) => void) | null;
     stopping: boolean;
+    watchers: number;
+    idleTimer: ReturnType<typeof setTimeout> | null;
+    transitioning: boolean;
+    resumeFailures: number;
 }
 
 const sessions = new Map<number, RuntimeSession>();
@@ -69,7 +91,7 @@ function workingSlotCount(): number {
 }
 
 function wakeWorkingWaiters(): void {
-    while (workingWaiters.length > 0 && workingSlotCount() < MAX_WORKING_EXTERNAL_APPLY) {
+    while (workingWaiters.length > 0 && workingSlotCount() < maxWorkingExternalApply) {
         const waiter = workingWaiters.shift();
         if (!waiter) return;
         const session = getSession(waiter.jobId);
@@ -97,6 +119,99 @@ function setPhase(session: RuntimeSession, phase: ExternalApplyPhase): void {
     session.status.phase = phase;
     session.onPhase?.(phase);
     if (previous === "working" && phase !== "working") wakeWorkingWaiters();
+    if (phase === "waiting" || phase === "review") armIdleTimer(session);
+    else clearIdleTimer(session);
+}
+
+function clearIdleTimer(session: RuntimeSession): void {
+    if (session.idleTimer) {
+        clearTimeout(session.idleTimer);
+        session.idleTimer = null;
+    }
+}
+
+function armIdleTimer(session: RuntimeSession): void {
+    clearIdleTimer(session);
+    if (!session.status.active || session.status.suspended || session.watchers > 0) return;
+    session.idleTimer = setTimeout(() => {
+        session.idleTimer = null;
+        void hibernate(session);
+    }, HIBERNATE_IDLE_MS);
+}
+
+async function hibernate(session: RuntimeSession): Promise<void> {
+    if (session.transitioning || session.status.suspended || !session.status.active) return;
+    if (session.watchers > 0 || !session.pendingAsk || !session.handle) return;
+    if (session.status.phase !== "waiting" && session.status.phase !== "review") return;
+    session.transitioning = true;
+    try {
+        await session.handle.suspend();
+        session.status.suspended = true;
+        session.status.vncSessionId = null;
+    } catch (e) {
+        console.error(`[external-apply] hibernate failed for job ${session.status.jobId}:`, e);
+    } finally {
+        session.transitioning = false;
+    }
+}
+
+async function wakeFromHibernation(session: RuntimeSession): Promise<boolean> {
+    if (!session.status.suspended || !session.handle) return true;
+    if (session.transitioning) return false;
+    session.transitioning = true;
+    try {
+        await session.handle.resume();
+        session.status.suspended = false;
+        session.resumeFailures = 0;
+        return true;
+    } catch (e) {
+        console.error(`[external-apply] resume failed for job ${session.status.jobId}:`, e);
+        session.resumeFailures += 1;
+        if (session.resumeFailures >= MAX_RESUME_FAILURES) abortSuspendedSession(session);
+        return false;
+    } finally {
+        session.transitioning = false;
+    }
+}
+
+function abortSuspendedSession(session: RuntimeSession): void {
+    clearIdleTimer(session);
+    push(session, "agent", "I couldn't reopen the browser to continue. Stopping this application.");
+    const resolve = session.pendingAsk;
+    session.pendingAsk = null;
+    session.handle?.abort();
+    resolve?.({ kind: "stop" });
+}
+
+export function updateVncSession(jobId: number, vncSessionId: string | null): void {
+    const session = getSession(jobId);
+    if (session) session.status.vncSessionId = vncSessionId;
+}
+
+export function noteVncConnect(vncSessionId: string): void {
+    for (const session of sessions.values()) {
+        if (session.status.vncSessionId === vncSessionId) {
+            session.watchers += 1;
+            clearIdleTimer(session);
+            return;
+        }
+    }
+}
+
+export function noteVncDisconnect(vncSessionId: string): void {
+    for (const session of sessions.values()) {
+        if (session.status.vncSessionId === vncSessionId) {
+            session.watchers = Math.max(0, session.watchers - 1);
+            if (session.watchers === 0) armIdleTimer(session);
+            return;
+        }
+    }
+}
+
+export async function resumeExternalApply(jobId: number): Promise<boolean> {
+    const session = getSession(jobId);
+    if (!session || !session.status.active) return false;
+    return wakeFromHibernation(session);
 }
 
 function push(session: RuntimeSession, role: ChatMessage["role"], text: string): void {
@@ -120,12 +235,17 @@ export function beginJob(
             title,
             vncSessionId,
             phase: "working",
+            suspended: false,
             messages: [],
         },
         pendingAsk: null,
         handle: null,
         onPhase: phaseListener,
         stopping: false,
+        watchers: 0,
+        idleTimer: null,
+        transitioning: false,
+        resumeFailures: 0,
     };
     sessions.set(jobId, session);
     workingReservations.delete(jobId);
@@ -140,9 +260,11 @@ export function endJob(jobId: number, phase: "submitted" | "failed"): void {
     const session = getSession(jobId);
     if (!session) return;
     const previous = session.status.phase;
+    clearIdleTimer(session);
     session.status.active = false;
     session.status.phase = phase;
     session.status.vncSessionId = null;
+    session.status.suspended = false;
     session.pendingAsk = null;
     session.handle = null;
     session.onPhase = null;
@@ -170,7 +292,6 @@ export async function sendUserMessage(jobId: number, text: string): Promise<bool
     const trimmed = text.trim();
     const session = getSession(jobId);
     if (!trimmed || !session || !session.status.active) return false;
-    push(session, "user", trimmed);
     if (session.pendingAsk) {
         const resolve = session.pendingAsk;
         const ok = await waitForWorkingSlot(jobId);
@@ -179,10 +300,19 @@ export async function sendUserMessage(jobId: number, text: string): Promise<bool
             if (ok) releaseWorkingSlotReservation(jobId);
             return false;
         }
+        if (current.status.suspended) {
+            const woke = await wakeFromHibernation(current);
+            if (!woke || current.pendingAsk !== resolve) {
+                releaseWorkingSlotReservation(jobId);
+                return false;
+            }
+        }
+        push(current, "user", trimmed);
         current.pendingAsk = null;
         setPhase(current, "working");
         resolve({ kind: "reply", text: trimmed });
     } else {
+        push(session, "user", trimmed);
         session.handle?.steer(trimmed);
     }
     return true;
@@ -192,6 +322,7 @@ export function stopExternalApply(jobId: number): boolean {
     const session = getSession(jobId);
     if (!session || !session.status.active) return false;
     session.stopping = true;
+    clearIdleTimer(session);
     workingReservations.delete(jobId);
     cancelWorkingWait(jobId);
     push(session, "user", "Stop");
@@ -219,7 +350,7 @@ export function workingExternalApplySlots(): number {
 
 export function tryReserveWorkingSlot(jobId: number): boolean {
     if (workingReservations.has(jobId)) return true;
-    if (workingSlotCount() >= MAX_WORKING_EXTERNAL_APPLY) return false;
+    if (workingSlotCount() >= maxWorkingExternalApply) return false;
     workingReservations.add(jobId);
     return true;
 }

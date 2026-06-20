@@ -1,5 +1,6 @@
 type TrapFocusOptions = {
 	onEscape?: () => void;
+	initialFocus?: 'first' | 'container';
 };
 
 const focusableSelector = [
@@ -23,8 +24,8 @@ export function trapFocus(node: HTMLElement, options: TrapFocusOptions = {}) {
 	let currentOptions = options;
 
 	queueMicrotask(() => {
-		const first = focusableElements(node)[0] ?? node;
-		first.focus({ preventScroll: true });
+		const target = options.initialFocus === 'container' ? node : (focusableElements(node)[0] ?? node);
+		target.focus({ preventScroll: true });
 	});
 
 	function handleKeydown(event: KeyboardEvent) {

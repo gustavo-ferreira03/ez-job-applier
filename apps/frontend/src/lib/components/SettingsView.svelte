@@ -446,6 +446,14 @@
 		scheduleSettingsPatch({ advanced: { [key]: Math.round(minutes * 60_000) } });
 	}
 
+	function setExternalApplyConcurrency(value: string) {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		scheduleSettingsPatch({
+			advanced: { externalApplyConcurrency: Math.max(1, Math.min(4, Math.round(n))) }
+		});
+	}
+
 	let schedule = $derived(appState.settings.advanced.schedule);
 	let scheduleActiveDays = $derived(schedule.days.filter((d) => d.enabled).length);
 	let scheduleHasInvalid = $derived(schedule.days.some((d) => d.enabled && d.start >= d.end));
@@ -1353,6 +1361,26 @@
 								oninput={(e) =>
 									setAdvancedNumber('intervalMs', (e.target as HTMLInputElement).value)}
 							/>
+						</div>
+
+						<div>
+							<label
+								class="mb-1 block text-[12px] font-medium text-text-primary"
+								for="external-apply-concurrency">External applies at once</label
+							>
+							<input
+								id="external-apply-concurrency"
+								type="number"
+								min="1"
+								max="4"
+								class="h-8 w-full rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary focus:border-border-strong focus:outline-none"
+								value={appState.settings.advanced.externalApplyConcurrency}
+								oninput={(e) =>
+									setExternalApplyConcurrency((e.target as HTMLInputElement).value)}
+							/>
+							<p class="mt-1 text-[11px] text-text-faint">
+								Each runs a full browser; higher is faster but uses more RAM.
+							</p>
 						</div>
 					</div>
 				</section>

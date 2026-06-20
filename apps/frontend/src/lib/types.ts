@@ -92,6 +92,7 @@ export interface AppSettings {
 		searchLocale: 'pt-BR' | 'en-US';
 		cycleMaxMs: number;
 		intervalMs: number;
+		externalApplyConcurrency: number;
 		schedule: ScheduleSettings;
 	};
 }
@@ -156,6 +157,7 @@ export interface ExternalApplySessionStatus {
 	title: string;
 	vncSessionId: string | null;
 	phase: ExternalApplyPhase;
+	suspended: boolean;
 	messages: ExternalApplyMessage[];
 }
 

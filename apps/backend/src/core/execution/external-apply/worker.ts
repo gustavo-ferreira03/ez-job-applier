@@ -9,7 +9,8 @@ import {
     releaseWorkingSlotReservation,
     tryReserveWorkingSlot,
     workingExternalApplySlots,
-    MAX_WORKING_EXTERNAL_APPLY,
+    getMaxWorkingExternalApply,
+    setMaxWorkingExternalApply,
     type ExternalApplyPhase,
 } from "./state";
 
@@ -24,6 +25,12 @@ async function processOne(jobId: number, ctx: AppContext): Promise<ProcessOutcom
         if (vncSession) return vncSession;
         vncSession = await startVncStack("external-apply");
         return vncSession;
+    };
+    const releaseVnc = (): void => {
+        if (vncSession) {
+            stopVncStack(vncSession);
+            vncSession = null;
+        }
     };
 
     let terminal = false;
@@ -50,7 +57,7 @@ async function processOne(jobId: number, ctx: AppContext): Promise<ProcessOutcom
     try {
         const session = await ensureVnc();
         beginJob(jobId, job.title, session.id, onPhase);
-        const result = await runExternalApply(ctx, jobId, ensureVnc);
+        const result = await runExternalApply(ctx, jobId, ensureVnc, releaseVnc);
         terminal = true;
         if (result.status === "submitted") {
             await writeStatus("SUBMITTED");
@@ -121,6 +128,7 @@ export function createExternalApplyWorker(ctx: AppContext, shouldStop: () => boo
                 await workerSleep(30_000);
                 continue;
             }
+            setMaxWorkingExternalApply(settings.advanced.externalApplyConcurrency);
 
             const candidateIds = [
                 ...await ctx.appRepo.listIdsByStatus("FOUND"),
@@ -135,7 +143,7 @@ export function createExternalApplyWorker(ctx: AppContext, shouldStop: () => boo
                 if (job?.applicationUrl != null) pending.push(jobId);
             }
 
-            const capacity = MAX_WORKING_EXTERNAL_APPLY - workingExternalApplySlots();
+            const capacity = getMaxWorkingExternalApply() - workingExternalApplySlots();
             if (pending.length === 0 || capacity <= 0) {
                 await workerSleep(30_000);
                 continue;

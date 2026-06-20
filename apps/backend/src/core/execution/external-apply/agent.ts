@@ -10,7 +10,7 @@ import { type VncSession } from "../../login/vnc";
 import { saveExternalBrowserState, sessionFilePath } from "../../../providers/linkedin/browser";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
 import { launchBrowserMcp, bridgeBrowserTools, saveBrowserMcpStorageState, type BrowserMcp } from "./mcp";
-import { registerSession, postAgentMessage } from "./state";
+import { registerSession, postAgentMessage, updateVncSession } from "./state";
 import { loadAgentMemory, formatAgentMemory } from "./memory";
 
 function fail(jobId: number, error: string): ExternalApplyResult {
@@ -35,6 +35,7 @@ export async function runExternalApply(
     ctx: AppContext,
     jobId: number,
     ensureVnc: () => Promise<VncSession>,
+    releaseVnc: () => void,
 ): Promise<ExternalApplyResult> {
     const job = await ctx.jobRepo.getById(jobId);
     if (!job) return fail(jobId, `Job ${jobId} not found`);
@@ -67,6 +68,7 @@ export async function runExternalApply(
             }
         }
 
+        const jobStatePath = path.join(workDir, "external-storage-state.json");
         const jc: JobToolContext = {
             jobId,
             workDir,
@@ -76,14 +78,55 @@ export async function runExternalApply(
             approvedOnce: false,
             finishStatus: null,
             ensureVnc,
+            browser: null,
+            lastUrl: null,
+            fingerprintArgs: null,
         };
 
         jc.vncSession = await ensureVnc();
         mcp = await launchBrowserMcp({ workDir, display: jc.vncSession.display, storageStatePath: sessionFilePath });
+        jc.browser = mcp;
+        jc.fingerprintArgs = mcp.fingerprintArgs;
         const browserTools = bridgeBrowserTools(mcp, jc);
         if (browserTools.length === 0) {
             return fail(jobId, "No browser tools available from playwright-mcp");
         }
+
+        const resumeBrowser = async (): Promise<void> => {
+            if (jc.browser) return;
+            const session = await ensureVnc();
+            jc.vncSession = session;
+            updateVncSession(jobId, session.id);
+            let storageStatePath = sessionFilePath;
+            try {
+                await fs.access(jobStatePath);
+                storageStatePath = jobStatePath;
+            } catch {
+                // no saved job state; fall back to the LinkedIn session seed
+            }
+            const next = await launchBrowserMcp({
+                workDir,
+                display: session.display,
+                storageStatePath,
+                fingerprintArgs: jc.fingerprintArgs ?? undefined,
+            });
+            jc.browser = next;
+            mcp = next;
+            if (jc.lastUrl) {
+                await next.client.callTool({ name: "browser_navigate", arguments: { url: jc.lastUrl } }).catch(() => {});
+            }
+        };
+
+        const suspendBrowser = async (): Promise<void> => {
+            const browser = jc.browser;
+            if (!browser) return;
+            await saveBrowserMcpStorageState(browser, workDir).catch(() => {});
+            jc.browser = null;
+            mcp = null;
+            await browser.close().catch(() => {});
+            releaseVnc();
+            updateVncSession(jobId, null);
+        };
 
         const { session } = await createAgentSession({
             model,
@@ -97,6 +140,8 @@ export async function runExternalApply(
         registerSession(jobId, {
             steer: (text) => void session.steer(text).catch(() => {}),
             abort: () => void session.abort().catch(() => {}),
+            suspend: suspendBrowser,
+            resume: resumeBrowser,
         });
 
         const memoryBlock = formatAgentMemory(await loadAgentMemory());

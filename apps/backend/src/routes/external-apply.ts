@@ -1,7 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import type { AppContext } from "../core/context";
-import { getExternalApplyStatus, sendUserMessage, stopExternalApply } from "../core/execution/external-apply/state";
+import { getExternalApplyStatus, sendUserMessage, stopExternalApply, resumeExternalApply } from "../core/execution/external-apply/state";
 
 export function createExternalApplyRouter(_ctx: AppContext): OpenAPIHono {
     const router = new OpenAPIHono();
@@ -18,6 +18,15 @@ export function createExternalApplyRouter(_ctx: AppContext): OpenAPIHono {
         if (!text.trim()) throw new HTTPException(400, { message: "text is required" });
         const ok = await sendUserMessage(jobId, text);
         if (!ok) throw new HTTPException(409, { message: "No active agent session" });
+        return c.json({ ok: true });
+    });
+
+    router.post("/external-apply/resume", async (c) => {
+        const body = await c.req.json().catch(() => ({}));
+        const jobId = Number(body?.jobId);
+        if (!Number.isInteger(jobId)) throw new HTTPException(400, { message: "jobId is required" });
+        const ok = await resumeExternalApply(jobId);
+        if (!ok) throw new HTTPException(409, { message: "Could not resume session" });
         return c.json({ ok: true });
     });
 

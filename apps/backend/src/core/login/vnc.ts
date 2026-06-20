@@ -116,6 +116,7 @@ export async function startVncStack(kind: VncSession["kind"]): Promise<VncSessio
                 "-localhost",
                 "-rfbport", String(port),
                 "-nopw", "-quiet", "-forever", "-noipv6", "-noshm",
+                "-wait", "50", "-nap",
             ], x11Env(displayName));
             const session: VncSessionRecord = {
                 id: crypto.randomUUID(),
