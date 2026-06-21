@@ -38,7 +38,8 @@ function defaultSettings(): AppSettings {
 			autoTailorResumes: false,
 			externalApply: false,
 			filterCriteria: '',
-			resumeTailoringInstructions: ''
+			resumeTailoringInstructions: '',
+			resumeTailoringFlexibility: 2
 		},
 		advanced: {
 			browserVisible: false,
@@ -47,6 +48,7 @@ function defaultSettings(): AppSettings {
 			intervalMs: 14_400_000,
 			externalApplyConcurrency: 1,
 			telegram: { enabled: false, botToken: '', chatId: null, pairingCode: null, pairingExpiresAt: null },
+			github: { connected: false, login: null, repo: null, lastSyncedAt: null, masters: [] },
 			schedule: {
 				enabled: false,
 				timezone: 'America/Sao_Paulo',

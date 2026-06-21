@@ -5,6 +5,7 @@
 	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import FileText from '@lucide/svelte/icons/file-text';
+	import Github from '@lucide/svelte/icons/git-branch';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -213,6 +214,7 @@
 		refreshLlmSettings();
 		loadMasters();
 		loadTelegram();
+		loadGithubRepos();
 	});
 
 	onDestroy(() => {
@@ -397,6 +399,61 @@
 		tailoringInstructionsDebounce = setTimeout(() => {
 			handleLlmSetting({ resumeTailoringInstructions: value });
 		}, 600);
+	}
+
+	const FLEX_LEVELS = [
+		{ name: 'Conservative', desc: 'Keeps your wording and structure; only mirrors the job keywords and reorders skills.' },
+		{ name: 'Balanced', desc: 'Rewrites and reorders everything in the job language, without inventing anything.' },
+		{ name: 'Aggressive', desc: 'Also surfaces skills adjacent to the ones you genuinely have.' },
+		{ name: 'Maximum', desc: 'Reshapes experiences and may invent content not present in your resume.' }
+	];
+
+	function setFlexibility(value: number) {
+		appState.settings = {
+			...appState.settings,
+			llm: { ...appState.settings.llm, resumeTailoringFlexibility: value }
+		};
+		handleLlmSetting({ resumeTailoringFlexibility: value });
+	}
+
+	let githubRepoList = $state<string[]>([]);
+	let githubRepoSel = $state('');
+	let githubSyncing = $state(false);
+
+	async function loadGithubRepos() {
+		if (!appState.settings.advanced.github.connected) return;
+		try {
+			const { repos } = await api.githubRepos();
+			githubRepoList = repos;
+			githubRepoSel = appState.settings.advanced.github.repo ?? repos[0] ?? '';
+		} catch {
+			toastState.show('Failed to load GitHub repositories', 'error');
+		}
+	}
+
+	async function handleGithubSync() {
+		if (!githubRepoSel) return;
+		githubSyncing = true;
+		try {
+			await api.githubSync(githubRepoSel);
+			appState.settings = await api.getAppSettings();
+			await loadMasters();
+			toastState.show('Synced resumes from GitHub', 'success');
+		} catch {
+			toastState.show('GitHub sync failed', 'error');
+		} finally {
+			githubSyncing = false;
+		}
+	}
+
+	async function handleGithubDisconnect() {
+		try {
+			await api.githubDisconnect();
+			appState.settings = await api.getAppSettings();
+			githubRepoList = [];
+		} catch {
+			toastState.show('Failed to disconnect GitHub', 'error');
+		}
 	}
 
 	function toggle(arr: string[] | undefined, value: string): string[] {
@@ -985,6 +1042,66 @@
 							</p>
 						</div>
 
+						<div class="mt-3 rounded-lg border border-border-subtle bg-surface-raised p-3">
+							<div class="flex items-center justify-between gap-3">
+								<div class="flex min-w-0 items-center gap-2">
+									<Github size={14} class="flex-shrink-0 text-text-muted" aria-hidden="true" />
+									<span class="text-[12px] font-medium text-text-secondary">Resumes from GitHub</span>
+									{#if appState.settings.advanced.github.connected}
+										<span class="truncate text-[11px] text-text-faint"
+											>@{appState.settings.advanced.github.login}</span
+										>
+									{/if}
+								</div>
+								{#if appState.settings.advanced.github.connected}
+									<button
+										type="button"
+										class="flex-shrink-0 cursor-pointer text-[10px] font-medium text-danger-600 transition-colors duration-150 hover:text-danger-700 focus-visible:outline-none"
+										onclick={handleGithubDisconnect}>Disconnect</button
+									>
+								{/if}
+							</div>
+
+							{#if appState.settings.advanced.github.connected}
+								<div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+									<select
+										aria-label="GitHub repository"
+										bind:value={githubRepoSel}
+										class="h-7 w-full min-w-0 flex-1 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-2 text-[11px] text-text-muted transition-colors duration-150 hover:border-border-strong focus:border-border-strong focus:outline-none"
+									>
+										{#each githubRepoList as repo (repo)}
+											<option value={repo}>{repo}</option>
+										{/each}
+									</select>
+									<button
+										type="button"
+										class="h-7 flex-shrink-0 cursor-pointer rounded-md border border-border-default bg-surface-overlay px-3 text-[11px] font-medium text-text-secondary transition-colors duration-150 hover:border-border-strong disabled:cursor-default disabled:opacity-60 focus-visible:outline-none"
+										disabled={githubSyncing || !githubRepoSel}
+										onclick={handleGithubSync}
+									>
+										{githubSyncing ? 'Syncing…' : 'Sync'}
+									</button>
+								</div>
+								<p class="mt-2 text-[10px] text-text-faint">
+									Sync replaces resumes imported from this repository. Resumes created here are not
+									affected.{#if appState.settings.advanced.github.lastSyncedAt}
+										Last synced {new Date(
+											appState.settings.advanced.github.lastSyncedAt
+										).toLocaleString()}.{/if}
+								</p>
+							{:else}
+								<p class="mt-2 text-[10px] text-text-faint">
+									Import resumes and a Typst template from a resume-ci repository.
+								</p>
+								<a
+									href={api.githubAuthStartUrl()}
+									class="mt-2 inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-[11px] font-medium text-text-secondary transition-colors duration-150 hover:border-border-strong focus-visible:outline-none"
+								>
+									<Github size={12} aria-hidden="true" /> Connect GitHub
+								</a>
+							{/if}
+						</div>
+
 						<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
 							{#if masterTabs.length > 0}
 								<label class="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-xs sm:flex-row sm:items-center">
@@ -996,7 +1113,13 @@
 										onchange={(e) => openMaster((e.currentTarget as HTMLSelectElement).value)}
 									>
 										{#each masterTabs as name (name)}
-											<option value={name}>{name}{!masters.includes(name) ? ' (unsaved)' : ''}</option>
+											<option value={name}
+												>{name}{!masters.includes(name)
+													? ' (unsaved)'
+													: appState.settings.advanced.github.masters.includes(name)
+														? ' · GitHub'
+														: ''}</option
+											>
 										{/each}
 									</select>
 								</label>
@@ -1302,6 +1425,40 @@
 							></textarea>
 							<p class="mt-1 text-[10px] text-text-faint">
 								Used by auto-tailoring and manual Generate resume actions.
+							</p>
+						</div>
+
+						<div class="pt-2">
+							<div class="mb-1 flex items-center justify-between">
+								<label
+									for="resume-tailoring-flexibility"
+									class="text-[11px] font-medium text-text-secondary">Tailoring flexibility</label
+								>
+								<span class="text-[11px] font-medium text-text-primary"
+									>{FLEX_LEVELS[appState.settings.llm.resumeTailoringFlexibility - 1]?.name}</span
+								>
+							</div>
+							<input
+								id="resume-tailoring-flexibility"
+								type="range"
+								min="1"
+								max="4"
+								step="1"
+								value={appState.settings.llm.resumeTailoringFlexibility}
+								oninput={(e) => setFlexibility(Number((e.target as HTMLInputElement).value))}
+								aria-valuetext={FLEX_LEVELS[
+									appState.settings.llm.resumeTailoringFlexibility - 1
+								]?.name}
+								style="--fill: {((appState.settings.llm.resumeTailoringFlexibility - 1) / 3) *
+									100}%"
+								class="flex-slider w-full cursor-pointer"
+							/>
+							<div class="mt-1 flex justify-between text-[10px] text-text-faint">
+								<span>Conservative</span>
+								<span>Maximum</span>
+							</div>
+							<p class="mt-1 text-[10px] text-text-faint">
+								{FLEX_LEVELS[appState.settings.llm.resumeTailoringFlexibility - 1]?.desc}
 							</p>
 						</div>
 					{/if}
@@ -1774,3 +1931,56 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.flex-slider {
+		-webkit-appearance: none;
+		appearance: none;
+		height: 4px;
+		border-radius: 999px;
+		background: linear-gradient(
+			to right,
+			var(--color-accent-500) var(--fill, 0%),
+			var(--color-border-default) var(--fill, 0%)
+		);
+		outline: none;
+	}
+	.flex-slider::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		height: 14px;
+		width: 14px;
+		border-radius: 999px;
+		background: var(--color-accent-500);
+		border: 2px solid var(--color-surface-raised);
+		cursor: pointer;
+		transition: transform 0.15s ease, box-shadow 0.15s ease;
+	}
+	.flex-slider::-moz-range-thumb {
+		height: 14px;
+		width: 14px;
+		border-radius: 999px;
+		background: var(--color-accent-500);
+		border: 2px solid var(--color-surface-raised);
+		cursor: pointer;
+	}
+	.flex-slider::-moz-range-track {
+		height: 4px;
+		border-radius: 999px;
+		background: transparent;
+	}
+	.flex-slider:hover::-webkit-slider-thumb {
+		transform: scale(1.12);
+	}
+	.flex-slider:focus-visible::-webkit-slider-thumb {
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-500) 35%, transparent);
+	}
+	.flex-slider:focus-visible::-moz-range-thumb {
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent-500) 35%, transparent);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.flex-slider::-webkit-slider-thumb {
+			transition: none;
+		}
+	}
+</style>

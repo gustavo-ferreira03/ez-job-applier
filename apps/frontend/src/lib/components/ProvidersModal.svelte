@@ -27,7 +27,8 @@
 		autoTailorResumes: false,
 		externalApply: false,
 		filterCriteria: '',
-		resumeTailoringInstructions: ''
+		resumeTailoringInstructions: '',
+		resumeTailoringFlexibility: 2
 	});
 	let search = $state('');
 	let expandedProvider = $state<string | null>(null);

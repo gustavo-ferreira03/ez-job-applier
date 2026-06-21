@@ -20,6 +20,7 @@ export async function autoTailorIfNeeded(
             ctx,
             undefined,
             current.llm.resumeTailoringInstructions,
+            current.llm.resumeTailoringFlexibility,
         );
         console.log(`[auto-tailor] generated tailored resume for job ${jobId} via ${master}`);
     } catch (e) {
