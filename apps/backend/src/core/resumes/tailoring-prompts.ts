@@ -1,3 +1,5 @@
+import { antiAiWritingRules } from "../llm/anti-ai-writing-prompt";
+
 function clean(value: string | undefined): string | undefined {
     const v = value?.trim();
     return v ? v : undefined;
@@ -140,7 +142,7 @@ export function buildTailoringSystemPrompt(args: {
         "  - If the job posting is in English, output everything in English. Section titles must be English (e.g. 'Professional Experience', 'Projects', 'Education', 'Skills', 'Languages'). Job titles, roles, project descriptions, institution names, locations, and course names must be translated to English unless they are globally recognized brand names, acronyms, or URLs.",
         "  - Technology names, programming languages, tool names, product names, frameworks, cloud services, and standard certifications may keep their internationally recognized names.",
         `The job posting language always wins over the master resume's original language${locale ? ` (${locale})` : ""}.`,
-        "VOICE: write every bullet in the first person, as if the candidate is describing their own work. Start each bullet with a strong, direct action verb in the first-person singular (e.g. projetei, implementei, otimizei, liderei, automatizei, reduzi, arquitetei, desenvolvi, integrei, conduzi, estruturei, mantenho, configurei). Do NOT use third-person descriptions such as 'implementou', 'desenvolveu', 'conduziu', 'atuou', 'trabalhou', or 'foi responsável por'. The candidate owns the work; the prose must reflect that ownership.",
+        "VOICE: write every bullet in the first person, as if the candidate is describing their own work. Start each bullet with a strong, direct action verb in the first-person singular (e.g. projetei, implementei, otimizei, liderei, automatizei, reduzi, arquitetei, desenvolvi, integrei, conduzi, estruturei, mantenho, configurei). Do NOT use third-person descriptions such as 'implementou', 'desenvolveu', 'conduziu', 'atuou', 'trabalhou', or 'foi responsável por'.",
         "",
         "STRUCTURE (STAR): ground every meaningful experience or project bullet in STAR.",
         "  Situation: what problem, product, team, system, customer, or constraint existed.",
@@ -171,7 +173,9 @@ export function buildTailoringSystemPrompt(args: {
         "",
         "FORMAT: dates are 'YYYY' or 'YYYY-MM'; for an ongoing role leave the end date as an empty string and never write words like 'present'. Keep every line concise, concrete, and achievement-oriented.",
         "",
-        "FINAL CHECKS: before returning, read the entire output resume. (1) Ensure every experience and project bullet has at least one relevant term in **bold** using markdown double-asterisks. (2) Ensure 100% of the text is in the target language — no mixed Portuguese/English output except for brands, acronyms, URLs, and technology names. Fix anything that violates these rules.",
+        antiAiWritingRules(),
+        "",
+        "FINAL CHECKS: before returning, read the entire output resume. (1) Ensure every experience and project bullet has at least one relevant term in **bold** using markdown double-asterisks. (2) Ensure 100% of the text is in the target language — no mixed Portuguese/English output except for brands, acronyms, URLs, and technology names. (3) Remove any corporate filler, AI cliché, hedge word, passive voice, or third-person verb. Fix anything that violates these rules.",
         instructions ? `\nADDITIONAL INSTRUCTIONS (secondary to the rules above): ${instructions}` : "",
     ].join("\n");
 }
