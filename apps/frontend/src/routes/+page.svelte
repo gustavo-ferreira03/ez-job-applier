@@ -3,9 +3,7 @@
 	import { fade } from 'svelte/transition';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import KanbanBoard from '$lib/components/kanban/KanbanBoard.svelte';
-	import JobTable from '$lib/components/JobTable.svelte';
 	import JobModal from '$lib/components/JobModal.svelte';
-	import DiscoveriesView from '$lib/components/DiscoveriesView.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import ExternalApplyModal from '$lib/components/ExternalApplyModal.svelte';
@@ -80,15 +78,11 @@
 
 	const pageTitles: Record<Page, string> = {
 		pipeline: 'Pipeline',
-		tabela: 'Table',
-		discoveries: 'History',
 		configuracoes: 'Settings'
 	};
 
 	const pageDescriptions: Record<Page, string> = {
 		pipeline: 'Move each application through review, questions, submission, or rejection.',
-		tabela: 'Search and compare every discovered job in one dense list.',
-		discoveries: 'Audit past executions and search inputs.',
 		configuracoes: 'Define the profile used by automatic execution.'
 	};
 
@@ -128,7 +122,7 @@
 	/>
 
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-		{#if activePage !== 'configuracoes' && activePage !== 'discoveries'}
+		{#if activePage !== 'configuracoes'}
 			<header
 				class="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-base/95 px-4 py-3 md:px-5 md:py-4"
 			>
@@ -170,10 +164,6 @@
 				<div class="h-full" in:fade={{ duration: 120 }}>
 					{#if activePage === 'pipeline'}
 						<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
-					{:else if activePage === 'tabela'}
-						<JobTable jobs={appState.jobs} onOpenJob={openJob} />
-					{:else if activePage === 'discoveries'}
-						<DiscoveriesView />
 					{:else if activePage === 'configuracoes'}
 						<SettingsView />
 					{/if}

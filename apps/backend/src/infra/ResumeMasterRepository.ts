@@ -7,6 +7,7 @@ import type { IResumeMasterRepo, TailoredResumeMeta } from "../core/ports";
 export const RESUME_DIR = path.resolve("storage/resume");
 const MASTERS_DIR = path.join(RESUME_DIR, "masters");
 const TAILORED_DIR = path.join(RESUME_DIR, "tailored");
+export const TEMPLATES_DIR = path.join(RESUME_DIR, "templates");
 const LEGACY_MASTER_PATH = path.join(RESUME_DIR, "master.yml");
 
 function slug(name: string): string {
@@ -101,6 +102,11 @@ export class ResumeMasterRepository implements IResumeMasterRepo {
         } catch {
             return false;
         }
+    }
+
+    async writeTemplate(filename: string, content: string): Promise<void> {
+        await fs.mkdir(TEMPLATES_DIR, { recursive: true });
+        await fs.writeFile(path.join(TEMPLATES_DIR, path.basename(filename)), content, "utf8");
     }
 
     private masterPath(name: string): string {

@@ -329,3 +329,19 @@ export function pollOAuth(
 		`/settings/llm/providers/${encodeURIComponent(provider)}/oauth/poll?sessionId=${encodeURIComponent(sessionId)}`
 	);
 }
+
+export function githubAuthStartUrl(): string {
+	return `${BASE}/auth/github/start`;
+}
+
+export function githubRepos(): Promise<{ repos: string[] }> {
+	return get('/github/repos');
+}
+
+export function githubSync(repo: string): Promise<{ ok: boolean; masters: string[] }> {
+	return post('/github/sync', { repo });
+}
+
+export function githubDisconnect(): Promise<{ ok: boolean }> {
+	return post('/github/disconnect');
+}

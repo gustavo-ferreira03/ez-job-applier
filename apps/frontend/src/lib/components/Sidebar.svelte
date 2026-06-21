@@ -1,6 +1,5 @@
 <script lang="ts">
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
-	import List from '@lucide/svelte/icons/list';
 	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
 	import type { Page, ExecutionStatus } from '$lib/types';
@@ -36,8 +35,6 @@
 
 	const navItems: { page: Page; label: string; icon: typeof LayoutDashboard }[] = [
 		{ page: 'pipeline', label: 'Pipeline', icon: LayoutDashboard },
-		{ page: 'tabela', label: 'Table', icon: List },
-		{ page: 'discoveries', label: 'Searches', icon: Search },
 		{ page: 'configuracoes', label: 'Settings', icon: Settings }
 	];
 </script>

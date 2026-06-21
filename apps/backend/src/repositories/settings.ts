@@ -13,6 +13,7 @@ export interface LlmSettings {
     externalApply: boolean;
     filterCriteria: string;
     resumeTailoringInstructions: string;
+    resumeTailoringFlexibility: number;
 }
 
 export interface AppSettings {
@@ -48,6 +49,14 @@ export interface TelegramSettings {
     pairingExpiresAt: string | null;
 }
 
+export interface GithubSettings {
+    connected: boolean;
+    login: string | null;
+    repo: string | null;
+    lastSyncedAt: string | null;
+    masters: string[];
+}
+
 export interface AdvancedSettings {
     browserVisible: boolean;
     searchLocale: "pt-BR" | "en-US";
@@ -56,6 +65,7 @@ export interface AdvancedSettings {
     externalApplyConcurrency: number;
     schedule: ScheduleSettings;
     telegram: TelegramSettings;
+    github: GithubSettings;
 }
 
 const defaults: AppSettings = {
@@ -75,6 +85,7 @@ const defaults: AppSettings = {
         externalApply: false,
         filterCriteria: "",
         resumeTailoringInstructions: "",
+        resumeTailoringFlexibility: 2,
     },
     advanced: {
         browserVisible: false,
@@ -83,6 +94,7 @@ const defaults: AppSettings = {
         intervalMs: 14_400_000,
         externalApplyConcurrency: 1,
         telegram: { enabled: false, botToken: "", chatId: null, pairingCode: null, pairingExpiresAt: null },
+        github: { connected: false, login: null, repo: null, lastSyncedAt: null, masters: [] },
         schedule: {
             enabled: false,
             timezone: "America/Sao_Paulo",

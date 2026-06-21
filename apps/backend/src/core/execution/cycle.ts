@@ -7,7 +7,7 @@ import type { IJobProviderSession } from "../interfaces";
 import { getSettings, type AppSettings } from "../../repositories/settings";
 import { shouldApply } from "../applications/filter";
 import { checkStaticFilter } from "../applications/static-filter";
-import { generateResumePdf } from "../resumes/pdf";
+import { generateResumePdf, resumeOutputName } from "../resumes/pdf";
 import { scheduleAutoTailorIfNeeded } from "../resumes/auto-tailor";
 
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
@@ -163,7 +163,7 @@ async function processQueue(
         }
 
         await ctx.appRepo.setProcessing(appRec.id, true);
-        let tailoredTempPath: string | undefined;
+        let tailoredTempDir: string | undefined;
         try {
             const baseResumePath = appRec.resumeFilename
                 ? await ctx.resumeRepo.getResumePath(appRec.resumeFilename)
@@ -174,12 +174,14 @@ async function processQueue(
             let selectedResumePath = baseResumePath;
             if (tailored) {
                 try {
-                    const pdf = await generateResumePdf(tailored, `resume-job-${jobId}`);
-                    tailoredTempPath = path.join(os.tmpdir(), `tailored-${jobId}-${Date.now()}.pdf`);
-                    await fs.writeFile(tailoredTempPath, pdf);
-                    selectedResumePath = tailoredTempPath;
+                    const name = resumeOutputName(tailored.basics?.name, job.title);
+                    const pdf = await generateResumePdf(tailored, name);
+                    tailoredTempDir = await fs.mkdtemp(path.join(os.tmpdir(), "tailored-"));
+                    const tailoredPath = path.join(tailoredTempDir, `${name}.pdf`);
+                    await fs.writeFile(tailoredPath, pdf);
+                    selectedResumePath = tailoredPath;
                 } catch (e) {
-                    tailoredTempPath = undefined;
+                    tailoredTempDir = undefined;
                     selectedResumePath = baseResumePath;
                     console.error(`[execution] tailored resume failed for job ${jobId}, using base resume:`, e);
                 }
@@ -207,7 +209,7 @@ async function processQueue(
             const failed = await ctx.appRepo.upsert(job.provider, job.jobId, "FAILED", undefined, String(e));
             await ctx.appRepo.setProcessing(failed.id, false);
         } finally {
-            if (tailoredTempPath) await fs.rm(tailoredTempPath, { force: true }).catch(() => {});
+            if (tailoredTempDir) await fs.rm(tailoredTempDir, { recursive: true, force: true }).catch(() => {});
         }
     }
 
