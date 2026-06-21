@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { parseResume, ResumeValidationError } from "resume-ci";
 import { extractMasterFromResume } from "../core/resumes/extract";
 import { tailorResume } from "../core/resumes/tailor";
-import { generateResumePdf } from "../core/resumes/pdf";
+import { generateResumePdf, resumeOutputName } from "../core/resumes/pdf";
 import { getSettings } from "../repositories/settings";
 import type { AppContext } from "../core/context";
 
@@ -161,6 +161,7 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
                     ctx,
                     body?.master,
                     settings.llm.resumeTailoringInstructions,
+                    settings.llm.resumeTailoringFlexibility,
                 );
                 return c.json({ ok: true, master });
             } catch (err) {
@@ -194,10 +195,12 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
         if (!tailored) {
             throw new HTTPException(404, { message: "No tailored resume for this job" });
         }
-        const pdf = await generateResumePdf(tailored, `resume-job-${id}`);
+        const job = await ctx.jobRepo.getById(id);
+        const name = resumeOutputName(tailored.basics?.name, job?.title);
+        const pdf = await generateResumePdf(tailored, name);
         return c.body(new Uint8Array(pdf), 200, {
             "Content-Type": "application/pdf",
-            "Content-Disposition": `inline; filename="resume-job-${id}.pdf"`,
+            "Content-Disposition": `inline; filename="${name}.pdf"`,
         });
     });
 

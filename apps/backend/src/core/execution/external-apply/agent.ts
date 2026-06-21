@@ -5,7 +5,8 @@ import { SessionManager, createAgentSession } from "@earendil-works/pi-coding-ag
 import type { ResumeInput } from "resume-ci";
 import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
-import { generateResumePdf } from "../../resumes/pdf";
+import { generateResumePdf, resumeOutputName } from "../../resumes/pdf";
+import { autoTailorIfNeeded } from "../../resumes/auto-tailor";
 import { type VncSession } from "../../login/vnc";
 import { sessionFilePath } from "../../../providers/linkedin/browser";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
@@ -56,12 +57,14 @@ export async function runExternalApply(
 
     let mcp: BrowserMcp | null = null;
     try {
+        await autoTailorIfNeeded(jobId, ctx);
         const resume = await loadResume(ctx, jobId);
         let resumePdfPath: string | undefined;
         if (resume) {
             try {
-                const pdf = await generateResumePdf(resume, `resume-job-${jobId}`);
-                resumePdfPath = path.join(workDir, "resume.pdf");
+                const name = resumeOutputName(resume.basics?.name, job.title);
+                const pdf = await generateResumePdf(resume, name);
+                resumePdfPath = path.join(workDir, `${name}.pdf`);
                 await fs.writeFile(resumePdfPath, pdf);
             } catch (e) {
                 console.error(`[external-apply] resume PDF generation failed for job ${jobId}:`, e);
