@@ -25,6 +25,7 @@ import resumesRouter from "./routes/resumes";
 import { createResumeMasterRouter } from "./routes/resume-master";
 import { createSettingsRouter } from "./routes/settings";
 import { createExternalApplyRouter } from "./routes/external-apply";
+import { createGithubRouter } from "./routes/github";
 import databaseRouter from "./routes/database";
 import { startExecution, registerWorker } from "./core/execution/manager";
 import { createAutoAnswerWorker } from "./core/execution/auto-answer-worker";
@@ -93,6 +94,7 @@ app.route("/", resumesRouter);
 app.route("/", createResumeMasterRouter(ctx));
 app.route("/", createSettingsRouter(ctx));
 app.route("/", createExternalApplyRouter(ctx));
+app.route("/", createGithubRouter(ctx));
 app.route("/", databaseRouter);
 
 app.doc("/openapi", {

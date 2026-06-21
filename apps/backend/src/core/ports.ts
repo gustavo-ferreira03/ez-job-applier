@@ -73,6 +73,7 @@ export interface IResumeMasterRepo {
     writeTailored(jobId: number, data: ResumeInput, meta: TailoredResumeMeta): Promise<void>;
     deleteTailored(jobId: number): Promise<void>;
     hasTailored(jobId: number): Promise<boolean>;
+    writeTemplate(filename: string, content: string): Promise<void>;
 }
 
 export interface IProviderRegistry {
