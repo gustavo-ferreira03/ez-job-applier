@@ -52,16 +52,29 @@ async function notifyAgent(payload: AgentAttention): Promise<void> {
     const job = await ctxRef?.jobRepo.getById(payload.jobId);
     if (!job) return;
     const text = formatAgentMessage(job, payload.question, payload.phase);
-    if (payload.phase === "review") {
-        const messageId = await botRef.send(chatIdRef, text, [
+    const buttons = payload.phase === "review"
+        ? [
             { label: "Submit", data: `submit:${payload.jobId}` },
             { label: "Reject", data: `reject:${payload.jobId}` },
-        ]);
-        if (payload.screenshotPath) await botRef.sendPhoto(chatIdRef, payload.screenshotPath, messageId).catch((e) => console.error("[telegram] screenshot send failed:", e));
+        ]
+        : undefined;
+    const kind = payload.phase === "review" ? "agent-review" : "agent-ask";
+
+    if (payload.screenshotPath) {
+        try {
+            const messageId = await botRef.sendPhoto(chatIdRef, payload.screenshotPath, text, buttons);
+            rememberPending(messageId, { kind, jobId: payload.jobId });
+            return;
+        } catch (e) {
+            console.error("[telegram] screenshot message failed:", e);
+        }
+    }
+
+    if (payload.phase === "review") {
+        const messageId = await botRef.send(chatIdRef, text, buttons);
         rememberPending(messageId, { kind: "agent-review", jobId: payload.jobId });
     } else {
         const messageId = await botRef.send(chatIdRef, text);
-        if (payload.screenshotPath) await botRef.sendPhoto(chatIdRef, payload.screenshotPath, messageId).catch((e) => console.error("[telegram] screenshot send failed:", e));
         rememberPending(messageId, { kind: "agent-ask", jobId: payload.jobId });
     }
 }

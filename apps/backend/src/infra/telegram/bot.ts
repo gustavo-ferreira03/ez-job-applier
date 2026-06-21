@@ -50,12 +50,17 @@ export class TelegramBot {
         await this.bot.stop();
     }
 
-    async send(chatId: number, text: string, buttons?: TelegramButton[]): Promise<number> {
+    private keyboard(buttons?: TelegramButton[]): InlineKeyboard | undefined {
         let keyboard: InlineKeyboard | undefined;
         if (buttons && buttons.length) {
             keyboard = new InlineKeyboard();
             for (const button of buttons) keyboard.text(button.label, button.data);
         }
+        return keyboard;
+    }
+
+    async send(chatId: number, text: string, buttons?: TelegramButton[]): Promise<number> {
+        const keyboard = this.keyboard(buttons);
         const message = await this.bot.api.sendMessage(chatId, text, {
             parse_mode: "HTML",
             ...(keyboard ? { reply_markup: keyboard } : {}),
@@ -63,11 +68,15 @@ export class TelegramBot {
         return message.message_id;
     }
 
-    async sendPhoto(chatId: number, filePath: string, replyToMessageId?: number): Promise<number> {
+    async sendPhoto(chatId: number, filePath: string, caption?: string, buttons?: TelegramButton[]): Promise<number> {
+        const keyboard = this.keyboard(buttons);
         const message = await this.bot.api.sendPhoto(
             chatId,
             new InputFile(filePath),
-            replyToMessageId ? { reply_parameters: { message_id: replyToMessageId } } : {},
+            {
+                ...(caption ? { caption, parse_mode: "HTML" as const } : {}),
+                ...(keyboard ? { reply_markup: keyboard } : {}),
+            },
         );
         return message.message_id;
     }

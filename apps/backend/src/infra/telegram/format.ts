@@ -19,11 +19,6 @@ function link(label: string, url: string | null | undefined): string | null {
     return `<a href="${escapeHtml(url)}">${escapeHtml(label)}</a>`;
 }
 
-function truncate(value: string, max = 700): string {
-    const trimmed = value.trim().replace(/\s+/g, " ");
-    return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
-}
-
 function formatJobHeader(job: Job): string[] {
     const lines = [`<b>${escapeHtml(job.title)}</b>`, ""];
     if (job.company) lines.push(`Company: ${escapeHtml(job.company)}`);
@@ -34,7 +29,6 @@ function formatJobHeader(job: Job): string[] {
     if (applyLink) lines.push(`Apply: ${applyLink}`);
     if (job.preferences.length) lines.push(`Preferences: ${escapeHtml(job.preferences.join(", "))}`);
     if (job.skills.length) lines.push(`Skills: ${escapeHtml(job.skills.join(", "))}`);
-    if (job.about) lines.push("", `About: ${escapeHtml(truncate(job.about))}`);
     return lines;
 }
 
