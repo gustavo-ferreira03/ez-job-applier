@@ -77,6 +77,7 @@ export interface LlmSettings {
 	externalApply: boolean;
 	filterCriteria: string;
 	resumeTailoringInstructions: string;
+	resumeTailoringFlexibility: number;
 }
 
 export interface AppSettings {
@@ -101,7 +102,16 @@ export interface AppSettings {
 			pairingCode: string | null;
 			pairingExpiresAt: string | null;
 		};
+		github: GithubSettings;
 	};
+}
+
+export interface GithubSettings {
+	connected: boolean;
+	login: string | null;
+	repo: string | null;
+	lastSyncedAt: string | null;
+	masters: string[];
 }
 
 export interface TelegramStatus {
@@ -141,7 +151,7 @@ export interface KanbanColumn {
 	columnClass?: string;
 }
 
-export type Page = 'pipeline' | 'tabela' | 'discoveries' | 'configuracoes';
+export type Page = 'pipeline' | 'configuracoes';
 
 export interface ExecutionStatus {
 	active: boolean;
