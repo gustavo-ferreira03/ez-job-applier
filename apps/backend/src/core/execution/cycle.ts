@@ -9,6 +9,7 @@ import { shouldApply } from "../applications/filter";
 import { checkStaticFilter } from "../applications/static-filter";
 import { generateResumePdf, resumeOutputName } from "../resumes/pdf";
 import { scheduleAutoTailorIfNeeded } from "../resumes/auto-tailor";
+import { stopExternalApply } from "./external-apply/state";
 
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
 
@@ -95,14 +96,16 @@ async function processQueue(
         const staticCheck = checkStaticFilter(job, settings.general);
         if (staticCheck.blocked) {
             await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED", undefined, staticCheck.reason);
+            stopExternalApply(jobId);
             console.log(`[execution] static-filtered: ${job.title} — ${staticCheck.reason}`);
             continue;
         }
 
-        if (settings.llm.filterJobs) {
+        if (settings.llm.enabled && settings.llm.filterJobs) {
             const decision = await shouldApply(job, ctx, settings.llm).catch(() => null);
             if (decision && !decision.apply) {
                 await ctx.appRepo.upsert(job.provider, job.jobId, "REJECTED", undefined, decision.reason);
+                stopExternalApply(jobId);
                 console.log(`[execution] filtered: ${job.title} — ${decision.reason}`);
                 continue;
             }

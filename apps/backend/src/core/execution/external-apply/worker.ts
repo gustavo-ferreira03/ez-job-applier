@@ -19,6 +19,8 @@ type ProcessOutcome = "done" | "retryable";
 async function processOne(jobId: number, ctx: AppContext): Promise<ProcessOutcome> {
     const job = await ctx.jobRepo.getById(jobId);
     if (!job || job.applicationUrl == null) return "done";
+    const application = await ctx.appRepo.get(job.provider, job.jobId);
+    if (application?.status === "REJECTED") return "done";
 
     let vncSession: VncSession | null = null;
     const ensureVnc = async (): Promise<VncSession> => {
