@@ -177,7 +177,7 @@ async function processQueue(
             let selectedResumePath = baseResumePath;
             if (tailored) {
                 try {
-                    const name = resumeOutputName(tailored.basics?.name, job.title);
+                    const name = resumeOutputName(tailored);
                     const pdf = await generateResumePdf(tailored, name);
                     tailoredTempDir = await fs.mkdtemp(path.join(os.tmpdir(), "tailored-"));
                     const tailoredPath = path.join(tailoredTempDir, `${name}.pdf`);

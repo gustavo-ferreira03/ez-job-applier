@@ -63,7 +63,7 @@ export async function runExternalApply(
         let resumePdfPath: string | undefined;
         if (resume) {
             try {
-                const name = resumeOutputName(resume.basics?.name, job.title);
+                const name = resumeOutputName(resume);
                 const pdf = await generateResumePdf(resume, name);
                 resumePdfPath = path.join(workDir, `${name}.pdf`);
                 await fs.writeFile(resumePdfPath, pdf);
@@ -164,6 +164,7 @@ export async function runExternalApply(
             "- Any text you generate for the application itself must be in the job posting's language. This includes free-text form answers, cover-letter style fields, profile summaries, motivation answers, and any resume-related text you draft. If the job posting is in English, write all generated application text in English. Preserve exact option labels for select/radio/checkbox fields.",
             "- " + antiAiWritingRules().replace(/\n/g, " "),
             "- Keep each generated answer short with one clear claim. No long paragraphs.",
+            "- The uploaded resume PDF may have a concise role-specific filename, but it must stay professional. Never rename it to include company names, locations, employment-modality phrases, job-board keywords, or marketing text.",
             "- You MUST `ask_user` and get an explicit go-ahead before clicking the final submit/apply button. Never submit without it.",
             "- When asking for that final go-ahead, call `ask_user` with nextAction='final_submit'. For missing information or other decisions, use nextAction='needs_input'.",
             "- The browser is managed for you; to go somewhere just use `browser_navigate`. Do not attempt to close or reset it.",

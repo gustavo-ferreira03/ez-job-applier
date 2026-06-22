@@ -5,13 +5,25 @@ import type { ResumeInput } from "resume-ci";
 const TEMPLATES_DIR = path.resolve("storage/resume/templates");
 
 function sanitizeFilename(base: string): string {
-    const cleaned = base.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+    const cleaned = base
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Za-z0-9_-]+/g, "_")
+        .replace(/^_+|_+$/g, "");
     return cleaned.length > 0 ? cleaned : "resume";
 }
 
-export function resumeOutputName(name: string | undefined, jobTitle?: string): string {
-    const parts = [name, jobTitle].filter((p): p is string => Boolean(p?.trim()));
-    return sanitizeFilename(parts.join(" ")).toLowerCase();
+function suggestedOutputName(data: ResumeInput): string | undefined {
+    const meta = data.meta as { output_filename?: unknown } | undefined;
+    return typeof meta?.output_filename === "string" ? meta.output_filename : undefined;
+}
+
+export function resumeOutputName(data: ResumeInput): string {
+    const suggested = sanitizeFilename(suggestedOutputName(data) ?? "").toLowerCase();
+    if (suggested !== "resume") return suggested;
+
+    const cleanName = sanitizeFilename(data.basics?.name?.trim() || "").toLowerCase();
+    return cleanName === "resume" ? "resume" : `${cleanName}_resume`;
 }
 
 export async function generateResumePdf(data: ResumeInput, filenameBase: string): Promise<Buffer> {

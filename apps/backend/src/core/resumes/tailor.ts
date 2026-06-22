@@ -25,6 +25,10 @@ const tailoringSchema = z.object({
     ),
 });
 
+const filenameSchema = z.object({
+    filenameBase: z.string(),
+});
+
 type Tailoring = z.infer<typeof tailoringSchema>;
 type MasterWork = NonNullable<ResumeInput["work"]>[number];
 
@@ -111,6 +115,35 @@ function buildTailored(master: ResumeInput, work: MasterWork[], result: Tailorin
     };
 }
 
+async function generateFilenameBase(
+    ctx: AppContext,
+    candidateName: string | undefined,
+    job: { title: string; company?: string | null; location?: string | null; about?: string | null },
+): Promise<string | undefined> {
+    const result = await ctx.llm.generate({
+        system: [
+            "Create a concise, professional PDF base filename for a tailored resume.",
+            "Return only filenameBase through the schema, without the .pdf extension.",
+            "Use lowercase words separated by underscores.",
+            "It may include the candidate name and the clean target role when the role sounds professional.",
+            "Do not blindly copy the job title. Remove job-board noise, company names, locations, remote-work phrases, hiring urgency, contract type, salary, IDs, hashtags, punctuation fragments, and marketing text.",
+            "Good: gustavo_ferreira_fullstack_java_engineer.",
+            "Bad: gustavo_ferreira_cosme_fullstack_java_engineer_work_from_home_talent_connection.",
+            "If you cannot form a clean role-specific name, use candidate_name_resume.",
+        ].join("\n"),
+        prompt: [
+            `Candidate name: ${candidateName ?? ""}`,
+            `Job title: ${job.title}`,
+            `Company: ${job.company ?? ""}`,
+            `Location: ${job.location ?? ""}`,
+            job.about ? `Description:\n${job.about}` : "",
+        ].filter(Boolean).join("\n"),
+        schema: filenameSchema,
+        label: "resume-filename",
+    });
+    return clean(result.filenameBase);
+}
+
 export async function tailorResume(
     jobId: number,
     ctx: AppContext,
@@ -186,7 +219,14 @@ export async function tailorResume(
             }
             throw err;
         }
-        await ctx.resumeMasterRepo.writeTailored(jobId, tailored, {
+        const filenameBase = await generateFilenameBase(ctx, tailored.basics?.name, job).catch((err) => {
+            console.warn(`[tailor] job ${jobId}: filename generation failed:`, err);
+            return undefined;
+        });
+        const tailoredWithMeta: ResumeInput = filenameBase
+            ? { ...tailored, meta: { ...(tailored.meta ?? {}), output_filename: filenameBase } }
+            : tailored;
+        await ctx.resumeMasterRepo.writeTailored(jobId, tailoredWithMeta, {
             master: chosen,
             updatedAt: new Date().toISOString(),
         });

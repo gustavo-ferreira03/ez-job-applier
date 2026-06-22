@@ -195,8 +195,7 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
         if (!tailored) {
             throw new HTTPException(404, { message: "No tailored resume for this job" });
         }
-        const job = await ctx.jobRepo.getById(id);
-        const name = resumeOutputName(tailored.basics?.name, job?.title);
+        const name = resumeOutputName(tailored);
         const pdf = await generateResumePdf(tailored, name);
         return c.body(new Uint8Array(pdf), 200, {
             "Content-Type": "application/pdf",
