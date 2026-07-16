@@ -1,9 +1,12 @@
-import { complete, Type } from "@earendil-works/pi-ai";
+import { Type } from "@earendil-works/pi-ai";
 import type { AssistantMessage, Context, TextContent, Tool, ToolCall } from "@earendil-works/pi-ai";
+import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import type { ZodType, z } from "zod/v4";
 import type { ILlmClient } from "../core/llm/types";
 import { getSettings } from "../repositories/settings";
+
+const models = builtinModels();
 
 function responseText(result: AssistantMessage): string {
     return result.content
@@ -71,7 +74,7 @@ export class PiLlmClient implements ILlmClient {
 
         let result: AssistantMessage;
         try {
-            result = await complete(model, ctx, {
+            result = await models.complete(model, ctx, {
                 apiKey: auth.apiKey,
                 headers: auth.headers ?? {},
                 tool_choice: { type: "tool", name: "extract" },

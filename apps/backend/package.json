@@ -9,8 +9,8 @@
         "start": "node dist/index.js"
     },
     "dependencies": {
-        "@earendil-works/pi-ai": "0.78.0",
-        "@earendil-works/pi-coding-agent": "0.78.0",
+        "@earendil-works/pi-ai": "0.80.7",
+        "@earendil-works/pi-coding-agent": "0.80.7",
         "@hono/node-server": "^1.19.14",
         "@hono/standard-validator": "^0.2.2",
         "@hono/zod-openapi": "^1.4.0",
