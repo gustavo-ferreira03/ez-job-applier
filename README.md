@@ -1,211 +1,316 @@
 <!-- prettier-ignore -->
 <div align="center">
 
-<img src="./apps/frontend/static/brand/logo.svg" alt="EZJobApplier logo" align="center" width="96" height="96" />
+<img src="./apps/frontend/static/brand/logo.svg" alt="EZJobApplier logo" width="96" height="96" />
 
 # EZJobApplier
 
-_A local control room for job discovery, resume tailoring, and assisted applications._
+_A local control room for finding jobs, tailoring resumes, and supervising applications._
 
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.19-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Svelte](https://img.shields.io/badge/Svelte-5-ff3e00?style=flat-square&logo=svelte&logoColor=white)](https://svelte.dev/)
-[![Hono](https://img.shields.io/badge/Hono-API-e36002?style=flat-square)](https://hono.dev/)
+[![Svelte](https://img.shields.io/badge/Svelte_5-ff3e00?style=flat-square&logo=svelte&logoColor=white)](https://svelte.dev/)
 [![pnpm](https://img.shields.io/badge/pnpm-10.30.1-f69220?style=flat-square&logo=pnpm&logoColor=white)](https://pnpm.io/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ed?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 
-[Features](#features) | [Architecture](#architecture) | [Getting Started](#getting-started) | [Configuration](#configuration) | [Usage](#usage) | [Troubleshooting](#troubleshooting)
+[Overview](#overview) | [Quick start](#quick-start) | [How it works](#how-it-works) | [Configuration](#configuration) | [Development](#development) | [Troubleshooting](#troubleshooting)
 
 </div>
 
-EZJobApplier helps job seekers run repeatable LinkedIn searches, review discovered roles, tailor resumes, answer application questions, and supervise submissions from one dashboard. It keeps automation visible: jobs move through a pipeline, browser sessions can be watched through VNC, and the assistant asks before applying.
+EZJobApplier runs repeatable LinkedIn searches and puts every result in a reviewable Kanban pipeline. It can inspect Easy Apply forms, collect unanswered questions, tailor resumes, and process external ATS links with a browser agent. You keep control of approvals and can watch browser sessions through noVNC.
 
 > [!WARNING]
-> This app can operate a browser and submit real job applications after user approval. Review your search filters, resume data, generated answers, and submission confirmations before running it against live accounts.
+> EZJobApplier can submit real applications and stores LinkedIn sessions, provider credentials, resumes, and application answers on disk. It has no built-in user authentication. Run it on a trusted machine, don't expose ports `3000` or `3001` directly to the internet, and review every generated answer and document before approval.
 
-## Features
+## Overview
 
-- **Pipeline dashboard** with columns for found jobs, required input, review, submitted, failed, and rejected applications.
-- **LinkedIn discovery and Easy Apply** using Playwright-powered browser sessions, saved login state, and visible VNC when action is required.
-- **External ATS agent** for non-LinkedIn application URLs, with live browser view and chat handoff before final submit.
-- **Resume management** with PDF upload, structured master resumes, per-job tailoring, Typst PDF output, and optional GitHub sync for `resume-ci` repositories.
-- **Chat assistant** that can read pipeline status, ingest job URLs, tailor resumes, and start application flows through backend tools.
-- **Automation controls** for static filters, AI filtering, auto-answering, schedule windows, execution intervals, and Telegram notifications.
+### What it does
 
-## Architecture
+- **Tracks jobs in one pipeline:** Found, Needs Input, Review, Submitted, Failed, and Rejected.
+- **Discovers LinkedIn jobs:** runs saved searches, skips known jobs, and applies static or optional AI filters.
+- **Inspects Easy Apply forms:** uploads a resume, records required questions, and closes the draft without submitting it.
+- **Handles external ATS links:** a supervised LLM agent fills forms in an isolated browser with live noVNC access and chat handoff.
+- **Manages resumes:** stores PDF resumes, structured YAML masters, per-job variants, Typst templates, and optional GitHub imports.
+- **Automates on your terms:** supports schedules, repeated cycles, Telegram prompts, auto-answering, and configurable concurrency.
 
-| Area        | Stack                                                      | Notes                                                                                   |
-| ----------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Frontend    | SvelteKit, Svelte 5 runes, Tailwind CSS 4                  | Dashboard, settings, chat, modal flows, and noVNC client.                               |
-| Backend     | Hono, `@hono/zod-openapi`, WebSocket server                | REST API, OpenAPI docs, browser/VNC bridge, and worker orchestration.                   |
-| Persistence | SQLite/libSQL, Drizzle ORM                                 | Jobs, applications, execution state, settings, and chat threads.                        |
-| Automation  | Playwright Core, Playwright MCP, Cloak Browser, noVNC      | LinkedIn discovery, Easy Apply, and external ATS form filling.                          |
-| AI          | `@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent` | Provider auth, chat tools, resume extraction/tailoring, and external application agent. |
+### Stack
 
-The repository is a pnpm workspace:
+| Area               | Technology                                            | Responsibility                                        |
+| ------------------ | ----------------------------------------------------- | ----------------------------------------------------- |
+| Web app            | SvelteKit, Svelte 5, Tailwind CSS 4                   | Pipeline, settings, review flows, live browser client |
+| API                | Hono, Zod OpenAPI, WebSockets                         | REST endpoints, execution workers, VNC bridge         |
+| Data               | SQLite/libSQL, Drizzle ORM                            | Jobs, applications, questions, executions, settings   |
+| Browser automation | Cloak Browser, Playwright Core, Playwright MCP, noVNC | LinkedIn discovery, Easy Apply, external ATS forms    |
+| AI and documents   | Pi AI, Pi Coding Agent, `resume-ci`, Typst            | Filtering, answers, resume tailoring, browser agent   |
+| Notifications      | Grammy                                                | Telegram questions, review prompts, and approvals     |
+
+The repository is a pnpm workspace with two applications:
 
 ```text
 .
 |-- apps/
-|   |-- backend/      # Hono API, Drizzle schema, workers, providers, AI tools
-|   `-- frontend/     # SvelteKit app and UI components
-|-- docs/             # Planning/spec notes
+|   |-- backend/       # Hono API, workers, Drizzle schema, providers
+|   `-- frontend/      # SvelteKit dashboard and noVNC client
 |-- docker-compose.yml
 |-- Dockerfile
+|-- entrypoint.sh
 `-- pnpm-workspace.yaml
 ```
 
-## Getting Started
+## Quick start
+
+Docker supplies Chromium dependencies, Cloak Browser, Xvfb, x11vnc, Typst, and database migrations. It is the shortest path to a working installation.
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 20 or newer
-- [pnpm](https://pnpm.io/) 10.30.1
-- [Docker](https://www.docker.com/get-started/) if you prefer the containerized setup
-- Chromium dependencies for local browser automation
-- [Typst](https://typst.app/) for local resume PDF generation, unless you set `TYPST_PATH`
+- [Docker](https://docs.docker.com/get-docker/) with Compose
+- A LinkedIn account
+- An AI provider credential only if you enable AI filtering, generated answers, resume tailoring, or external ATS automation
 
-### Run With Docker
-
-Docker is the easiest way to get the full browser stack, Typst, migrations, backend, and frontend running together.
+### Run with Docker
 
 ```bash
+git clone https://github.com/gustavo-ferreira03/ez-job-applier.git
+cd ez-job-applier
 PUBLIC_API_URL=http://localhost:3000 docker compose up --build
 ```
 
-Open the app at `http://localhost:3001`. The API listens on `http://localhost:3000`, and backend storage persists in the `app-storage` Docker volume.
+Open `http://localhost:3001`. The API and its reference page are available at `http://localhost:3000` and `http://localhost:3000/docs`.
 
-### Run Locally
+Runtime files persist in the `app-storage` Docker volume. Stop the service with `docker compose down`; add `-v` only when you intend to delete the database, resumes, and saved sessions.
 
-Install dependencies from the workspace root:
+### First run
+
+1. Open **Settings > General**, enter one or more search keywords, and upload a PDF resume.
+2. Mark one resume as the default. The app won't start an execution without it.
+3. Choose location, work model, experience level, job type, and any block lists.
+4. Sign in to LinkedIn through the live browser when prompted, then click **Start execution**.
+5. Review discovered jobs, answer missing fields, inspect tailored documents, and approve only the applications you want sent.
+
+## How it works
+
+### LinkedIn and Easy Apply
+
+Each execution cycle searches LinkedIn for the configured keywords, ignores jobs already stored in SQLite, and runs block-list checks before optional AI filtering. Easy Apply jobs are opened and inspected, but the discovery pass does not click the final submit button.
+
+```text
+FOUND
+  |-- rejected by filters -------------> REJECTED
+  |-- missing required answers --------> NEEDS_INPUT
+  `-- form ready ----------------------> READY_FOR_REVIEW
+
+NEEDS_INPUT -- all answers saved ------> READY_FOR_REVIEW
+READY_FOR_REVIEW -- user approves -----> APPROVED
+APPROVED -- processed by active cycle -> SUBMITTED or FAILED
+```
+
+> [!NOTE]
+> **Submit application** queues an Easy Apply job as `APPROVED`. An active execution cycle must reopen the form and perform the real submission. If execution is stopped, the job remains queued.
+
+### External ATS applications
+
+When a LinkedIn listing points to another ATS and **External apply** is enabled, EZJobApplier opens an isolated browser session for the agent. The application modal lets you watch or control that browser, answer questions, and steer the agent through chat. Sessions waiting for input can hibernate and restore their browser state when reopened.
+
+Disable **Easy Apply only** in the LinkedIn search settings if you want discovery to include listings that lead to external application sites.
+
+The agent receives instructions to ask before final submission, but that instruction is not a security boundary around browser clicks. Keep the session visible for sensitive applications and verify the confirmation page yourself.
+
+### Resumes and AI
+
+The default PDF is used for ordinary Easy Apply jobs. Structured master resumes add extraction, per-job tailoring, Typst PDF previews, and optional sync from a GitHub repository containing `resumes/*.yml` and `templates/*.typ`.
+
+> [!CAUTION]
+> Tailoring flexibility **Maximum** permits the model to introduce technologies, responsibilities, and rewritten experience that are absent from the master resume. Use Conservative or Balanced for factual applications, then read the generated PDF before approval.
+
+Provider keys and supported OAuth sessions are configured under **Settings > AI**. They are saved locally in `apps/backend/storage/pi-auth.json`, not read from provider-specific environment variables.
+
+## Local installation
+
+Running outside Docker requires more system packages because visible browser sessions use a Linux X11/VNC stack.
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 22.19.0 or newer
+- [pnpm](https://pnpm.io/) 10.30.1
+- [Typst](https://github.com/typst/typst) for tailored PDF generation
+- Chromium dependencies, Xvfb, x11vnc, and `pkill`/procps for visible browser sessions on Linux
+
+Install the workspace and browser assets:
 
 ```bash
 pnpm install
-```
-
-Prepare the backend database:
-
-```bash
+mkdir -p apps/backend/storage
 pnpm -C apps/backend db:migrate
-```
-
-Install the browser assets used by automation:
-
-```bash
 pnpm -C apps/backend exec playwright-core install chromium
 pnpm -C apps/backend exec cloakbrowser install
 ```
 
-Create `apps/frontend/.env`:
+On Linux, Playwright can install its Chromium system packages:
 
 ```bash
+pnpm -C apps/backend exec playwright-core install-deps chromium
+```
+
+Create `apps/frontend/.env`:
+
+```dotenv
 PUBLIC_API_URL=http://localhost:3000
 ```
 
-Start both apps:
+Start both applications from the repository root:
 
 ```bash
 pnpm dev
 ```
 
-The backend starts on `http://localhost:3000`. The frontend uses Vite's dev server, usually `http://localhost:5173`.
-
-> [!TIP]
-> On Linux, Playwright may also need OS packages. If Chromium fails to launch, run `pnpm -C apps/backend exec playwright-core install-deps chromium` and retry.
+The backend listens on `http://localhost:3000`; Vite usually serves the frontend at `http://localhost:5173`.
 
 ## Configuration
 
-Most settings live in the app under **Settings** and are stored in SQLite.
+Most configuration lives in the web app and persists in SQLite.
 
-| Setting        | Where               | Purpose                                                                                                               |
-| -------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Search profile | Settings > General  | Keywords, location, work model, level, job type, and LinkedIn search flags.                                           |
-| Resumes        | Settings > General  | Upload PDFs, choose the default resume, and manage structured master resumes.                                         |
-| AI provider    | Settings > AI       | Add API/OAuth credentials, choose provider/model, and enable filtering, auto-answering, tailoring, or external apply. |
-| Schedule       | Settings > Advanced | Restrict execution to chosen days, hours, and timezone.                                                               |
-| Telegram       | Settings > Advanced | Pair a bot for input/review prompts and external agent messages.                                                      |
-| GitHub sync    | Settings > General  | Import master resumes and templates from a connected repository.                                                      |
+| Settings area | Controls                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| General       | Search keywords, location, job filters, block lists, PDF resumes, structured masters, GitHub sync |
+| AI            | Provider authentication, model, filtering, auto-answering, tailoring, external ATS agent          |
+| Advanced      | Browser visibility, locale, cycle timing, schedule, timezone, concurrency, Telegram pairing       |
 
-Optional environment variables:
+Schedules restrict an execution that has already started; they don't launch the process on their own.
 
-| Variable                                    | App      | Default                              | Notes                                                                        |
-| ------------------------------------------- | -------- | ------------------------------------ | ---------------------------------------------------------------------------- |
-| `PUBLIC_API_URL`                            | Frontend | `http://localhost:3000` in API calls | Also used to build VNC WebSocket URLs. Set it for deployed or Docker builds. |
-| `DB_FILE_NAME`                              | Backend  | `file:storage/applier.db`            | SQLite/libSQL database URL.                                                  |
-| `JOB_APPLIER_STORAGE_DIR`                   | Backend  | `apps/backend/storage`               | Browser session and local storage directory.                                 |
-| `TYPST_PATH`                                | Backend  | Typst from `PATH`                    | Override the Typst binary used by `resume-ci`.                               |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Backend  | unset                                | Required for GitHub OAuth resume sync.                                       |
+### Environment variables
 
-## Usage
+| Variable                  | Default                                        | Details                                                                                                      |
+| ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `PUBLIC_API_URL`          | API calls fall back to `http://localhost:3000` | Set at frontend build time. Required when frontend and API use different origins because noVNC also uses it. |
+| `DB_FILE_NAME`            | `file:storage/applier.db`                      | Runtime libSQL URL. Drizzle migrations still target `storage/applier.db`.                                    |
+| `JOB_APPLIER_STORAGE_DIR` | `storage`                                      | Changes LinkedIn session and external-agent memory paths only; it doesn't relocate every runtime file.       |
+| `TYPST_PATH`              | Typst from `PATH`                              | Path to the Typst binary used by `resume-ci`.                                                                |
+| `GITHUB_CLIENT_ID`        | unset                                          | Required with `GITHUB_CLIENT_SECRET` for GitHub resume sync.                                                 |
+| `GITHUB_CLIENT_SECRET`    | unset                                          | OAuth secret used for GitHub token exchange.                                                                 |
 
-1. Open **Settings** and enter at least one search keyword.
-2. Upload a resume PDF and set it as the default.
-3. Configure an AI provider if you want filtering, auto-answering, resume tailoring, chat tools, or external ATS automation.
-4. Click **Start execution** to discover jobs and process Easy Apply flows.
-5. Review jobs in the pipeline. Approve, reject, retry, answer questions, tailor resumes, or open the live browser when the app asks for action.
-6. Use **Assistant** to ask about your pipeline, paste job URLs, tailor a resume for a job ID, or start an application flow.
+GitHub sync requests the `repo` scope and stores its token locally. Use a dedicated OAuth app and restrict access where your GitHub plan permits it.
 
-API documentation is available at `http://localhost:3000/docs`, backed by the OpenAPI document at `http://localhost:3000/openapi`.
+## Data storage
+
+By default, the backend writes persistent data under `apps/backend/storage`:
+
+| Path                                                        | Contents                                                    |
+| ----------------------------------------------------------- | ----------------------------------------------------------- |
+| `applier.db`                                                | Jobs, applications, questions, executions, and settings     |
+| `resumes/`                                                  | Uploaded PDF resumes                                        |
+| `resume/masters/`                                           | Structured YAML master resumes                              |
+| `resume/tailored/`                                          | Per-job resume sources and metadata                         |
+| `resume/templates/`                                         | Typst templates                                             |
+| `*-auth.json`, `linkedin-session.json`, `agent-memory.json` | Provider tokens, browser state, and remembered form answers |
+
+These files may contain personal data and access tokens. Back them up only to encrypted storage, and don't bake a populated `storage` directory into a Docker image.
+
+> [!WARNING]
+> The repository doesn't currently include a `.dockerignore`. Docker can add ignored local files, including a populated `apps/backend/storage`, to image layers during `docker compose build`. Clear or move sensitive runtime data before rebuilding the image.
+
+The **Clear database** action removes jobs, applications, and their questions. It keeps settings, execution history, resumes, and credentials.
 
 ## Development
 
-Common commands:
+### Commands
 
 ```bash
-# Start frontend and backend in parallel
+# Run frontend and backend in watch mode
 pnpm dev
 
-# Backend type/build checks
+# Bundle the backend for production
 pnpm -C apps/backend build
 
-# Frontend type checks and linting
+# Type-check and lint the frontend
 pnpm -C apps/frontend check
 pnpm -C apps/frontend lint
 
-# Generate and apply database migrations
+# Type-check the backend without emitting files
+pnpm -C apps/backend exec tsc --noEmit
+
+# Create and apply Drizzle migrations
 pnpm -C apps/backend db:generate
 pnpm -C apps/backend db:migrate
 ```
 
-Build both apps for production:
+There is no project test suite or CI workflow at present. The backend `build` command runs esbuild; use the explicit `tsc --noEmit` command above for TypeScript diagnostics.
+
+### Production build
 
 ```bash
 pnpm --filter backend build
 PUBLIC_API_URL=http://localhost:3000 pnpm --filter frontend build
 ```
 
-## Data Storage
+Run the built applications in separate processes:
 
-The backend writes runtime data under `apps/backend/storage` by default:
+```bash
+pnpm -C apps/backend start
+PORT=3001 HOST=0.0.0.0 pnpm -C apps/frontend exec node build/index.js
+```
 
-- `applier.db` for SQLite data.
-- `resumes/` for uploaded resume PDFs.
-- `resume/masters/`, `resume/tailored/`, and `resume/templates/` for structured resume sources and generated variants.
-- Browser/auth files for LinkedIn and AI provider sessions.
+The backend expects `apps/backend` as its working directory because its default storage paths are relative. The included Docker entrypoint handles this layout and runs migrations before startup.
 
-In Docker, that directory is mounted as the `app-storage` volume.
+### API reference
+
+Scalar serves an API reference at `http://localhost:3000/docs`, with the OpenAPI document at `http://localhost:3000/openapi`. Some routes use plain Hono handlers and therefore don't appear in the generated document yet.
+
+## Operational limits
+
+- EZJobApplier targets a single trusted user; it has no accounts, permissions, or tenant isolation.
+- LinkedIn DOM changes, checkpoints, daily limits, or account restrictions can interrupt automation. A successful login may also switch the LinkedIn interface language to English.
+- Manually added URLs must be LinkedIn job URLs with a numeric job ID. Generic ATS URLs aren't accepted by the manual importer.
+- External-agent sessions and their chat state live in memory; restarting the backend ends active sessions.
+- The Docker setup has no TLS, reverse proxy, health check, or application-level authentication.
+
+Automation may conflict with a site's terms or trigger anti-bot controls. You are responsible for account safety, submitted content, and compliance with the services you automate.
 
 ## Troubleshooting
 
-> [!NOTE]
-> If the assistant says the model is not configured or authenticated, open **Settings > AI**, add credentials, and select a provider/model before retrying.
+<details>
+<summary><strong>Chromium or Cloak Browser doesn't start</strong></summary>
 
-**Chromium does not start locally**
-
-Install browser binaries and system dependencies:
+Install the binaries and Playwright's OS dependencies, then retry:
 
 ```bash
 pnpm -C apps/backend exec playwright-core install chromium
 pnpm -C apps/backend exec playwright-core install-deps chromium
+pnpm -C apps/backend exec cloakbrowser install
 ```
 
-**LinkedIn asks for login**
+Visible sessions also need Xvfb, x11vnc, and procps on Linux. Docker already includes them.
 
-Use the live browser modal when prompted. The backend saves the session so later runs can reuse it.
+</details>
 
-**Resume PDF generation fails**
+<details>
+<summary><strong>LinkedIn requests a login</strong></summary>
 
-Install Typst locally or set `TYPST_PATH` to a valid binary. The Docker image already includes Typst.
+Open the live browser when the execution reports **Login required**. Complete the login there; the backend saves the resulting browser state for later cycles.
 
-**Frontend cannot reach the API**
+</details>
 
-Set `PUBLIC_API_URL=http://localhost:3000` in `apps/frontend/.env`, restart the frontend dev server, and confirm the backend is running.
+<details>
+<summary><strong>The frontend can't reach the API or noVNC</strong></summary>
+
+Set `PUBLIC_API_URL=http://localhost:3000` in `apps/frontend/.env`, then restart or rebuild the frontend. Confirm that port `3000` is reachable from the browser.
+
+</details>
+
+<details>
+<summary><strong>Resume PDF generation fails</strong></summary>
+
+Install Typst and make sure it is on `PATH`, or set `TYPST_PATH` to the executable. The Docker image installs Typst during its build.
+
+</details>
+
+<details>
+<summary><strong>Database migration can't create the SQLite file</strong></summary>
+
+Create the storage directory before migrating:
+
+```bash
+mkdir -p apps/backend/storage
+pnpm -C apps/backend db:migrate
+```
+
+</details>
