@@ -8,7 +8,9 @@ import type {
 	ExecutionStatus,
 	ExternalApplyStatus,
 	LlmSettings,
-	TelegramStatus
+	TelegramStatus,
+	ChatThreadSummary,
+	ChatThreadDetail
 } from './types';
 
 const BASE = PUBLIC_API_URL || 'http://localhost:3000';
@@ -252,8 +254,18 @@ export function getExternalApplyStatus(): Promise<ExternalApplyStatus> {
 	return get('/external-apply');
 }
 
-export function sendExternalApplyMessage(jobId: number, text: string): Promise<{ ok: boolean }> {
-	return post('/external-apply/message', { jobId, text });
+export async function sendExternalApplyMessage(jobId: number, text: string, files: File[] = []): Promise<{ ok: boolean }> {
+	const form = new FormData();
+	form.set('jobId', String(jobId));
+	form.set('text', text);
+	for (const file of files) form.append('files', file);
+	const res = await fetch(`${BASE}/external-apply/message`, { method: 'POST', body: form });
+	if (!res.ok) throw new Error(`${res.status} POST /external-apply/message`);
+	return res.json() as Promise<{ ok: boolean }>;
+}
+
+export function externalApplyAttachmentUrl(url: string): string {
+	return `${BASE}${url}`;
 }
 
 export function stopExternalApply(jobId: number): Promise<{ ok: boolean }> {
@@ -262,6 +274,35 @@ export function stopExternalApply(jobId: number): Promise<{ ok: boolean }> {
 
 export function resumeExternalApply(jobId: number): Promise<{ ok: boolean }> {
 	return post('/external-apply/resume', { jobId });
+}
+
+// Chat
+export function listChatThreads(): Promise<{ threads: ChatThreadSummary[] }> {
+	return get('/chat/threads');
+}
+
+export function createChatThread(): Promise<{ thread: ChatThreadSummary }> {
+	return post('/chat/threads');
+}
+
+export function getChatThread(id: string): Promise<ChatThreadDetail> {
+	return get(`/chat/threads/${id}`);
+}
+
+export function sendChatMessage(id: string, text: string): Promise<{ ok: boolean }> {
+	return post(`/chat/threads/${id}/message`, { text });
+}
+
+export function renameChatThread(id: string, title: string): Promise<{ ok: boolean }> {
+	return patch(`/chat/threads/${id}`, { title });
+}
+
+export function deleteChatThread(id: string): Promise<{ ok: boolean }> {
+  return del(`/chat/threads/${id}`);
+}
+
+export function chatAttachmentUrl(id: string): string {
+  return `${BASE}/chat/attachments/${id}`;
 }
 
 export function startExecution(): Promise<{ ok: boolean }> {

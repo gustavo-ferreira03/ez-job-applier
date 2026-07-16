@@ -26,10 +26,13 @@ import { createResumeMasterRouter } from "./routes/resume-master";
 import { createSettingsRouter } from "./routes/settings";
 import { createExternalApplyRouter } from "./routes/external-apply";
 import { createGithubRouter } from "./routes/github";
+import { createChatRouter } from "./routes/chat";
 import databaseRouter from "./routes/database";
 import { startExecution, registerWorker } from "./core/execution/manager";
 import { createAutoAnswerWorker } from "./core/execution/auto-answer-worker";
-import { createExternalApplyWorker } from "./core/execution/external-apply/worker";
+import { createExternalApplyWorker, startExternalApplyForJob } from "./core/execution/external-apply/worker";
+import { listExternalApplySessions } from "./core/execution/external-apply/persistence";
+import { hydrateExternalApplySessions, takeRestoredSessionForResume } from "./core/execution/external-apply/state";
 import { getVncSession } from "./core/login/vnc";
 import { noteVncConnect, noteVncDisconnect } from "./core/execution/external-apply/state";
 import { syncTelegramBot } from "./infra/telegram/notifier";
@@ -57,6 +60,15 @@ const ctx: AppContext = {
     modelRegistry,
     llm: new PiLlmClient(modelRegistry),
 };
+const externalApplySessions = await listExternalApplySessions();
+hydrateExternalApplySessions(externalApplySessions);
+for (const record of externalApplySessions) {
+    if (record.state.active && record.state.phase === "working" && takeRestoredSessionForResume(record.jobId)) {
+        void startExternalApplyForJob(record.jobId, ctx).catch((e) =>
+            console.error(`[external-apply] failed to resume job ${record.jobId}:`, e),
+        );
+    }
+}
 syncTelegramBot(ctx).catch((e) => console.error("[telegram] initial sync failed:", e));
 const activeExecution = await ctx.executionRepo.getActive();
 if (activeExecution) {
@@ -95,6 +107,7 @@ app.route("/", createResumeMasterRouter(ctx));
 app.route("/", createSettingsRouter(ctx));
 app.route("/", createExternalApplyRouter(ctx));
 app.route("/", createGithubRouter(ctx));
+app.route("/", createChatRouter(ctx));
 app.route("/", databaseRouter);
 
 app.doc("/openapi", {

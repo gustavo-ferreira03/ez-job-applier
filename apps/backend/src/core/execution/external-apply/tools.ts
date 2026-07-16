@@ -4,6 +4,7 @@ import type { VncSession } from "../../login/vnc";
 import { takeBrowserScreenshot, type BrowserMcp } from "./mcp";
 import { askUser, postAgentMessage } from "./state";
 import { rememberAgentFact } from "./memory";
+import { saveAgentExternalAttachment, type ExternalApplyAttachment } from "./persistence";
 
 export interface JobToolContext {
     jobId: number;
@@ -28,6 +29,14 @@ function isFinalSubmitQuestion(question: string, nextAction: string): boolean {
     return /\b(submit|enviar|finalizar|mandar)\b|\bapply\s+(now|button|application)\b|\b(clicar|click)\b.*\b(submit|apply|enviar|finalizar)\b/i.test(question);
 }
 
+async function saveAttachments(jc: JobToolContext, paths: string[] | undefined): Promise<ExternalApplyAttachment[]> {
+    const attachments: ExternalApplyAttachment[] = [];
+    for (const filePath of paths ?? []) {
+        attachments.push(await saveAgentExternalAttachment(jc.jobId, jc.workDir, filePath));
+    }
+    return attachments;
+}
+
 export function createExternalApplyTools(jc: JobToolContext) {
     const say = defineTool({
         name: "say",
@@ -36,10 +45,12 @@ export function createExternalApplyTools(jc: JobToolContext) {
             "Report progress to the user in the chat (non-blocking). Use a short sentence whenever you complete a meaningful step (page opened, a section filled, an obstacle found). Does not pause you.",
         parameters: Type.Object({
             message: Type.String({ description: "A short progress update for the user" }),
+            attachments: Type.Optional(Type.Array(Type.String({ description: "Paths to files inside the application work directory" }))),
         }),
         async execute(_id, params) {
             jc.toolCalls += 1;
-            postAgentMessage(jc.jobId, params.message);
+            const attachments = await saveAttachments(jc, params.attachments);
+            postAgentMessage(jc.jobId, params.message, attachments);
             return textResult("Posted.");
         },
     });
@@ -53,13 +64,17 @@ export function createExternalApplyTools(jc: JobToolContext) {
             question: Type.String({ description: "What you need from the user" }),
             nextAction: Type.Union([Type.Literal("needs_input"), Type.Literal("final_submit")]),
             remember: Type.Optional(Type.Boolean({ description: "Save this answer for future applications (reusable personal facts only)" })),
+            attachments: Type.Optional(Type.Array(Type.String({ description: "Paths to files inside the application work directory" }))),
         }),
         async execute(_id, params) {
             jc.toolCalls += 1;
             jc.vncSession = await jc.ensureVnc();
             const phase = isFinalSubmitQuestion(params.question, params.nextAction) ? "review" : "waiting";
-            const screenshotPath = jc.browser ? await takeBrowserScreenshot(jc.browser, jc.workDir, jc.jobId) : null;
-            const resolution = await askUser(jc.jobId, params.question, phase, screenshotPath ?? undefined);
+            const paths = [...(params.attachments ?? [])];
+            const screenshotPath = phase === "review" && jc.browser ? await takeBrowserScreenshot(jc.browser, jc.workDir, jc.jobId) : null;
+            if (screenshotPath) paths.push(screenshotPath);
+            const attachments = await saveAttachments(jc, paths);
+            const resolution = await askUser(jc.jobId, params.question, phase, screenshotPath ?? undefined, attachments);
             if (resolution.kind === "stop") {
                 jc.aborted = true;
                 return textResult(

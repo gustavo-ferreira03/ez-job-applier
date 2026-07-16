@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { SessionManager, createAgentSession } from "@earendil-works/pi-coding-agent";
+import { createAgentSession } from "@earendil-works/pi-coding-agent";
 import type { ResumeInput } from "resume-ci";
 import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
@@ -11,9 +11,10 @@ import { type VncSession } from "../../login/vnc";
 import { sessionFilePath } from "../../../providers/linkedin/browser";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
 import { launchBrowserMcp, bridgeBrowserTools, saveBrowserMcpStorageState, type BrowserMcp } from "./mcp";
-import { registerSession, postAgentMessage, updateVncSession } from "./state";
+import { bindExternalApplySession, registerSession, postAgentMessage, updateVncSession } from "./state";
 import { loadAgentMemory, formatAgentMemory } from "./memory";
 import { antiAiWritingRules } from "../../llm/anti-ai-writing-prompt";
+import { externalBrowserStatePath, openExternalApplySession } from "./persistence";
 
 function fail(jobId: number, error: string): ExternalApplyResult {
     postAgentMessage(jobId, `I couldn't continue: ${error}`);
@@ -42,6 +43,10 @@ export async function runExternalApply(
     const job = await ctx.jobRepo.getById(jobId);
     if (!job) return fail(jobId, `Job ${jobId} not found`);
     if (!job.applicationUrl) return fail(jobId, "Job has no external application URL");
+
+    const persisted = await openExternalApplySession(jobId, job.title);
+    bindExternalApplySession(jobId, persisted);
+    const continuingPersistedSession = persisted.manager.getEntries().some((entry) => entry.type === "message");
 
     const settings = await getSettings();
     const model = ctx.modelRegistry.find(settings.llm.provider, settings.llm.model);
@@ -72,7 +77,7 @@ export async function runExternalApply(
             }
         }
 
-        const jobStatePath = path.join(workDir, "external-storage-state.json");
+        const jobStatePath = await externalBrowserStatePath(jobId);
         const jc: JobToolContext = {
             jobId,
             workDir,
@@ -88,7 +93,12 @@ export async function runExternalApply(
         };
 
         jc.vncSession = await ensureVnc();
-        mcp = await launchBrowserMcp({ workDir, display: jc.vncSession.display, storageStatePath: sessionFilePath });
+        let initialStorageStatePath = sessionFilePath;
+        try {
+            await fs.access(jobStatePath);
+            initialStorageStatePath = jobStatePath;
+        } catch {}
+        mcp = await launchBrowserMcp({ workDir, display: jc.vncSession.display, storageStatePath: initialStorageStatePath });
         jc.browser = mcp;
         jc.fingerprintArgs = mcp.fingerprintArgs;
         const browserTools = bridgeBrowserTools(mcp, jc);
@@ -124,7 +134,8 @@ export async function runExternalApply(
         const suspendBrowser = async (): Promise<void> => {
             const browser = jc.browser;
             if (!browser) return;
-            await saveBrowserMcpStorageState(browser, workDir).catch(() => {});
+            const saved = await saveBrowserMcpStorageState(browser, workDir).catch(() => null);
+            if (saved) await fs.writeFile(jobStatePath, JSON.stringify(saved)).catch(() => {});
             jc.browser = null;
             mcp = null;
             await browser.close().catch(() => {});
@@ -138,7 +149,7 @@ export async function runExternalApply(
             cwd: workDir,
             noTools: "builtin",
             customTools: [...browserTools, ...createExternalApplyTools(jc)],
-            sessionManager: (SessionManager as unknown as { inMemory(): unknown }).inMemory() as never,
+            sessionManager: persisted.manager,
         });
 
         registerSession(jobId, {
@@ -156,6 +167,7 @@ export async function runExternalApply(
             "",
             "## Talking to the user",
             "- Use `say` to post a short progress update whenever you complete a meaningful step (opened the page, filled a section, hit an obstacle). Keep the user informed.",
+            "- `say` and `ask_user` accept optional attachment paths. Attach any useful file you create or download. Paths must be inside the application work directory.",
             "- Use `ask_user` when you need information you don't have, are unsure how to proceed, or want a decision. It waits for the user's reply.",
             "- The user may send you a message at any time; it arrives as a normal user message. Follow their instructions and acknowledge with `say`.",
             "- Write to the user in the same language as the job posting.",
@@ -192,8 +204,12 @@ export async function runExternalApply(
         ].filter((line) => line !== "").join("\n");
 
         const continueTask = [
-            "You stopped without completing the application.",
-            "Continue from the current browser state now.",
+            continuingPersistedSession
+                ? "This application is continuing in a new browser process. The conversation and tool history are preserved, but every old browser ref and snapshot is invalid."
+                : "You stopped without completing the application.",
+            "Call browser_snapshot before any browser action and continue from the current page.",
+            `Application URL: ${job.applicationUrl}`,
+            resumePdfPath ? `Résumé PDF for upload: ${resumePdfPath}` : "",
             "If you need information or confirmation, call `ask_user`.",
             "If the application was submitted, call `finish` with status='submitted'.",
             "If you cannot continue, call `ask_user` and explain the blocker instead of ending the turn.",
@@ -218,7 +234,7 @@ export async function runExternalApply(
                 }
                 modelError = null;
                 const toolCallsBefore = jc.toolCalls;
-                await session.prompt(attempt === 0 ? task : continueTask);
+                await session.prompt(attempt === 0 && !continuingPersistedSession ? task : continueTask);
                 if (jc.finishStatus || jc.aborted) break;
                 if (jc.toolCalls === toolCallsBefore) {
                     const reason = modelError ?? "the model returned no actions";

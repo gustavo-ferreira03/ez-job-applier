@@ -69,6 +69,15 @@ export class JobRepository implements IJobRepo {
         return row ? jobFromRow(row) : null;
     }
 
+    async getIdByProvider(provider: string, externalId: string): Promise<number | null> {
+        const [row] = await this.db
+            .select({ id: jobs.id })
+            .from(jobs)
+            .where(and(eq(jobs.provider, provider), eq(jobs.externalId, externalId)))
+            .limit(1);
+        return row?.id ?? null;
+    }
+
     async listIds(provider?: string): Promise<Set<string>> {
         const rows = provider
             ? await this.db

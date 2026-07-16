@@ -144,24 +144,29 @@ async function generateFilenameBase(
     return clean(result.filenameBase);
 }
 
-export async function tailorResume(
-    jobId: number,
+export interface Posting {
+    title: string;
+    company?: string | null;
+    location?: string | null;
+    skills?: string[];
+    about?: string | null;
+}
+
+export async function tailorResumeToPosting(
+    posting: Posting,
+    master: ResumeInput,
     ctx: AppContext,
-    masterName?: string,
     instructions?: string,
     flexibility: number = 2,
-): Promise<{ master: string }> {
-    const chosen = masterName ?? (await selectMaster(jobId, ctx));
-    const master = await ctx.resumeMasterRepo.readMasterParsed(chosen);
-    if (!master) {
-        throw new Error("No master resume found");
-    }
-
-    const job = await ctx.jobRepo.getById(jobId);
-    if (!job) {
-        throw new Error("Job not found");
-    }
-
+    label = "ad-hoc",
+): Promise<ResumeInput> {
+    const job = {
+        title: posting.title,
+        company: posting.company ?? "",
+        location: posting.location ?? "",
+        skills: posting.skills ?? [],
+        about: posting.about ?? null,
+    };
     const work = master.work ?? [];
     const skills = master.skills ?? [];
     const baseSystem = buildTailoringSystemPrompt({
@@ -213,28 +218,58 @@ export async function tailorResume(
         } catch (err) {
             if (err instanceof ResumeValidationError) {
                 const issues = err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-                console.warn(`[tailor] job ${jobId}: invalid resume (attempt ${attempt + 1}): ${issues}`);
+                console.warn(`[tailor] ${label}: invalid resume (attempt ${attempt + 1}): ${issues}`);
                 correction = ` The previous attempt produced an INVALID resume. Fix exactly these errors and return valid values: ${issues}.`;
                 continue;
             }
             throw err;
         }
         const filenameBase = await generateFilenameBase(ctx, tailored.basics?.name, job).catch((err) => {
-            console.warn(`[tailor] job ${jobId}: filename generation failed:`, err);
+            console.warn(`[tailor] ${label}: filename generation failed:`, err);
             return undefined;
         });
-        const tailoredWithMeta: ResumeInput = filenameBase
+        return filenameBase
             ? { ...tailored, meta: { ...(tailored.meta ?? {}), output_filename: filenameBase } }
             : tailored;
-        await ctx.resumeMasterRepo.writeTailored(jobId, tailoredWithMeta, {
-            master: chosen,
-            updatedAt: new Date().toISOString(),
-        });
-        return { master: chosen };
     }
 
-    console.warn(`[tailor] job ${jobId}: tailoring stayed invalid after repair; falling back to master`);
-    await ctx.resumeMasterRepo.writeTailored(jobId, master, {
+    console.warn(`[tailor] ${label}: tailoring stayed invalid after repair; falling back to master`);
+    return master;
+}
+
+export async function tailorResume(
+    jobId: number,
+    ctx: AppContext,
+    masterName?: string,
+    instructions?: string,
+    flexibility: number = 2,
+): Promise<{ master: string }> {
+    const chosen = masterName ?? (await selectMaster(jobId, ctx));
+    const master = await ctx.resumeMasterRepo.readMasterParsed(chosen);
+    if (!master) {
+        throw new Error("No master resume found");
+    }
+
+    const job = await ctx.jobRepo.getById(jobId);
+    if (!job) {
+        throw new Error("Job not found");
+    }
+
+    const tailored = await tailorResumeToPosting(
+        {
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            skills: job.skills,
+            about: job.about,
+        },
+        master,
+        ctx,
+        instructions,
+        flexibility,
+        `job ${jobId}`,
+    );
+    await ctx.resumeMasterRepo.writeTailored(jobId, tailored, {
         master: chosen,
         updatedAt: new Date().toISOString(),
     });

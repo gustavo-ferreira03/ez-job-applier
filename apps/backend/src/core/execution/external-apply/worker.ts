@@ -167,3 +167,14 @@ export function createExternalApplyWorker(ctx: AppContext, shouldStop: () => boo
 
     return { run, wake };
 }
+
+export async function startExternalApplyForJob(jobId: number, ctx: AppContext): Promise<{ started: boolean; reason?: string }> {
+    const job = await ctx.jobRepo.getById(jobId);
+    if (!job || job.applicationUrl == null) return { started: false, reason: "not an external job" };
+    if (isExternalApplyActive(jobId)) return { started: false, reason: "already running" };
+    if (!tryReserveWorkingSlot(jobId)) return { started: false, reason: "no free slot" };
+    void processOne(jobId, ctx)
+        .catch((e) => console.error(`[external-apply] on-demand crashed for job ${jobId}:`, e))
+        .finally(() => releaseWorkingSlotReservation(jobId));
+    return { started: true };
+}
