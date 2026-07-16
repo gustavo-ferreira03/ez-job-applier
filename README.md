@@ -1,7 +1,7 @@
 <!-- prettier-ignore -->
 <div align="center">
 
-<img src="./apps/frontend/src/lib/assets/favicon.svg" alt="EZJobApplier icon" align="center" height="72" />
+<img src="./apps/frontend/static/brand/logo.svg" alt="EZJobApplier logo" align="center" width="96" height="96" />
 
 # EZJobApplier
 

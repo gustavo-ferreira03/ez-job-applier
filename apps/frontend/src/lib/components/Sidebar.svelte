@@ -2,6 +2,7 @@
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
+	import logo from '$lib/assets/favicon.svg';
 	import type { Page, ExecutionStatus } from '$lib/types';
 
 	interface Props {
@@ -44,10 +45,11 @@
 >
 	<!-- Logo -->
 	<div
-		class="flex h-12 flex-shrink-0 items-center border-b border-border-subtle px-4 select-none md:h-14"
+		class="flex h-12 flex-shrink-0 items-center gap-1 border-b border-border-subtle px-3.5 select-none md:h-14"
 	>
-		<span class="text-sm font-extrabold tracking-tight text-text-primary">
-			<span class="text-accent-500">EZ</span>JobApplier
+		<img src={logo} alt="" class="h-5 w-5 shrink-0" aria-hidden="true" />
+		<span class="text-sm font-bold tracking-tight text-text-primary">
+			JobApplier
 		</span>
 	</div>
 
