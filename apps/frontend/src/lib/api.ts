@@ -289,8 +289,21 @@ export function getChatThread(id: string): Promise<ChatThreadDetail> {
 	return get(`/chat/threads/${id}`);
 }
 
-export function sendChatMessage(id: string, text: string): Promise<{ ok: boolean }> {
-	return post(`/chat/threads/${id}/message`, { text });
+export async function sendChatMessage(
+	id: string,
+	text: string,
+	files: File[] = []
+): Promise<{ ok: boolean }> {
+	if (files.length === 0) return post(`/chat/threads/${id}/message`, { text });
+	const form = new FormData();
+	form.set('text', text);
+	for (const file of files) form.append('files', file);
+	const res = await fetch(`${BASE}/chat/threads/${id}/message`, { method: 'POST', body: form });
+	if (!res.ok) {
+		const data = await res.json().catch(() => null);
+		throw new Error(data?.message || `${res.status} POST /chat/threads/${id}/message`);
+	}
+	return res.json() as Promise<{ ok: boolean }>;
 }
 
 export function renameChatThread(id: string, title: string): Promise<{ ok: boolean }> {

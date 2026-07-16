@@ -7,6 +7,8 @@
 	import PanelLeft from '@lucide/svelte/icons/panel-left';
 	import FileText from '@lucide/svelte/icons/file-text';
 	import Download from '@lucide/svelte/icons/download';
+	import Paperclip from '@lucide/svelte/icons/paperclip';
+	import X from '@lucide/svelte/icons/x';
 	import { renderChatMarkdown } from '$lib/chatMarkdown';
 	import { toastState } from '$lib/toast.svelte';
 	import {
@@ -19,11 +21,16 @@
 	} from '$lib/api';
 	import type { ChatThreadSummary, ChatMessage } from '$lib/types';
 
+	const ATTACH_ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.md,.csv,.json,.yml,.yaml';
+	const MAX_ATTACH_BYTES = 25 * 1024 * 1024;
+
 	let threads = $state<ChatThreadSummary[]>([]);
 	let activeId = $state<string | null>(null);
 	let messages = $state<ChatMessage[]>([]);
 	let busy = $state(false);
 	let draft = $state('');
+	let pendingFiles = $state<File[]>([]);
+	let fileInput = $state<HTMLInputElement>();
 	let sending = $state(false);
 	let loading = $state(true);
 	let confirmingDelete = $state<string | null>(null);
@@ -68,6 +75,34 @@
 		if (bytes < 1024) return `${bytes} B`;
 		if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	function addFiles(list: FileList | File[]) {
+		for (const file of Array.from(list)) {
+			if (file.size > MAX_ATTACH_BYTES) {
+				toastState.show(`${file.name} exceeds 25 MB`, 'error');
+				continue;
+			}
+			pendingFiles = [...pendingFiles, file];
+		}
+	}
+
+	function onFilesPicked(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		if (input.files?.length) addFiles(input.files);
+		input.value = '';
+	}
+
+	function removeFile(index: number) {
+		pendingFiles = pendingFiles.filter((_, i) => i !== index);
+	}
+
+	function onPaste(e: ClipboardEvent) {
+		const files = e.clipboardData?.files;
+		if (files?.length) {
+			e.preventDefault();
+			addFiles(files);
+		}
 	}
 
 	async function refreshThreads() {
@@ -144,11 +179,13 @@
 
 	async function send() {
 		const text = draft.trim();
-		if (!text || sending || busy) return;
-		const id = activeId ?? (await createThreadForMessage(text));
+		const files = pendingFiles;
+		if ((!text && files.length === 0) || sending || busy) return;
+		const id = activeId ?? (await createThreadForMessage(text || files[0].name));
 		if (!id) return;
 		sending = true;
 		draft = '';
+		pendingFiles = [];
 		stickToBottom = true;
 		messages = [
 			...messages,
@@ -157,13 +194,18 @@
 				threadId: id,
 				role: 'user',
 				content: text,
-				attachments: [],
+				attachments: files.map((f) => ({
+					id: crypto.randomUUID(),
+					filename: f.name,
+					mimeType: f.type,
+					size: f.size
+				})),
 				createdAt: new Date().toISOString()
 			}
 		];
 		busy = true;
 		try {
-			await sendChatMessage(id, text);
+			await sendChatMessage(id, text, files);
 			const latest = (await listChatThreads()).threads;
 			threads = latest.map((t) =>
 				t.id === id && t.title === 'New chat' ? { ...t, title: text.slice(0, 60).trim() || 'New chat' } : t
@@ -171,6 +213,7 @@
 		} catch (e) {
 			busy = false;
 			draft = text;
+			pendingFiles = files;
 			messages = messages.slice(0, -1);
 			toastState.show(e instanceof Error ? e.message : String(e), 'error');
 		} finally {
@@ -314,11 +357,13 @@
 					<div class="flex flex-col {m.role === 'user' ? 'items-end' : 'items-start'}" in:fly={{ y: 6, duration: 160 }}>
 						<span class="sr-only">{m.role === 'user' ? 'You' : 'Assistant'} at {timeOf(m.createdAt)}</span>
 						{#if m.role === 'user'}
-							<div
-								class="max-w-[85%] rounded-2xl bg-surface-overlay px-4 py-2.5 text-[15px] leading-[1.7] whitespace-pre-wrap text-text-primary break-words"
-							>
-								{m.content}
-							</div>
+							{#if m.content}
+								<div
+									class="max-w-[85%] rounded-2xl bg-surface-overlay px-4 py-2.5 text-[15px] leading-[1.7] whitespace-pre-wrap text-text-primary break-words"
+								>
+									{m.content}
+								</div>
+							{/if}
 						{:else}
 							<div class="w-full text-[15px] leading-[1.7] text-text-secondary break-words">
 								{@html renderChatMarkdown(m.content)}
@@ -326,7 +371,7 @@
 						{/if}
 
 						{#if m.attachments?.length}
-							<div class="mt-2.5 flex w-full flex-col gap-1.5">
+							<div class="mt-2.5 flex w-full flex-col gap-1.5 {m.role === 'user' ? 'items-end' : ''}">
 								{#each m.attachments as att (att.id)}
 									<a
 										href={chatAttachmentUrl(att.id)}
@@ -366,26 +411,67 @@
 		<div class="flex-shrink-0 px-4 pt-2 pb-5 md:px-6 lg:px-8">
 			<div class="mx-auto w-full max-w-4xl">
 				<div
-					class="flex items-end gap-2 rounded-2xl border border-border-default bg-surface-raised px-3.5 py-2.5 transition-colors duration-150 focus-within:border-border-strong"
+					class="rounded-2xl border border-border-default bg-surface-raised px-3.5 py-2.5 transition-colors duration-150 focus-within:border-border-strong"
 				>
-					<textarea
-						bind:this={composer}
-						bind:value={draft}
-						onkeydown={onInputKeydown}
-						rows="1"
-						placeholder="Ask anything, or paste a job link…"
-						aria-label="Message the assistant"
-						class="max-h-40 min-h-[28px] flex-1 resize-none overflow-y-auto bg-transparent py-0.5 text-[15px] leading-[1.6] text-text-primary placeholder:text-text-placeholder focus:outline-none focus-visible:!outline-none"
-					></textarea>
-					<button
-						type="button"
-						class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent-500 text-accent-text transition-colors duration-150 hover:bg-accent-600 disabled:cursor-default disabled:opacity-40"
-						onclick={send}
-						disabled={sending || busy || !draft.trim()}
-						aria-label="Send message"
-					>
-						<ArrowUp size={16} strokeWidth={2.25} aria-hidden="true" />
-					</button>
+					{#if pendingFiles.length > 0}
+						<div class="mb-2 flex flex-wrap gap-1.5">
+							{#each pendingFiles as file, i (i)}
+								<span
+									class="flex max-w-60 items-center gap-1.5 rounded-md border border-border-default bg-surface-overlay py-1 pr-1 pl-2 text-[12px] text-text-secondary"
+								>
+									<FileText size={12} strokeWidth={1.75} class="flex-shrink-0 text-text-muted" aria-hidden="true" />
+									<span class="min-w-0 truncate">{file.name}</span>
+									<span class="flex-shrink-0 text-text-faint">{formatSize(file.size)}</span>
+									<button
+										type="button"
+										class="flex-shrink-0 cursor-pointer rounded p-0.5 text-text-faint transition-colors duration-150 hover:text-text-primary focus-visible:outline-none"
+										onclick={() => removeFile(i)}
+										aria-label={`Remove ${file.name}`}
+									>
+										<X size={12} strokeWidth={2} aria-hidden="true" />
+									</button>
+								</span>
+							{/each}
+						</div>
+					{/if}
+					<div class="flex items-end gap-2">
+						<input
+							bind:this={fileInput}
+							type="file"
+							multiple
+							accept={ATTACH_ACCEPT}
+							class="hidden"
+							onchange={onFilesPicked}
+						/>
+						<button
+							type="button"
+							class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-text-muted transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary disabled:cursor-default disabled:opacity-40"
+							onclick={() => fileInput?.click()}
+							disabled={sending || busy}
+							aria-label="Attach files"
+						>
+							<Paperclip size={16} strokeWidth={1.75} aria-hidden="true" />
+						</button>
+						<textarea
+							bind:this={composer}
+							bind:value={draft}
+							onkeydown={onInputKeydown}
+							onpaste={onPaste}
+							rows="1"
+							placeholder="Ask anything, or paste a job link…"
+							aria-label="Message the assistant"
+							class="max-h-40 min-h-[28px] flex-1 resize-none overflow-y-auto bg-transparent py-0.5 text-[15px] leading-[1.6] text-text-primary placeholder:text-text-placeholder focus:outline-none focus-visible:!outline-none"
+						></textarea>
+						<button
+							type="button"
+							class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent-500 text-accent-text transition-colors duration-150 hover:bg-accent-600 disabled:cursor-default disabled:opacity-40"
+							onclick={send}
+							disabled={sending || busy || (!draft.trim() && pendingFiles.length === 0)}
+							aria-label="Send message"
+						>
+							<ArrowUp size={16} strokeWidth={2.25} aria-hidden="true" />
+						</button>
+					</div>
 				</div>
 				<p class="mt-2 text-center text-[11px] text-text-faint">
 					Enter to send, Shift+Enter for a new line. The assistant confirms before applying.

@@ -2,7 +2,8 @@ import crypto from "node:crypto";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import type { AppContext } from "../core/context";
-import { readAttachment } from "../core/chat/attachments";
+import { readAttachment, saveUserChatAttachment, validateUserChatAttachment } from "../core/chat/attachments";
+import type { ChatAttachment } from "../core/chat/types";
 import {
     createChatThread,
     deleteChatThread,
@@ -44,10 +45,26 @@ export function createChatRouter(ctx: AppContext): OpenAPIHono {
         const thread = (await getChatThread(id)) ?? (await createChatThread(id));
         if (!thread) throw new HTTPException(404, { message: "Thread not found" });
         if (isThreadBusy(id)) throw new HTTPException(409, { message: "The assistant is still replying" });
-        const body = await c.req.json().catch(() => ({}));
-        const text = typeof body?.text === "string" ? body.text.trim() : "";
-        if (!text) throw new HTTPException(400, { message: "text is required" });
-        void runChatTurn(id, text, ctx);
+        let text = "";
+        const attachments: ChatAttachment[] = [];
+        if ((c.req.header("content-type") ?? "").includes("multipart/form-data")) {
+            const form = await c.req.formData();
+            const rawText = form.get("text");
+            text = typeof rawText === "string" ? rawText.trim() : "";
+            const files = form.getAll("files").filter((value): value is File => value instanceof File);
+            if (!text && files.length === 0) throw new HTTPException(400, { message: "text or files are required" });
+            try {
+                files.forEach(validateUserChatAttachment);
+            } catch (e) {
+                throw new HTTPException(400, { message: e instanceof Error ? e.message : String(e) });
+            }
+            for (const file of files) attachments.push(await saveUserChatAttachment(file));
+        } else {
+            const body = await c.req.json().catch(() => ({}));
+            text = typeof body?.text === "string" ? body.text.trim() : "";
+            if (!text) throw new HTTPException(400, { message: "text is required" });
+        }
+        void runChatTurn(id, text, ctx, attachments);
         return c.json({ ok: true });
     });
 

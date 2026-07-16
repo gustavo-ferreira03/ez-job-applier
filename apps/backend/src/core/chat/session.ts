@@ -3,6 +3,7 @@ import path from "node:path";
 import { SessionManager, createAgentSession, type SessionEntry, type SessionInfo } from "@earendil-works/pi-coding-agent";
 import type { AppContext } from "../context";
 import { getSettings } from "../../repositories/settings";
+import { ATTACHMENT_CONTEXT_MARKER, buildAttachmentPrompt } from "./attachments";
 import { createChatTools } from "./tools";
 import type { ChatAttachment, ChatMessageRecord, ChatThread } from "./types";
 
@@ -24,6 +25,7 @@ function systemPrompt(): string {
         "Keep answers concise and direct. Do not invent facts about the user's pipeline — call a tool to check.",
         "When the user pastes a job link, you may ingest it. When they ask to tailor a résumé, apply, or check status, use the matching tool.",
         "You CAN read the candidate's résumé with read_resume. Never tell the user you have no access to it.",
+        "The user can attach files to a message. Images are shown to you directly; PDF and text contents arrive inlined under an [Attached files] block in the message. Never claim you cannot open an attachment that was inlined or shown to you.",
         "NEVER claim an action succeeded unless the tool result says it did. If a tool reports it refused, failed, or could not read something, tell the user exactly that. Do not soften it, do not report success, and never invent job titles, companies or ids — use only the values the tool returned.",
         "Answer in the chat itself: show the job details, the résumé content and the PDF link inline. Do not send the user to the pipeline to find something you can show here.",
         "Before applying to any job you MUST get an explicit confirmation from the user in the conversation; never apply on a first mention.",
@@ -51,7 +53,12 @@ function extractText(message: AgentMessage | undefined): string {
 
 function threadFromInfo(info: SessionInfo): ChatThread {
     const piName = info.name && info.name !== "New chat" ? info.name : undefined;
-    const firstMessage = info.firstMessage && info.firstMessage !== "(no messages)" ? info.firstMessage : undefined;
+    let firstMessage = info.firstMessage && info.firstMessage !== "(no messages)" ? info.firstMessage : undefined;
+    if (firstMessage) {
+        const markerAt = firstMessage.indexOf(ATTACHMENT_CONTEXT_MARKER.trim());
+        if (markerAt >= 0) firstMessage = firstMessage.slice(0, markerAt);
+        firstMessage = firstMessage.trim().slice(0, 80).trim() || undefined;
+    }
     return {
         id: info.id,
         title: piName || firstMessage || "New chat",
@@ -120,6 +127,7 @@ export async function deleteChatThread(id: string): Promise<void> {
 
 export function messagesFromSession(id: string, sm: SessionManager): ChatMessageRecord[] {
     const messages: ChatMessageRecord[] = [];
+    let pendingUserAttachments: ChatAttachment[] = [];
     for (const entry of sm.getEntries()) {
         if (entry.type === "custom_message" && entry.display) {
             const content = extractText({ role: "assistant", content: entry.content }).trim();
@@ -136,22 +144,34 @@ export function messagesFromSession(id: string, sm: SessionManager): ChatMessage
             continue;
         }
         if (entry.type === "custom" && entry.customType === ATTACHMENTS_TYPE) {
-            const data = entry.data as { attachments?: ChatAttachment[] } | undefined;
+            const data = entry.data as { attachments?: ChatAttachment[]; role?: string } | undefined;
+            if (!Array.isArray(data?.attachments)) continue;
+            if (data.role === "user") {
+                pendingUserAttachments.push(...data.attachments);
+                continue;
+            }
             const last = messages[messages.length - 1];
-            if (last?.role === "agent" && Array.isArray(data?.attachments)) last.attachments.push(...data.attachments);
+            if (last?.role === "agent") last.attachments.push(...data.attachments);
             continue;
         }
         if (entry.type === "message") {
             const role = entry.message.role;
             if (role !== "user" && role !== "assistant") continue;
-            const content = extractText(entry.message as AgentMessage).trim();
-            if (!content) continue;
+            let content = extractText(entry.message as AgentMessage).trim();
+            let attachments: ChatAttachment[] = [];
+            if (role === "user") {
+                const markerAt = content.indexOf(ATTACHMENT_CONTEXT_MARKER.trim());
+                if (markerAt >= 0) content = content.slice(0, markerAt).trim();
+                attachments = pendingUserAttachments;
+                pendingUserAttachments = [];
+            }
+            if (!content && attachments.length === 0) continue;
             messages.push({
                 id: entry.id,
                 threadId: id,
                 role: role === "user" ? "user" : "agent",
                 content,
-                attachments: [],
+                attachments,
                 createdAt: entry.timestamp,
             });
         }
@@ -159,7 +179,12 @@ export function messagesFromSession(id: string, sm: SessionManager): ChatMessage
     return messages;
 }
 
-export async function runChatTurn(threadId: string, userText: string, ctx: AppContext): Promise<void> {
+export async function runChatTurn(
+    threadId: string,
+    userText: string,
+    ctx: AppContext,
+    userAttachments: ChatAttachment[] = [],
+): Promise<void> {
     if (busyThreads.has(threadId)) return;
     busyThreads.add(threadId);
     try {
@@ -198,8 +223,11 @@ export async function runChatTurn(threadId: string, userText: string, ctx: AppCo
             }
         });
 
+        if (userAttachments.length > 0) sm.appendCustomEntry(ATTACHMENTS_TYPE, { attachments: userAttachments, role: "user" });
+        const { contextText, images } = await buildAttachmentPrompt(userAttachments);
+
         try {
-            await session.prompt(userText);
+            await session.prompt(`${userText}${contextText}`, images.length > 0 ? { images } : undefined);
         } catch (e) {
             sm.appendCustomMessageEntry("job-applier-assistant-error", `The model couldn't respond: ${String(e)}`, true);
             flushSessionFile(sm);
