@@ -190,12 +190,12 @@
 		messages = [
 			...messages,
 			{
-				id: crypto.randomUUID(),
+				id: '',
 				threadId: id,
 				role: 'user',
 				content: text,
 				attachments: files.map((f) => ({
-					id: crypto.randomUUID(),
+					id: '',
 					filename: f.name,
 					mimeType: f.type,
 					size: f.size
@@ -353,7 +353,7 @@
 					</div>
 				{/if}
 
-				{#each messages as m (m.id)}
+				{#each messages as m, i (i)}
 					<div class="flex flex-col {m.role === 'user' ? 'items-end' : 'items-start'}" in:fly={{ y: 6, duration: 160 }}>
 						<span class="sr-only">{m.role === 'user' ? 'You' : 'Assistant'} at {timeOf(m.createdAt)}</span>
 						{#if m.role === 'user'}
@@ -372,7 +372,7 @@
 
 						{#if m.attachments?.length}
 							<div class="mt-2.5 flex w-full flex-col gap-1.5 {m.role === 'user' ? 'items-end' : ''}">
-								{#each m.attachments as att (att.id)}
+								{#each m.attachments as att, j (j)}
 									<a
 										href={chatAttachmentUrl(att.id)}
 										target="_blank"
