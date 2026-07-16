@@ -151,7 +151,36 @@ export interface KanbanColumn {
 	columnClass?: string;
 }
 
-export type Page = 'pipeline' | 'configuracoes';
+export type Page = 'pipeline' | 'chat' | 'configuracoes';
+
+export interface ChatThreadSummary {
+	id: string;
+	title: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface ChatAttachment {
+	id: string;
+	filename: string;
+	mimeType: string;
+	size: number;
+}
+
+export interface ChatMessage {
+	id: string;
+	threadId: string;
+	role: 'user' | 'agent';
+	content: string;
+	attachments: ChatAttachment[];
+	createdAt: string;
+}
+
+export interface ChatThreadDetail {
+	thread: ChatThreadSummary;
+	messages: ChatMessage[];
+	busy: boolean;
+}
 
 export interface ExecutionStatus {
 	active: boolean;
@@ -172,6 +201,15 @@ export interface ExternalApplyMessage {
 	role: 'agent' | 'user';
 	text: string;
 	ts: number;
+	attachments: ExternalApplyAttachment[];
+}
+
+export interface ExternalApplyAttachment {
+	id: string;
+	filename: string;
+	mimeType: string;
+	size: number;
+	url: string;
 }
 
 export interface ExternalApplySessionStatus {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
+	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
 	import logo from '$lib/assets/favicon.svg';
@@ -36,6 +37,7 @@
 
 	const navItems: { page: Page; label: string; icon: typeof LayoutDashboard }[] = [
 		{ page: 'pipeline', label: 'Pipeline', icon: LayoutDashboard },
+		{ page: 'chat', label: 'Assistant', icon: MessageSquare },
 		{ page: 'configuracoes', label: 'Settings', icon: Settings }
 	];
 </script>

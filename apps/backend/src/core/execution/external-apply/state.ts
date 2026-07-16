@@ -1,5 +1,13 @@
 import crypto from "node:crypto";
+import type { SessionManager } from "@earendil-works/pi-coding-agent";
 import { agentAttention } from "../../events";
+import {
+    appendExternalMessage,
+    appendExternalState,
+    type ExternalApplyAttachment,
+    type ExternalApplyAttachmentView,
+    type ExternalApplySessionRecord,
+} from "./persistence";
 
 export type ExternalApplyPhase = "idle" | "working" | "waiting" | "review" | "submitted" | "failed";
 
@@ -21,6 +29,7 @@ export interface ChatMessage {
     role: "agent" | "user";
     text: string;
     ts: number;
+    attachments: ExternalApplyAttachmentView[];
 }
 
 export interface ExternalApplySessionStatus {
@@ -59,6 +68,7 @@ interface RuntimeSession {
     idleTimer: ReturnType<typeof setTimeout> | null;
     transitioning: boolean;
     resumeFailures: number;
+    manager: SessionManager | null;
 }
 
 const sessions = new Map<number, RuntimeSession>();
@@ -118,6 +128,7 @@ function setPhase(session: RuntimeSession, phase: ExternalApplyPhase): void {
     const previous = session.status.phase;
     if (phase === "working") workingReservations.delete(session.status.jobId);
     session.status.phase = phase;
+    persistState(session);
     session.onPhase?.(phase);
     if (previous === "working" && phase !== "working") wakeWorkingWaiters();
     if (phase === "waiting" || phase === "review") armIdleTimer(session);
@@ -149,6 +160,7 @@ async function hibernate(session: RuntimeSession): Promise<void> {
         await session.handle.suspend();
         session.status.suspended = true;
         session.status.vncSessionId = null;
+        persistState(session);
     } catch (e) {
         console.error(`[external-apply] hibernate failed for job ${session.status.jobId}:`, e);
     } finally {
@@ -164,6 +176,7 @@ async function wakeFromHibernation(session: RuntimeSession): Promise<boolean> {
         await session.handle.resume();
         session.status.suspended = false;
         session.resumeFailures = 0;
+        persistState(session);
         return true;
     } catch (e) {
         console.error(`[external-apply] resume failed for job ${session.status.jobId}:`, e);
@@ -182,6 +195,16 @@ function abortSuspendedSession(session: RuntimeSession): void {
     session.pendingAsk = null;
     session.handle?.abort();
     resolve?.({ kind: "stop" });
+}
+
+function persistState(session: RuntimeSession): void {
+    if (!session.manager) return;
+    appendExternalState(session.manager, {
+        active: session.status.active,
+        phase: session.status.phase,
+        suspended: session.status.suspended,
+        title: session.status.title,
+    });
 }
 
 export function updateVncSession(jobId: number, vncSessionId: string | null): void {
@@ -212,15 +235,23 @@ export function noteVncDisconnect(vncSessionId: string): void {
 export async function resumeExternalApply(jobId: number): Promise<boolean> {
     const session = getSession(jobId);
     if (!session || !session.status.active) return false;
+    if (session.status.suspended && !session.handle) return false;
     return wakeFromHibernation(session);
 }
 
-function push(session: RuntimeSession, role: ChatMessage["role"], text: string): void {
-    session.status.messages.push({ id: crypto.randomUUID(), role, text, ts: Date.now() });
+function push(session: RuntimeSession, role: ChatMessage["role"], text: string, attachments: ExternalApplyAttachment[] = []): void {
+    const visibleAttachments = attachments.map(({ localPath: _localPath, ...attachment }) => attachment);
+    const message = { id: crypto.randomUUID(), role, text, ts: Date.now(), attachments: visibleAttachments };
+    session.status.messages.push(message);
+    if (session.manager) appendExternalMessage(session.manager, message);
 }
 
 export function getExternalApplyStatus(): ExternalApplyStatus {
     return { sessions: [...sessions.values()].map(publicStatus) };
+}
+
+export function hasExternalApplySession(jobId: number): boolean {
+    return sessions.has(jobId);
 }
 
 export function beginJob(
@@ -229,6 +260,7 @@ export function beginJob(
     vncSessionId: string,
     phaseListener: (phase: ExternalApplyPhase) => void,
 ): void {
+    const previous = sessions.get(jobId);
     const session: RuntimeSession = {
         status: {
             active: true,
@@ -237,7 +269,7 @@ export function beginJob(
             vncSessionId,
             phase: "working",
             suspended: false,
-            messages: [],
+            messages: previous?.status.messages ?? [],
         },
         pendingAsk: null,
         handle: null,
@@ -247,10 +279,59 @@ export function beginJob(
         idleTimer: null,
         transitioning: false,
         resumeFailures: 0,
+        manager: previous?.manager ?? null,
     };
     sessions.set(jobId, session);
     workingReservations.delete(jobId);
     phaseListener("working");
+    persistState(session);
+}
+
+export function bindExternalApplySession(jobId: number, record: ExternalApplySessionRecord): void {
+    const session = requireSession(jobId);
+    session.manager = record.manager;
+    if (session.status.messages.length === 0) session.status.messages = [...record.messages];
+    persistState(session);
+}
+
+export function hydrateExternalApplySessions(records: ExternalApplySessionRecord[]): void {
+    for (const record of records) {
+        const interrupted = record.state.active;
+        sessions.set(record.jobId, {
+            status: {
+                active: interrupted,
+                jobId: record.jobId,
+                title: record.state.title,
+                vncSessionId: null,
+                phase: record.state.phase,
+                suspended: interrupted,
+                messages: [...record.messages],
+            },
+            pendingAsk: null,
+            handle: null,
+            onPhase: null,
+            stopping: false,
+            watchers: 0,
+            idleTimer: null,
+            transitioning: false,
+            resumeFailures: 0,
+            manager: record.manager,
+        });
+    }
+}
+
+export function takeRestoredSessionForResume(jobId: number): boolean {
+    const session = getSession(jobId);
+    if (!session || !session.status.active || !session.status.suspended || session.handle) return false;
+    session.status.active = false;
+    return true;
+}
+
+export function restoreSuspendedSession(jobId: number): void {
+    const session = getSession(jobId);
+    if (!session || session.handle) return;
+    session.status.active = true;
+    session.status.suspended = true;
 }
 
 export function registerSession(jobId: number, handle: SessionHandle): void {
@@ -270,20 +351,27 @@ export function endJob(jobId: number, phase: "submitted" | "failed"): void {
     session.handle = null;
     session.onPhase = null;
     session.stopping = false;
+    persistState(session);
     workingReservations.delete(jobId);
     cancelWorkingWait(jobId);
     if (previous === "working") wakeWorkingWaiters();
 }
 
-export function postAgentMessage(jobId: number, text: string): void {
+export function postAgentMessage(jobId: number, text: string, attachments: ExternalApplyAttachment[] = []): void {
     const session = getSession(jobId);
-    if (session && text.trim()) push(session, "agent", text.trim());
+    if (session && (text.trim() || attachments.length > 0)) push(session, "agent", text.trim(), attachments);
 }
 
-export function askUser(jobId: number, question: string, phase: "waiting" | "review" = "waiting", screenshotPath?: string): Promise<AskResolution> {
+export function askUser(
+    jobId: number,
+    question: string,
+    phase: "waiting" | "review" = "waiting",
+    screenshotPath?: string,
+    attachments: ExternalApplyAttachment[] = [],
+): Promise<AskResolution> {
     const session = requireSession(jobId);
     const trimmed = question.trim();
-    if (trimmed) push(session, "agent", trimmed);
+    if (trimmed || attachments.length > 0) push(session, "agent", trimmed, attachments);
     setPhase(session, phase);
     agentAttention.emit({ jobId, title: session.status.title, question: trimmed, phase, screenshotPath });
     return new Promise<AskResolution>((resolve) => {
@@ -291,10 +379,18 @@ export function askUser(jobId: number, question: string, phase: "waiting" | "rev
     });
 }
 
-export async function sendUserMessage(jobId: number, text: string): Promise<boolean> {
-    const trimmed = text.trim();
+export async function sendUserMessage(jobId: number, text: string, attachments: ExternalApplyAttachment[] = []): Promise<boolean> {
+    const trimmed = text.trim() || (attachments.length > 0 ? "I attached files for this application." : "");
     const session = getSession(jobId);
-    if (!trimmed || !session || !session.status.active) return false;
+    if (!trimmed || !session) return false;
+    const attachmentContext = attachments.length > 0
+        ? `\n\nAttached files available locally:\n${attachments.map((a) => `- ${a.filename}: ${a.localPath}`).join("\n")}`
+        : "";
+    if (!session.status.active || !session.handle) {
+        push(session, "user", trimmed, attachments);
+        session.manager?.appendCustomMessageEntry("external-apply-pending-user-message", `${trimmed}${attachmentContext}`, false, { attachments });
+        return true;
+    }
     if (session.pendingAsk) {
         const resolve = session.pendingAsk;
         const ok = await waitForWorkingSlot(jobId);
@@ -310,13 +406,13 @@ export async function sendUserMessage(jobId: number, text: string): Promise<bool
                 return false;
             }
         }
-        push(current, "user", trimmed);
+        push(current, "user", trimmed, attachments);
         current.pendingAsk = null;
         setPhase(current, "working");
-        resolve({ kind: "reply", text: trimmed });
+        resolve({ kind: "reply", text: `${trimmed}${attachmentContext}` });
     } else {
-        push(session, "user", trimmed);
-        session.handle?.steer(trimmed);
+        push(session, "user", trimmed, attachments);
+        session.handle?.steer(`${trimmed}${attachmentContext}`);
     }
     return true;
 }

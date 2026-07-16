@@ -5,6 +5,7 @@
 	import KanbanBoard from '$lib/components/kanban/KanbanBoard.svelte';
 	import JobModal from '$lib/components/JobModal.svelte';
 	import SettingsView from '$lib/components/SettingsView.svelte';
+	import ChatView from '$lib/components/ChatView.svelte';
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import ExternalApplyModal from '$lib/components/ExternalApplyModal.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -78,11 +79,13 @@
 
 	const pageTitles: Record<Page, string> = {
 		pipeline: 'Pipeline',
+		chat: 'Assistant',
 		configuracoes: 'Settings'
 	};
 
 	const pageDescriptions: Record<Page, string> = {
 		pipeline: 'Move each application through review, questions, submission, or rejection.',
+		chat: 'Talk to the assistant; paste job links and ask it to tailor or apply.',
 		configuracoes: 'Define the profile used by automatic execution.'
 	};
 
@@ -122,7 +125,7 @@
 	/>
 
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-		{#if activePage !== 'configuracoes'}
+		{#if activePage !== 'configuracoes' && activePage !== 'chat'}
 			<header
 				class="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-base/95 px-4 py-3 md:px-5 md:py-4"
 			>
@@ -164,6 +167,8 @@
 				<div class="h-full" in:fade={{ duration: 120 }}>
 					{#if activePage === 'pipeline'}
 						<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
+					{:else if activePage === 'chat'}
+						<ChatView />
 					{:else if activePage === 'configuracoes'}
 						<SettingsView />
 					{/if}

@@ -4,12 +4,15 @@
 	import { modalTransition } from '$lib/transitions';
 	import { trapFocus } from '$lib/focusTrap';
 	import { appState } from '$lib/state.svelte';
-	import { sendExternalApplyMessage, stopExternalApply, resumeExternalApply } from '$lib/api';
+	import { externalApplyAttachmentUrl, sendExternalApplyMessage, stopExternalApply, resumeExternalApply } from '$lib/api';
 	import { toastState } from '$lib/toast.svelte';
 	import { renderChatMarkdown } from '$lib/chatMarkdown';
 	import X from '@lucide/svelte/icons/x';
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import Square from '@lucide/svelte/icons/square';
+	import Paperclip from '@lucide/svelte/icons/paperclip';
+	import FileText from '@lucide/svelte/icons/file-text';
+	import Download from '@lucide/svelte/icons/download';
 
 	interface Props {
 		jobId: number;
@@ -18,8 +21,9 @@
 
 	let { jobId, onClose }: Props = $props();
 
+	const persistedStatus = $derived(appState.externalApply.sessions.find((session) => session.jobId === jobId));
 	const status = $derived(
-		appState.externalApply.sessions.find((session) => session.jobId === jobId) ?? {
+		persistedStatus ?? {
 			active: false,
 			jobId,
 			title: 'External application',
@@ -40,6 +44,9 @@
 	let composer = $state<HTMLTextAreaElement>();
 	let stickToBottom = $state(true);
 	let mobilePane = $state<'browser' | 'chat'>('browser');
+	let selectedFiles = $state<File[]>([]);
+	let fileInput = $state<HTMLInputElement>();
+	let draggingFiles = $state(false);
 
 	const needsAttention = $derived(status.phase === 'waiting' || status.phase === 'review');
 
@@ -48,6 +55,9 @@
 	});
 
 	const QUICK_REPLIES = ['Continue', 'Submit it', 'Looks good'];
+	const SAFE_EXTENSIONS = new Set([
+		'pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'txt', 'md', 'csv', 'json', 'doc', 'docx', 'odt', 'rtf'
+	]);
 
 	const phaseLabel = $derived(
 		(
@@ -101,13 +111,44 @@
 		composer.style.height = `${Math.min(composer.scrollHeight, 112)}px`;
 	}
 
-	async function send(text: string) {
+	function formatSize(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	function addFiles(files: File[]) {
+		const allowed = files.filter((file) => {
+			const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+			return file.size <= 25 * 1024 * 1024 && SAFE_EXTENSIONS.has(extension);
+		});
+		if (allowed.length !== files.length) {
+			toastState.show('Use PDF, images, documents, or text files up to 25 MB.', 'error');
+		}
+		selectedFiles = [...selectedFiles, ...allowed].filter(
+			(file, index, all) => all.findIndex((other) => other.name === file.name && other.size === file.size) === index
+		);
+	}
+
+	function onDrop(e: DragEvent) {
+		e.preventDefault();
+		draggingFiles = false;
+		addFiles(Array.from(e.dataTransfer?.files ?? []));
+	}
+
+	function onPaste(e: ClipboardEvent) {
+		const files = Array.from(e.clipboardData?.files ?? []);
+		if (files.length > 0) addFiles(files);
+	}
+
+	async function send(text: string, files: File[] = []) {
 		const value = text.trim();
-		if (!value || sending) return;
+		if ((!value && files.length === 0) || sending) return;
 		sending = true;
 		try {
-			await sendExternalApplyMessage(jobId, value);
+			await sendExternalApplyMessage(jobId, value, files);
 			draft = '';
+			selectedFiles = [];
 			await tick();
 			resizeComposer();
 			await appState.refreshExternalApply();
@@ -153,7 +194,7 @@
 	function onInputKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
-			send(draft);
+			send(draft, selectedFiles);
 		}
 	}
 
@@ -300,7 +341,13 @@
 
 			<!-- Chat rail -->
 			<aside
-				class="min-h-0 flex-1 flex-col bg-surface-sidebar {mobilePane === 'chat' ? 'flex' : 'hidden'} md:flex md:h-auto md:w-[360px] md:flex-none"
+				class="min-h-0 flex-1 flex-col bg-surface-sidebar transition-shadow {draggingFiles ? 'ring-2 ring-inset ring-accent-500' : ''} {mobilePane === 'chat' ? 'flex' : 'hidden'} md:flex md:h-auto md:w-[360px] md:flex-none"
+				ondragover={(e) => {
+					e.preventDefault();
+					draggingFiles = true;
+				}}
+				ondragleave={() => (draggingFiles = false)}
+				ondrop={onDrop}
 			>
 				<div bind:this={scroller} onscroll={onScroll} class="flex-1 space-y-3 overflow-y-auto px-3.5 py-4">
 					{#if messages.length === 0}
@@ -314,7 +361,7 @@
 							in:fly={{ y: 6, duration: 160 }}
 						>
 							<div
-								class="chat-rich max-w-[88%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed break-words {m.role ===
+								class="max-w-[88%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed break-words {m.role ===
 								'user'
 									? 'bg-surface-hover text-text-primary'
 									: 'bg-surface-overlay text-text-secondary'}"
@@ -324,6 +371,42 @@
 							<span class="mt-1 px-1 text-[10px] text-text-faint">
 								{m.role === 'user' ? 'You' : 'Agent'} · {timeOf(m.ts)}
 							</span>
+							{#if m.attachments?.length}
+								<div class="mt-2 flex w-full max-w-[88%] flex-col gap-1.5 {m.role === 'user' ? 'items-end' : 'items-start'}">
+									{#each m.attachments as attachment (attachment.id)}
+										{#if attachment.mimeType.startsWith('image/')}
+											<a
+												href={externalApplyAttachmentUrl(attachment.url)}
+												target="_blank"
+												rel="noreferrer"
+												class="block overflow-hidden rounded-lg border border-border-default bg-surface-raised"
+											>
+												<img
+													src={externalApplyAttachmentUrl(attachment.url)}
+													alt={attachment.filename}
+													class="max-h-48 w-full object-contain"
+												/>
+												<span class="block truncate px-2.5 py-1.5 text-[11px] text-text-muted">{attachment.filename}</span>
+											</a>
+										{:else}
+											<a
+												href={externalApplyAttachmentUrl(attachment.url)}
+												target="_blank"
+												rel="noreferrer"
+												download={attachment.filename}
+												class="group/attachment flex w-full items-center gap-2 rounded-lg border border-border-default bg-surface-raised px-2.5 py-2 transition-colors hover:border-border-strong hover:bg-surface-overlay"
+											>
+												<FileText size={15} class="shrink-0 text-text-muted" aria-hidden="true" />
+												<span class="min-w-0 flex-1">
+													<span class="block truncate text-[11.5px] text-text-primary">{attachment.filename}</span>
+													<span class="block text-[10px] text-text-faint">{formatSize(attachment.size)}</span>
+												</span>
+												<Download size={13} class="shrink-0 text-text-faint group-hover/attachment:text-text-secondary" aria-hidden="true" />
+											</a>
+										{/if}
+									{/each}
+								</div>
+							{/if}
 						</div>
 					{/each}
 					{#if status.phase === 'working'}
@@ -350,24 +433,63 @@
 							{/each}
 						</div>
 					{/if}
+					{#if selectedFiles.length > 0}
+						<div class="mb-2 flex flex-wrap gap-1.5">
+							{#each selectedFiles as file, index (`${file.name}-${file.size}`)}
+								<div class="flex max-w-full items-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-2 py-1 text-[10.5px] text-text-secondary">
+									<FileText size={12} class="shrink-0" aria-hidden="true" />
+									<span class="max-w-40 truncate">{file.name}</span>
+									<button
+										type="button"
+										class="rounded text-text-faint hover:text-text-primary"
+										onclick={() => (selectedFiles = selectedFiles.filter((_, i) => i !== index))}
+										aria-label={`Remove ${file.name}`}
+									>
+										<X size={11} aria-hidden="true" />
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
 					<div
 						class="flex items-end gap-2 rounded-md border border-border-default bg-surface-base px-2.5 py-1.5 focus-within:border-border-strong"
 					>
+						<input
+							bind:this={fileInput}
+							type="file"
+							multiple
+							accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv,.json,.doc,.docx,.odt,.rtf"
+							class="hidden"
+							onchange={(e) => {
+								addFiles(Array.from(e.currentTarget.files ?? []));
+								e.currentTarget.value = '';
+							}}
+						/>
+						<button
+							type="button"
+							class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-40"
+							onclick={() => fileInput?.click()}
+							disabled={!persistedStatus || sending}
+							aria-label="Attach files"
+						>
+							<Paperclip size={14} aria-hidden="true" />
+						</button>
 						<textarea
 							bind:this={composer}
 							class="max-h-28 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-[12.5px] text-text-primary placeholder:text-text-placeholder focus:outline-none focus-visible:!outline-none"
 							rows="1"
-							placeholder={status.active ? 'Tell the agent how to proceed…' : 'No active session'}
+							placeholder={status.active ? 'Tell the agent how to proceed…' : 'Leave instructions for the next attempt…'}
 							bind:value={draft}
 							oninput={resizeComposer}
+							onpaste={onPaste}
 							onkeydown={onInputKeydown}
-							disabled={!status.active || sending}
+							disabled={!persistedStatus || sending}
 						></textarea>
 						<button
 							type="button"
 							class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-500 text-accent-text transition-colors hover:bg-accent-600 disabled:opacity-40"
-							onclick={() => send(draft)}
-							disabled={!status.active || sending || !draft.trim()}
+							onclick={() => send(draft, selectedFiles)}
+							disabled={!persistedStatus || sending || (!draft.trim() && selectedFiles.length === 0)}
 							aria-label="Send message"
 						>
 							<ArrowUp size={15} />
@@ -387,71 +509,6 @@
 			padding-bottom: env(safe-area-inset-bottom);
 			padding-left: env(safe-area-inset-left);
 		}
-	}
-
-	.chat-rich :global(p + p),
-	.chat-rich :global(p + ul),
-	.chat-rich :global(p + ol),
-	.chat-rich :global(ul + p),
-	.chat-rich :global(ol + p),
-	.chat-rich :global(pre + p) {
-		margin-top: 0.5rem;
-	}
-
-	.chat-rich :global(ul),
-	.chat-rich :global(ol) {
-		margin: 0.35rem 0 0;
-		padding-left: 1rem;
-	}
-
-	.chat-rich :global(ul) {
-		list-style: disc;
-	}
-
-	.chat-rich :global(ol) {
-		list-style: decimal;
-	}
-
-	.chat-rich :global(li + li) {
-		margin-top: 0.2rem;
-	}
-
-	.chat-rich :global(strong) {
-		font-weight: 600;
-		color: var(--color-text-primary);
-	}
-
-	.chat-rich :global(em) {
-		color: var(--color-text-primary);
-		font-style: italic;
-	}
-
-	.chat-rich :global(a) {
-		color: var(--color-accent-500);
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	.chat-rich :global(code) {
-		border-radius: 0.25rem;
-		background: var(--color-surface-base);
-		padding: 0.05rem 0.25rem;
-		font-size: 0.92em;
-		color: var(--color-text-primary);
-	}
-
-	.chat-rich :global(pre) {
-		margin-top: 0.5rem;
-		max-width: 100%;
-		overflow-x: auto;
-		border-radius: 0.375rem;
-		background: var(--color-surface-base);
-		padding: 0.5rem;
-	}
-
-	.chat-rich :global(pre code) {
-		background: transparent;
-		padding: 0;
 	}
 
 </style>

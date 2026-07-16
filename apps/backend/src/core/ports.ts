@@ -12,6 +12,7 @@ export interface TailoredResumeMeta {
 export interface IJobRepo {
     getById(id: number): Promise<Job | null>;
     getByProvider(provider: string, externalId: string): Promise<Job | null>;
+    getIdByProvider(provider: string, externalId: string): Promise<number | null>;
     listIds(provider?: string): Promise<Set<string>>;
     listSkipIds(provider: string): Promise<Set<string>>;
     save(job: Job): Promise<void>;
