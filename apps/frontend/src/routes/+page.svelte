@@ -41,7 +41,7 @@
 	async function handleStartExecution() {
 		const config = appState.settings.general.execution;
 		if (!config.keywords?.trim() || !appState.settings.general.defaultResume) {
-			activePage = 'configuracoes';
+			activePage = 'settings';
 			toastState.show('Configure keywords and a default resume before starting', 'error');
 			return;
 		}
@@ -80,13 +80,13 @@
 	const pageTitles: Record<Page, string> = {
 		pipeline: 'Pipeline',
 		chat: 'Assistant',
-		configuracoes: 'Settings'
+		settings: 'Settings'
 	};
 
 	const pageDescriptions: Record<Page, string> = {
 		pipeline: 'Move each application through review, questions, submission, or rejection.',
 		chat: 'Talk to the assistant; paste job links and ask it to tailor or apply.',
-		configuracoes: 'Define the profile used by automatic execution.'
+		settings: 'Define the profile used by automatic execution.'
 	};
 
 	const actionCounts = $derived({
@@ -125,7 +125,7 @@
 	/>
 
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-		{#if activePage !== 'configuracoes' && activePage !== 'chat'}
+		{#if activePage !== 'settings' && activePage !== 'chat'}
 			<header
 				class="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-base/95 px-4 py-3 md:px-5 md:py-4"
 			>
@@ -169,7 +169,7 @@
 						<KanbanBoard jobs={appState.jobs} onOpenJob={openJob} />
 					{:else if activePage === 'chat'}
 						<ChatView />
-					{:else if activePage === 'configuracoes'}
+					{:else if activePage === 'settings'}
 						<SettingsView />
 					{/if}
 				</div>

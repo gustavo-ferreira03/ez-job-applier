@@ -3,7 +3,7 @@ services:
     build:
       context: .
       args:
-        PUBLIC_API_URL: ${PUBLIC_API_URL}
+        PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3000}
     init: true
     shm_size: "1gb"
     restart: unless-stopped

@@ -38,7 +38,7 @@
 	const navItems: { page: Page; label: string; icon: typeof LayoutDashboard }[] = [
 		{ page: 'pipeline', label: 'Pipeline', icon: LayoutDashboard },
 		{ page: 'chat', label: 'Assistant', icon: MessageSquare },
-		{ page: 'configuracoes', label: 'Settings', icon: Settings }
+		{ page: 'settings', label: 'Settings', icon: Settings }
 	];
 </script>
 

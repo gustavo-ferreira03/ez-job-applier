@@ -12,6 +12,7 @@ _A local control room for finding jobs, tailoring resumes, and supervising appli
 [![Svelte](https://img.shields.io/badge/Svelte_5-ff3e00?style=flat-square&logo=svelte&logoColor=white)](https://svelte.dev/)
 [![pnpm](https://img.shields.io/badge/pnpm-10.30.1-f69220?style=flat-square&logo=pnpm&logoColor=white)](https://pnpm.io/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ed?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
 
 [Overview](#overview) | [Quick start](#quick-start) | [How it works](#how-it-works) | [Configuration](#configuration) | [Development](#development) | [Troubleshooting](#troubleshooting)
 
@@ -72,8 +73,10 @@ Docker supplies Chromium dependencies, Cloak Browser, Xvfb, x11vnc, Typst, and d
 ```bash
 git clone https://github.com/gustavo-ferreira03/ez-job-applier.git
 cd ez-job-applier
-PUBLIC_API_URL=http://localhost:3000 docker compose up --build
+docker compose up --build
 ```
+
+The frontend defaults to `http://localhost:3000` for the API. To point it elsewhere, copy `.env.example` to `.env` and set `PUBLIC_API_URL`.
 
 Open `http://localhost:3001`. The API and its reference page are available at `http://localhost:3000` and `http://localhost:3000/docs`.
 
@@ -151,7 +154,11 @@ On Linux, Playwright can install its Chromium system packages:
 pnpm -C apps/backend exec playwright-core install-deps chromium
 ```
 
-Create `apps/frontend/.env`:
+Create `apps/frontend/.env` (copy the provided example):
+
+```bash
+cp apps/frontend/.env.example apps/frontend/.env
+```
 
 ```dotenv
 PUBLIC_API_URL=http://localhost:3000
@@ -203,10 +210,7 @@ By default, the backend writes persistent data under `apps/backend/storage`:
 | `resume/templates/`                                         | Typst templates                                             |
 | `*-auth.json`, `linkedin-session.json`, `agent-memory.json` | Provider tokens, browser state, and remembered form answers |
 
-These files may contain personal data and access tokens. Back them up only to encrypted storage, and don't bake a populated `storage` directory into a Docker image.
-
-> [!WARNING]
-> The repository doesn't currently include a `.dockerignore`. Docker can add ignored local files, including a populated `apps/backend/storage`, to image layers during `docker compose build`. Clear or move sensitive runtime data before rebuilding the image.
+These files may contain personal data and access tokens. Back them up only to encrypted storage. The included `.dockerignore` keeps the `storage` directory out of image builds, but you should still avoid copying a populated `storage` directory into any image you distribute.
 
 The **Clear database** action removes jobs, applications, and their questions. It keeps settings, execution history, resumes, and credentials.
 
@@ -314,3 +318,7 @@ pnpm -C apps/backend db:migrate
 ```
 
 </details>
+
+## License
+
+Released under the [MIT License](./LICENSE).

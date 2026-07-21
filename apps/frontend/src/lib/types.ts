@@ -151,7 +151,7 @@ export interface KanbanColumn {
 	columnClass?: string;
 }
 
-export type Page = 'pipeline' | 'chat' | 'configuracoes';
+export type Page = 'pipeline' | 'chat' | 'settings';
 
 export interface ChatThreadSummary {
 	id: string;

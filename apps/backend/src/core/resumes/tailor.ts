@@ -127,8 +127,8 @@ async function generateFilenameBase(
             "Use lowercase words separated by underscores.",
             "It may include the candidate name and the clean target role when the role sounds professional.",
             "Do not blindly copy the job title. Remove job-board noise, company names, locations, remote-work phrases, hiring urgency, contract type, salary, IDs, hashtags, punctuation fragments, and marketing text.",
-            "Good: gustavo_ferreira_fullstack_java_engineer.",
-            "Bad: gustavo_ferreira_cosme_fullstack_java_engineer_work_from_home_talent_connection.",
+            "Good: jane_doe_fullstack_java_engineer.",
+            "Bad: jane_doe_smith_fullstack_java_engineer_work_from_home_talent_connection.",
             "If you cannot form a clean role-specific name, use candidate_name_resume.",
         ].join("\n"),
         prompt: [

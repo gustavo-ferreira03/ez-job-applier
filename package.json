@@ -1,13 +1,21 @@
 {
     "name": "ez-job-applier",
     "version": "1.0.0",
-    "description": "",
-    "main": "index.js",
+    "description": "A local control room for finding jobs, tailoring resumes, and supervising applications.",
+    "private": true,
     "scripts": {
         "dev": "pnpm -r --parallel dev"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "keywords": [
+        "job-search",
+        "linkedin",
+        "resume",
+        "automation",
+        "ats",
+        "sveltekit",
+        "self-hosted"
+    ],
+    "author": "Gustavo Ferreira",
+    "license": "MIT",
     "packageManager": "pnpm@10.30.1"
 }

@@ -89,7 +89,7 @@ const defaults: AppSettings = {
     },
     advanced: {
         browserVisible: false,
-        searchLocale: "pt-BR",
+        searchLocale: "en-US",
         cycleMaxMs: 3_600_000,
         intervalMs: 14_400_000,
         externalApplyConcurrency: 1,
@@ -97,7 +97,7 @@ const defaults: AppSettings = {
         github: { connected: false, login: null, repo: null, lastSyncedAt: null, masters: [] },
         schedule: {
             enabled: false,
-            timezone: "America/Sao_Paulo",
+            timezone: "UTC",
             days: [
                 { enabled: true, start: "09:00", end: "18:00" },
                 { enabled: true, start: "09:00", end: "18:00" },
