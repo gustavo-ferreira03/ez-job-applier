@@ -57,6 +57,17 @@ export async function startExecution(
     ctx: AppContext,
     opts?: { cycleMaxMs?: number; intervalMs?: number; existingId?: string },
 ): Promise<void> {
+    // Guard on the live loop, not on the execution row. getActive() ignores "cancelled", so
+    // right after a stop it reports nothing active while the previous loop is still unwinding
+    // and still holds the browser — which is exactly how two loops used to overlap.
+    if (_activeRun) {
+        throw new Error(
+            isStale(_activeRun.token)
+                ? "Previous execution is still shutting down. Try again in a moment."
+                : "Execution already active",
+        );
+    }
+
     const active = await ctx.executionRepo.getActive();
     if (active && active.id !== opts?.existingId) throw new Error("Execution already active");
 
