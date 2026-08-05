@@ -2,8 +2,7 @@ import type { AppContext } from "../context";
 import type { AppSettings } from "../../repositories/settings";
 import { getSettings } from "../../repositories/settings";
 import { tailorResume } from "./tailor";
-
-const queued = new Set<number>();
+import { isTailoring, runTailoring } from "./tailor-status";
 
 export async function autoTailorIfNeeded(
     jobId: number,
@@ -15,12 +14,14 @@ export async function autoTailorIfNeeded(
     if (await ctx.resumeMasterRepo.hasTailored(jobId)) return;
 
     try {
-        const { master } = await tailorResume(
-            jobId,
-            ctx,
-            undefined,
-            current.llm.resumeTailoringInstructions,
-            current.llm.resumeTailoringFlexibility,
+        const { master } = await runTailoring(jobId, () =>
+            tailorResume(
+                jobId,
+                ctx,
+                undefined,
+                current.llm.resumeTailoringInstructions,
+                current.llm.resumeTailoringFlexibility,
+            ),
         );
         console.log(`[auto-tailor] generated tailored resume for job ${jobId} via ${master}`);
     } catch (e) {
@@ -33,14 +34,11 @@ export function scheduleAutoTailorIfNeeded(
     ctx: AppContext,
     settings?: AppSettings,
 ): void {
-    if (queued.has(jobId)) return;
-    queued.add(jobId);
+    if (isTailoring(jobId)) return;
 
     setTimeout(() => {
-        autoTailorIfNeeded(jobId, ctx, settings)
-            .catch((e) => console.warn(`[auto-tailor] background task failed for job ${jobId}:`, e))
-            .finally(() => {
-                queued.delete(jobId);
-            });
+        autoTailorIfNeeded(jobId, ctx, settings).catch((e) =>
+            console.warn(`[auto-tailor] background task failed for job ${jobId}:`, e),
+        );
     }, 0);
 }

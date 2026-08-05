@@ -1,6 +1,10 @@
 import type { AppContext } from "../context";
 import type { JobDetail } from "./types";
+import { isTailoring } from "../resumes/tailor-status";
 
 export async function getJob(id: number, ctx: AppContext): Promise<JobDetail | null> {
-    return ctx.jobRepo.getDetail(id);
+    const job = await ctx.jobRepo.getDetail(id);
+    if (!job) return null;
+    // Runtime state, not persisted — see core/resumes/tailor-status.
+    return { ...job, tailoring: isTailoring(id) };
 }

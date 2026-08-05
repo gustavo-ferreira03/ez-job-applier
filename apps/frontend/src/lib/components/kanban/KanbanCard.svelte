@@ -18,6 +18,8 @@
 	const agentSession = $derived(appState.externalApply.sessions.find((session) => session.jobId === job.id));
 	const agentPhase = $derived(agentSession?.active ? agentSession.phase : null);
 	const agentWorking = $derived(agentPhase === 'working');
+	// Tailoring counts as card activity, so you can leave the modal and still see it running.
+	const busy = $derived(job.processing || agentWorking || job.tailoring);
 
 </script>
 
@@ -41,7 +43,7 @@
 <button
 	type="button"
 	class="w-full shrink-0 cursor-pointer rounded-md bg-surface-raised p-2.5 text-left focus-visible:outline-none
-		{job.processing || agentWorking
+		{busy
 		? 'activity-pulse-border border-2 border-accent-500'
 		: 'border border-border-subtle transition-colors duration-100 hover:border-border-default'}"
 	onclick={() => onOpen(job, defaultTab)}
@@ -50,7 +52,7 @@
 	<!-- Title -->
 	<div class="flex items-center justify-between gap-2">
 		<p class="min-w-0 truncate text-sm font-medium text-text-primary">{job.title}</p>
-		{#if job.processing || agentWorking}
+		{#if busy}
 			<svg
 				class="activity-spin h-3.5 w-3.5 shrink-0 text-accent-500"
 				viewBox="0 0 24 24"
@@ -71,6 +73,26 @@
 		{job.company}
 		{#if job.location}<span class="text-text-muted opacity-75"> · {job.location}</span>{/if}
 	</p>
+
+	<!-- Tailoring in progress -->
+	{#if job.tailoring}
+		<div class="mt-2 flex items-center gap-1.5">
+			<span
+				class="inline-flex items-center gap-1 rounded-sm bg-accent-500/15 px-1.5 py-0.5 text-xs font-medium text-accent-500"
+				title="A tailored resume is being generated for this job"
+			>
+				<svg class="activity-spin h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+					<path
+						class="opacity-75"
+						fill="currentColor"
+						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+					/>
+				</svg>
+				Tailoring resume…
+			</span>
+		</div>
+	{/if}
 
 	<!-- Tags -->
 	{#if job.tags.length > 0}

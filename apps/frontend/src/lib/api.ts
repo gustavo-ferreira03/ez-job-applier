@@ -220,11 +220,20 @@ export function extractMaster(name: string, resumeFilename?: string): Promise<{ 
 	return post(`/resume/masters/${encodeURIComponent(name)}/extract`, { resumeFilename });
 }
 
-export function tailorJob(id: number, master?: string): Promise<{ ok: boolean; master: string }> {
+export function tailorJob(
+	id: number,
+	master?: string
+): Promise<{ ok: boolean; master: string; deduped?: boolean }> {
 	return post(`/jobs/${id}/tailor`, master ? { master } : {});
 }
 
-export function getTailored(id: number): Promise<{ exists: boolean; master: string | null; updatedAt: string | null }> {
+export function getTailored(id: number): Promise<{
+	exists: boolean;
+	master: string | null;
+	updatedAt: string | null;
+	/** True while a tailoring run for this job is in flight on the backend. */
+	tailoring: boolean;
+}> {
 	return get(`/jobs/${id}/tailor`);
 }
 
