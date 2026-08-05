@@ -28,6 +28,8 @@ export async function runCycle(
     ctx: AppContext,
     shouldStop: () => boolean,
     onSession?: (session: IJobProviderSession | null) => void,
+    /** X display for the provider's browser; undefined means headless / inherit. */
+    display?: string,
 ): Promise<CycleResult> {
     const cycleStart = Date.now();
     const provider = ctx.providerRegistry.get(config.provider);
@@ -44,7 +46,7 @@ export async function runCycle(
 
     console.log(`[execution] cycle started — skip ${skipIds.size} already-processed jobs`);
 
-    const session = await provider.createSession();
+    const session = await provider.createSession({ display });
     onSession?.(session);
     try {
         await processPendingQueue(session);

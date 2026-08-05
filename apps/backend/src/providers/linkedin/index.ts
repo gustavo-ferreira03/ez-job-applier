@@ -1,4 +1,4 @@
-import type { IJobProvider, IJobProviderSession } from "../../core/interfaces";
+import type { IJobProvider, IJobProviderSession, SessionOptions } from "../../core/interfaces";
 import type { ApplyResult, DiscoverConfig, Job } from "../../core/types";
 import {
     openLinkedinContext,
@@ -30,12 +30,12 @@ export const linkedinProvider: IJobProvider = {
         }
     },
 
-    async createSession(): Promise<IJobProviderSession> {
+    async createSession(options: SessionOptions = {}): Promise<IJobProviderSession> {
         const { advanced: { browserVisible, searchLocale } } = await getSettings();
         const context = await openLinkedinContext({
             visible: browserVisible,
             searchLocale,
-            display: process.env.LINKEDIN_BROWSER_DISPLAY,
+            display: options.display,
         });
 
         let discoveryPage;

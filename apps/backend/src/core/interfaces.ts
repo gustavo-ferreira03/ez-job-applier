@@ -7,9 +7,17 @@ export interface IJobProviderSession {
     close(): Promise<void>;
 }
 
+export interface SessionOptions {
+    /**
+     * X display the browser must attach to (e.g. ":99"). Passed explicitly rather than through
+     * process.env.DISPLAY, which is process-global and therefore unsafe to use as per-run state.
+     */
+    display?: string;
+}
+
 export interface IJobProvider {
     readonly name: string;
     matchesJob(job: Job): boolean;
-    createSession(): Promise<IJobProviderSession>;
+    createSession(options?: SessionOptions): Promise<IJobProviderSession>;
     fetchJobDetails(url: string): Promise<Partial<Job>>;
 }

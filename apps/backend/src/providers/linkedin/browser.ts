@@ -16,6 +16,16 @@ const automationSuppressionLaunchOptions = {
     ignoreDefaultArgs: ["--enable-automation"],
 };
 
+/**
+ * Chromium picks its X display from the DISPLAY env var. That variable is process-global, so
+ * mutating it around a launch is a race as soon as two browsers are being opened: one caller
+ * restores an older value while another is still launching, and the browser attaches to an Xvfb
+ * that is about to be killed. Pass the display in the child's own environment instead.
+ */
+function displayEnv(display: string | undefined): { env?: NodeJS.ProcessEnv } {
+    return display ? { env: { ...process.env, DISPLAY: display } } : {};
+}
+
 export type BrowserStorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
 let saveQueue: Promise<void> = Promise.resolve();
@@ -93,38 +103,32 @@ export async function openLinkedinContext(options: {
             ? "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6"
             : "en-US,en;q=0.9";
 
-    const prev = process.env.DISPLAY;
-    if (options.display) process.env.DISPLAY = options.display;
-    try {
-        const width = options.visible ? 1272 : 960;
-        const height = options.visible ? 715 : 640;
-        const context = await launchContext({
-            headless: !options.visible,
-            locale,
-            viewport: { width, height },
-            launchOptions: automationSuppressionLaunchOptions,
-            args: [`--window-size=${width},${height}`, "--window-position=0,0", ...automationSuppressionArgs],
-            contextOptions: {
-                storageState: await existingSessionFile(),
-                extraHTTPHeaders: { "Accept-Language": acceptLanguage },
-            },
-            humanize: true,
-        });
-        context.setDefaultTimeout(10 * 60 * 1000);
-        activeContext = context;
-        context.once("close", () => {
-            if (activeContext === context) activeContext = null;
-        });
-        return context;
-    } finally {
-        if (prev !== undefined) process.env.DISPLAY = prev;
-        else delete process.env.DISPLAY;
-    }
+    const width = options.visible ? 1272 : 960;
+    const height = options.visible ? 715 : 640;
+    const context = await launchContext({
+        headless: !options.visible,
+        locale,
+        viewport: { width, height },
+        launchOptions: { ...automationSuppressionLaunchOptions, ...displayEnv(options.display) },
+        args: [`--window-size=${width},${height}`, "--window-position=0,0", ...automationSuppressionArgs],
+        contextOptions: {
+            storageState: await existingSessionFile(),
+            extraHTTPHeaders: { "Accept-Language": acceptLanguage },
+        },
+        humanize: true,
+    });
+    context.setDefaultTimeout(10 * 60 * 1000);
+    activeContext = context;
+    context.once("close", () => {
+        if (activeContext === context) activeContext = null;
+    });
+    return context;
 }
 
 export async function openDetachedLinkedinContext(options: {
     visible?: boolean;
     searchLocale?: "pt-BR" | "en-US";
+    display?: string;
 } = {}): Promise<BrowserContext> {
     const locale = options.searchLocale ?? "pt-BR";
     const acceptLanguage =
@@ -136,7 +140,7 @@ export async function openDetachedLinkedinContext(options: {
         headless: !options.visible,
         locale,
         viewport: { width: 960, height: 640 },
-        launchOptions: { slowMo: 50, ...automationSuppressionLaunchOptions },
+        launchOptions: { slowMo: 50, ...automationSuppressionLaunchOptions, ...displayEnv(options.display) },
         args: ["--window-size=960,640", ...automationSuppressionArgs],
         contextOptions: {
             storageState: await existingSessionFile(),
@@ -162,7 +166,7 @@ export async function closeLinkedinContext(context = activeContext): Promise<voi
     if (activeContext === context) activeContext = null;
 }
 
-export async function openLoginContext(): Promise<BrowserContext> {
+export async function openLoginContext(options: { display?: string } = {}): Promise<BrowserContext> {
     if (activeContext) {
         throw new Error("LinkedIn browser is already running. Wait for the current action to finish.");
     }
@@ -172,7 +176,7 @@ export async function openLoginContext(): Promise<BrowserContext> {
         headless: false,
         locale: "pt-BR",
         viewport: { width, height },
-        launchOptions: { slowMo: 50, ...automationSuppressionLaunchOptions },
+        launchOptions: { slowMo: 50, ...automationSuppressionLaunchOptions, ...displayEnv(options.display) },
         args: [`--window-size=${width},${height}`, "--window-position=0,0", ...automationSuppressionArgs],
         contextOptions: {
             storageState: await existingSessionFile(),

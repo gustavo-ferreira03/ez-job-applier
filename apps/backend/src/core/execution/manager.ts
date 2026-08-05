@@ -167,15 +167,20 @@ async function runForever(
             let easyApplyLimited = false;
             let cycleErrored = false;
             let executionVncSession: VncSession | null = null;
-            const prevLinkedinDisplay = process.env.LINKEDIN_BROWSER_DISPLAY;
             try {
                 const settings = await getSettings();
                 if (settings.advanced.browserVisible) {
                     executionVncSession = await startVncStack("linkedin");
                     _executionVncSessionId = executionVncSession.id;
-                    process.env.LINKEDIN_BROWSER_DISPLAY = executionVncSession.display;
                 }
-                const result = await runCycle(id, config, cycleMaxMs, ctx, shouldStop, (s) => { _activeSession = s; });
+                // The display travels as an argument, never through process.env: it is per-run
+                // state, and a concurrent run restoring its own saved copy used to point this run
+                // at an Xvfb that had already been killed.
+                const result = await runCycle(
+                    id, config, cycleMaxMs, ctx, shouldStop,
+                    (s) => { _activeSession = s; },
+                    executionVncSession?.display,
+                );
                 easyApplyLimited = result.easyApplyLimited;
             } catch (e) {
                 cycleErrored = true;
@@ -188,8 +193,6 @@ async function runForever(
                 }
                 console.error("[execution] cycle error:", e);
             } finally {
-                if (prevLinkedinDisplay !== undefined) process.env.LINKEDIN_BROWSER_DISPLAY = prevLinkedinDisplay;
-                else delete process.env.LINKEDIN_BROWSER_DISPLAY;
                 stopVncStack(executionVncSession);
                 _executionVncSessionId = null;
             }

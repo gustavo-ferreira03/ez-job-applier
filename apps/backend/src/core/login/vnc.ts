@@ -149,14 +149,7 @@ export function stopVncStack(session: VncSession | string | null | undefined): v
 }
 
 export async function openLoginBrowser(session: VncSession): Promise<BrowserContext> {
-    const prev = process.env.DISPLAY;
-    process.env.DISPLAY = session.display;
-    try {
-        return await openLoginContext();
-    } finally {
-        if (prev !== undefined) process.env.DISPLAY = prev;
-        else delete process.env.DISPLAY;
-    }
+    return openLoginContext({ display: session.display });
 }
 
 export async function waitForLogin(
