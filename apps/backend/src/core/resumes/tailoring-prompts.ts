@@ -125,6 +125,43 @@ function tailoringRules(level: number): string {
     ].join("\n");
 }
 
+const LANGUAGE_NAMES: Record<string, string> = {
+    pt: "Portuguese",
+    en: "English",
+    es: "Spanish",
+    fr: "French",
+    de: "German",
+    it: "Italian",
+};
+
+/** Resolves a master resume's meta.locale ("pt-BR", "en_US", "pt") to a human language name. */
+export function localeLanguageName(locale: string | undefined): string | undefined {
+    const base = clean(locale)?.toLowerCase().split(/[-_]/)[0];
+    return base ? LANGUAGE_NAMES[base] : undefined;
+}
+
+/**
+ * The master is chosen to match the posting's language (see selectMaster), so its meta.locale IS
+ * the posting's language. Locking output to that locale keeps the LLM-written body consistent with
+ * the static section titles from meta.section_titles, which the model never sees and cannot
+ * translate. Without a locale we fall back to detecting the language from the posting.
+ */
+function languageRules(locale: string | undefined): string[] {
+    const language = localeLanguageName(locale);
+
+    const header = language
+        ? `LANGUAGE (LOCKED): this master resume was selected because the job posting is written in ${language}. Its locale is '${locale}', so the target language is ${language}. Write 100% of the generated resume content in ${language}. Do not switch to another language for any part of the resume, even if the posting quotes text in a different language or names a foreign company.`
+        : "LANGUAGE: the master resume declares no locale, so determine the target language from the job posting as a whole (title, company, location, required skills, and the full description), not from an isolated paragraph. Write 100% of the generated resume content in that target language. The job posting language wins over the master resume's original language.";
+
+    return [
+        `${header} The resume must be internally consistent — every job title, bullet, summary, skill label, project name, course name, institution name, and location must be in the same target language. Do not output a bilingual or mixed-language resume.`,
+        "  - If the target language is Portuguese, output everything in Portuguese. Job titles, roles, project descriptions, institution names, locations, and course names must be translated to Portuguese unless they are globally recognized brand names, acronyms, or URLs.",
+        "  - If the target language is English, output everything in English. Job titles, roles, project descriptions, institution names, locations, and course names must be translated to English unless they are globally recognized brand names, acronyms, or URLs.",
+        "  - Technology names, programming languages, tool names, product names, frameworks, cloud services, and standard certifications may keep their internationally recognized names.",
+        "  - Section titles are rendered by the template from the resume's own metadata, not by you. Do not emit or translate section headings.",
+    ];
+}
+
 export function buildTailoringSystemPrompt(args: {
     locale?: string;
     instructions?: string;
@@ -137,11 +174,7 @@ export function buildTailoringSystemPrompt(args: {
         "You are an expert resume writer. You ADAPT a candidate's existing master resume to one specific job posting. You never write a resume from scratch.",
         "",
         "GOAL: make a recruiter and an ATS see within seconds that this candidate fits THIS job, by surfacing the candidate's most relevant existing experience and mirroring the posting's language.",
-        "LANGUAGE: determine the target language from the job posting as a whole (title, company, location, required skills, and the full description), not from an isolated paragraph. Write 100% of the generated resume content in that target language. The resume must be internally consistent — every section title, job title, bullet, summary, skill label, project name, course name, institution name, and location must be in the same target language. Do not output a bilingual or mixed-language resume.",
-        "  - If the job posting is in Portuguese, output everything in Portuguese. Section titles must be Portuguese (e.g. 'Experiência Profissional', 'Projetos', 'Formação Acadêmica', 'Competências', 'Idiomas'). Job titles, roles, project descriptions, institution names, locations, and course names must be translated to Portuguese unless they are globally recognized brand names, acronyms, or URLs.",
-        "  - If the job posting is in English, output everything in English. Section titles must be English (e.g. 'Professional Experience', 'Projects', 'Education', 'Skills', 'Languages'). Job titles, roles, project descriptions, institution names, locations, and course names must be translated to English unless they are globally recognized brand names, acronyms, or URLs.",
-        "  - Technology names, programming languages, tool names, product names, frameworks, cloud services, and standard certifications may keep their internationally recognized names.",
-        `The job posting language always wins over the master resume's original language${locale ? ` (${locale})` : ""}.`,
+        ...languageRules(locale),
         "VOICE: write every bullet in the first person, as if the candidate is describing their own work. Start each bullet with a strong, direct action verb in the first-person singular (e.g. projetei, implementei, otimizei, liderei, automatizei, reduzi, arquitetei, desenvolvi, integrei, conduzi, estruturei, mantenho, configurei). Do NOT use third-person descriptions such as 'implementou', 'desenvolveu', 'conduziu', 'atuou', 'trabalhou', or 'foi responsável por'.",
         "",
         "STRUCTURE (STAR): ground every meaningful experience or project bullet in STAR.",
