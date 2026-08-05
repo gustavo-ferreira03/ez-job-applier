@@ -124,6 +124,7 @@ function buildSearchUrl(config: SearchConfig, start: number): string {
 async function openJobs(page: Page, config: SearchConfig, start: number): Promise<void> {
     const url = buildSearchUrl(config, start);
     console.log(`[jobs] navigating to: ${url}`);
+    await page.bringToFront().catch(() => undefined);
     await page.goto(url, { waitUntil: "domcontentloaded" });
     let finalUrl = page.url();
     console.log(`[jobs] landed on: ${finalUrl}`);
@@ -419,6 +420,10 @@ async function* extractJobs(
     for (const key of cardKeys) {
         if (maxJobs != null && count >= maxJobs) break;
         onCandidate?.(key);
+
+        // The apply tab may have taken the foreground between yields; background tabs
+        // get throttled and clicks land on stale layout.
+        await page.bringToFront().catch(() => undefined);
 
         const lazyCol = page.locator("[data-testid='lazy-column']").first();
         const cardBtn = lazyCol.locator(`div[role='button'][componentkey='${key}']`).first();
