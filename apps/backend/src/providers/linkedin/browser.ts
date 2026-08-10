@@ -96,6 +96,41 @@ function mergeLinkedInState(existing: BrowserStorageState | null, current: Brows
     return { cookies: [...cookies.values()], origins: [...origins.values()] };
 }
 
+/** Expired persistent cookie. Session cookies use expires <= 0 and never expire on disk. */
+function isExpiredCookie(cookie: BrowserStorageState["cookies"][number], nowSec: number): boolean {
+    return cookie.expires > 0 && cookie.expires < nowSec;
+}
+
+/**
+ * Merge every cookie/origin from `current` over `existing`, keeping unrelated existing entries.
+ * Expired cookies are dropped so the shared session file doesn't grow without bound as the agent
+ * visits more ATS sites.
+ */
+export function mergeAllState(
+    existing: BrowserStorageState | null,
+    current: BrowserStorageState,
+): BrowserStorageState {
+    const nowSec = Date.now() / 1000;
+    // Prune per input, never after merging: a stale expired entry in `current` must not displace
+    // the live cookie of the same name in `existing` and then be dropped, which would delete the
+    // credential entirely. Observed killing live li_at-adjacent LinkedIn cookies (lidc, __cf_bm).
+    const live = (cookie: BrowserStorageState["cookies"][number]) => !isExpiredCookie(cookie, nowSec);
+    const cookies = new Map<string, BrowserStorageState["cookies"][number]>();
+    for (const cookie of (existing?.cookies ?? []).filter(live)) cookies.set(cookieKey(cookie), cookie);
+    for (const cookie of current.cookies.filter(live)) cookies.set(cookieKey(cookie), cookie);
+
+    const origins = new Map<string, BrowserStorageState["origins"][number]>();
+    for (const origin of existing?.origins ?? []) origins.set(origin.origin, origin);
+    for (const origin of current.origins) origins.set(origin.origin, origin);
+
+    return { cookies: [...cookies.values()], origins: [...origins.values()] };
+}
+
+/** The shared session state (LinkedIn + every ATS login the agent has accumulated). */
+export function readSharedSessionState(): Promise<BrowserStorageState | null> {
+    return readExistingState();
+}
+
 function writeQueued(fn: () => Promise<void>): Promise<void> {
     saveQueue = saveQueue.then(fn, fn);
     return saveQueue;
@@ -191,6 +226,17 @@ export async function saveLinkedinSession(context = activeContext): Promise<void
     const state = await context.storageState();
     await writeQueued(async () => {
         await writeStorageState(mergeLinkedInState(await readExistingState(), state));
+    });
+}
+
+/**
+ * Fold a storage state captured outside the LinkedIn provider (e.g. the external-apply browser)
+ * back into the shared session file, so LinkedIn "remember this device" cookies and ATS logins
+ * survive into the next job instead of dying with the per-job state file.
+ */
+export async function mergeExternalSession(state: BrowserStorageState): Promise<void> {
+    await writeQueued(async () => {
+        await writeStorageState(mergeAllState(await readExistingState(), state));
     });
 }
 
