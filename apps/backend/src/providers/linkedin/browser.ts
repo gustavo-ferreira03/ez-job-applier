@@ -11,6 +11,7 @@ const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.basename(moduleDir) === "dist" ? path.dirname(moduleDir) : path.resolve(moduleDir, "../../..");
 const storageDir = process.env.JOB_APPLIER_STORAGE_DIR ?? path.join(backendRoot, "storage");
 export const sessionFilePath = path.join(storageDir, "linkedin-session.json");
+const fingerprintFilePath = path.join(storageDir, "browser-fingerprint.json");
 const automationSuppressionArgs = ["--disable-blink-features=AutomationControlled", "--disable-infobars"];
 const automationSuppressionLaunchOptions = {
     ignoreDefaultArgs: ["--enable-automation"],
@@ -27,6 +28,39 @@ function displayEnv(display: string | undefined): { env?: NodeJS.ProcessEnv } {
 }
 
 export type BrowserStorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
+
+/**
+ * cloakbrowser randomises `--fingerprint=<seed>` on every launch, so each browser looks like a
+ * brand new device. LinkedIn reacts to unknown devices by forcing a password re-entry (most
+ * visibly on the "Sign in with LinkedIn" OAuth screen used by external ATS sites). Pinning one
+ * seed per installation keeps the device identity stable across launches and processes.
+ */
+let cachedFingerprintSeed: number | null = null;
+let fingerprintPromise: Promise<string[]> | null = null;
+
+async function loadFingerprintSeed(): Promise<number> {
+    if (cachedFingerprintSeed !== null) return cachedFingerprintSeed;
+    try {
+        const parsed = JSON.parse(await fs.readFile(fingerprintFilePath, "utf8")) as { seed?: number };
+        if (typeof parsed.seed === "number" && Number.isFinite(parsed.seed)) {
+            cachedFingerprintSeed = parsed.seed;
+            return parsed.seed;
+        }
+    } catch {
+        // no seed yet
+    }
+    const seed = Math.floor(Math.random() * 90000) + 10000;
+    cachedFingerprintSeed = seed;
+    await fs.mkdir(storageDir, { recursive: true }).catch(() => undefined);
+    await fs.writeFile(fingerprintFilePath, JSON.stringify({ seed }), "utf8").catch(() => undefined);
+    return seed;
+}
+
+/** Chromium args that pin the stealth fingerprint to this installation's stable seed. */
+export function stableFingerprintArgs(): Promise<string[]> {
+    fingerprintPromise ??= loadFingerprintSeed().then((seed) => [`--fingerprint=${seed}`]);
+    return fingerprintPromise;
+}
 
 let saveQueue: Promise<void> = Promise.resolve();
 
@@ -110,7 +144,7 @@ export async function openLinkedinContext(options: {
         locale,
         viewport: { width, height },
         launchOptions: { ...automationSuppressionLaunchOptions, ...displayEnv(options.display) },
-        args: [`--window-size=${width},${height}`, "--window-position=0,0", ...automationSuppressionArgs],
+        args: [`--window-size=${width},${height}`, "--window-position=0,0", ...automationSuppressionArgs, ...(await stableFingerprintArgs())],
         contextOptions: {
             storageState: await existingSessionFile(),
             extraHTTPHeaders: { "Accept-Language": acceptLanguage },
@@ -141,7 +175,7 @@ export async function openDetachedLinkedinContext(options: {
         locale,
         viewport: { width: 960, height: 640 },
         launchOptions: { slowMo: 50, ...automationSuppressionLaunchOptions, ...displayEnv(options.display) },
-        args: ["--window-size=960,640", ...automationSuppressionArgs],
+        args: ["--window-size=960,640", ...automationSuppressionArgs, ...(await stableFingerprintArgs())],
         contextOptions: {
             storageState: await existingSessionFile(),
             extraHTTPHeaders: { "Accept-Language": acceptLanguage },
@@ -177,7 +211,7 @@ export async function openLoginContext(options: { display?: string } = {}): Prom
         locale: "pt-BR",
         viewport: { width, height },
         launchOptions: { slowMo: 50, ...automationSuppressionLaunchOptions, ...displayEnv(options.display) },
-        args: [`--window-size=${width},${height}`, "--window-position=0,0", ...automationSuppressionArgs],
+        args: [`--window-size=${width},${height}`, "--window-position=0,0", ...automationSuppressionArgs, ...(await stableFingerprintArgs())],
         contextOptions: {
             storageState: await existingSessionFile(),
             extraHTTPHeaders: { "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.7,en;q=0.6" },
