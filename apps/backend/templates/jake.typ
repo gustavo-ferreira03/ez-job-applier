@@ -108,17 +108,28 @@
   let url = item.at("url", default: "")
   let location = item.at("location", default: ())
   let score = item.at("score", default: ())
+  let courses = item.at("courses", default: ())
   subheading(
     maybe-link(url, rich(item.at("title", default: ()))),
     if has(location) { rich(location) } else { "" },
     if has(item.at("subtitle", default: ())) { rich(item.subtitle) } else { none },
     item.at("period", default: ""),
   )
-  if has(score) {
-    text(size: 10pt)[#emph(labels.at("score", default: "Score") + ": ")#rich(score)]
+  // Score and coursework share one wrapped paragraph instead of a stacked bullet
+  // list: coursework is scannable keyword material, not achievements, so it does
+  // not earn one vertical line per item on a length-constrained resume.
+  if has(score) or has(courses) {
+    v(1pt)
+    text(size: 10pt)[
+      #if has(score) [#emph(labels.at("score", default: "Score") + ": ")#rich(score)]
+      #if has(score) and has(courses) [ #sym.dot.c ]
+      #if has(courses) [
+        #emph(labels.at("courses", default: "Relevant coursework") + ": ")
+        #courses.map(course => rich(course)).join(", ")
+      ]
+    ]
     v(2pt)
   }
-  bullets(item.at("courses", default: ()))
 }
 
 // Projects: **Name** | *Stack*  ...  dates
