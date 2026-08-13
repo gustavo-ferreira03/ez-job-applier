@@ -236,6 +236,24 @@ export function tailorPreviewUrl(id: number, version?: number): string {
 	return `${BASE}/jobs/${id}/tailor/preview.pdf${version ? `?t=${version}` : ''}`;
 }
 
+export interface SubmittedResume {
+	exists: boolean;
+	/** True when re-rendered from the tailored YAML instead of an archived PDF: may differ from what was sent. */
+	reconstructed: boolean;
+	master: string | null;
+	source: 'tailored' | 'base' | null;
+	filename: string | null;
+	submittedAt: string | null;
+}
+
+export function getSubmittedResume(id: number): Promise<SubmittedResume> {
+	return get(`/jobs/${id}/submitted-resume`);
+}
+
+export function submittedResumeUrl(id: number): string {
+	return `${BASE}/jobs/${id}/submitted-resume.pdf`;
+}
+
 export function resumePreviewUrl(filename: string): string {
 	return `${BASE}/resumes/${encodeURIComponent(filename)}/preview.pdf`;
 }

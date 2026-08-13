@@ -9,6 +9,7 @@ import { shouldApply } from "../applications/filter";
 import { checkStaticFilter } from "../applications/static-filter";
 import { generateResumePdf, resumeOutputName } from "../resumes/pdf";
 import { scheduleAutoTailorIfNeeded } from "../resumes/auto-tailor";
+import { snapshotSubmittedResume } from "../resumes/submitted";
 import { stopExternalApply } from "./external-apply/state";
 
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
@@ -188,6 +189,8 @@ async function processQueue(
             const selectedResumeFilename = baseResumePath ? path.basename(baseResumePath) : undefined;
 
             const tailored = await ctx.resumeMasterRepo.readTailored(jobId);
+            const tailoredMeta = tailored ? await ctx.resumeMasterRepo.readTailoredMeta(jobId) : null;
+            let usedTailored = false;
             let selectedResumePath = baseResumePath;
             if (tailored) {
                 try {
@@ -197,6 +200,7 @@ async function processQueue(
                     const tailoredPath = path.join(tailoredTempDir, `${name}.pdf`);
                     await fs.writeFile(tailoredPath, pdf);
                     selectedResumePath = tailoredPath;
+                    usedTailored = true;
                 } catch (e) {
                     tailoredTempDir = undefined;
                     selectedResumePath = baseResumePath;
@@ -205,6 +209,16 @@ async function processQueue(
             }
 
             const result = await session.apply(job, answers, selectedResumePath);
+            // Archive before the temp dir is cleaned up in `finally`.
+            if (result.status === "SUBMITTED") {
+                await snapshotSubmittedResume(
+                    ctx,
+                    jobId,
+                    selectedResumePath,
+                    usedTailored ? "tailored" : "base",
+                    usedTailored ? (tailoredMeta?.master ?? null) : null,
+                );
+            }
             const updated = await ctx.appRepo.upsert(
                 job.provider, job.jobId, result.status, selectedResumeFilename, result.errorMessage,
             );
