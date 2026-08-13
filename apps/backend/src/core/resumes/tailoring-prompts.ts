@@ -162,6 +162,34 @@ function languageRules(locale: string | undefined): string[] {
     ];
 }
 
+/**
+ * Bullets allowed per role, most recent first; the last entry repeats for older roles.
+ *
+ * The master is deliberately an exhaustive superset, and without explicit numbers the model
+ * kept 100% of it (37/37 bullets, 116/116 skill keywords) and produced a three-page PDF.
+ * "Be concise" does nothing; counts do. Tuned so a four-role master lands just under two pages.
+ */
+const BULLETS_PER_ROLE = [9, 8, 6, 5] as const;
+const MAX_BULLET_CHARS = 180;
+const MAX_SKILL_GROUPS = 6;
+const MAX_SKILLS_PER_GROUP = 8;
+const MAX_COURSES = 8;
+const MAX_SUMMARY_SENTENCES = 4;
+
+function lengthBudgetRules(): string[] {
+    const perRole = BULLETS_PER_ROLE.map((cap, i) => `role ${i + 1} max ${cap}`).join(", ");
+    const older = BULLETS_PER_ROLE[BULLETS_PER_ROLE.length - 1];
+    return [
+        "LENGTH BUDGET (hard caps): the rendered PDF must fill close to two full pages without ever exceeding two pages. A sparse second page reads as thin, so use the space — but a third page is a failure.",
+        `- Work bullets per role, ordered most recent first: ${perRole}, every older role max ${older}. Never exceed a cap; get close to it when the master has material worth keeping.`,
+        `- Each bullet must fit two rendered lines: max ${MAX_BULLET_CHARS} characters.`,
+        `- Skills: max ${MAX_SKILL_GROUPS} groups, max ${MAX_SKILLS_PER_GROUP} keywords per group. Drop whole groups that are irrelevant to the posting rather than thinning every group evenly.`,
+        `- Education: max ${MAX_COURSES} courses, keeping those closest to the posting.`,
+        `- Summary: max ${MAX_SUMMARY_SENTENCES} sentences.`,
+        "The master resume is a superset you are expected to cut down. Dropping the weakest items entirely is mandatory when the material exceeds these caps — do not shrink everything into vagueness to fit.",
+    ];
+}
+
 export function buildTailoringSystemPrompt(args: {
     locale?: string;
     instructions?: string;
@@ -206,9 +234,11 @@ export function buildTailoringSystemPrompt(args: {
         "",
         "FORMAT: dates are 'YYYY' or 'YYYY-MM'; for an ongoing role leave the end date as an empty string and never write words like 'present'. Keep every line concise, concrete, and achievement-oriented.",
         "",
+        ...lengthBudgetRules(),
+        "",
         antiAiWritingRules(),
         "",
-        "FINAL CHECKS: before returning, read the entire output resume. (1) Ensure every experience and project bullet has at least one relevant term in **bold** using markdown double-asterisks. (2) Ensure 100% of the text is in the target language — no mixed Portuguese/English output except for brands, acronyms, URLs, and technology names. (3) Ensure basics.name is only the candidate's real name, with no job title, company, location, remote-work phrase, keyword list, or marketing tagline appended. (4) Remove any corporate filler, AI cliché, hedge word, passive voice, or third-person verb. Fix anything that violates these rules.",
+        "FINAL CHECKS: before returning, read the entire output resume. (1) Ensure every experience and project bullet has at least one relevant term in **bold** using markdown double-asterisks. (2) Ensure 100% of the text is in the target language — no mixed Portuguese/English output except for brands, acronyms, URLs, and technology names. (3) Ensure basics.name is only the candidate's real name, with no job title, company, location, remote-work phrase, keyword list, or marketing tagline appended. (4) Remove any corporate filler, AI cliché, hedge word, passive voice, or third-person verb. (5) Count the bullets in every role, the skill groups and their keywords, and the courses, and cut until each is within the LENGTH BUDGET. Fix anything that violates these rules.",
         instructions ? `\nADDITIONAL INSTRUCTIONS (secondary to the rules above): ${instructions}` : "",
     ].join("\n");
 }
