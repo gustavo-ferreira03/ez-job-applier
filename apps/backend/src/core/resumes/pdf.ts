@@ -2,7 +2,9 @@ import path from "node:path";
 import { generateResume } from "resume-ci";
 import type { ResumeInput } from "resume-ci";
 
-const TEMPLATES_DIR = path.resolve("storage/resume/templates");
+// Templates are code, not user data: they live in the repo (and in the image), not in storage/.
+const TEMPLATES_DIR = process.env.RESUME_TEMPLATES_DIR ?? path.resolve("templates");
+const DEFAULT_TEMPLATE = process.env.RESUME_TEMPLATE ?? "jake";
 
 function sanitizeFilename(base: string): string {
     const cleaned = base
@@ -28,9 +30,11 @@ export function resumeOutputName(data: ResumeInput): string {
 
 export async function generateResumePdf(data: ResumeInput, filenameBase: string): Promise<Buffer> {
     const meta = { ...(data.meta ?? {}), output_filename: sanitizeFilename(filenameBase) };
+    // A master YAML may pin its own `meta.template`; otherwise use the configured default.
+    const template = typeof meta.template === "string" && meta.template !== "default" ? undefined : DEFAULT_TEMPLATE;
     const result = await generateResume(
         { ...data, meta },
-        { typstPath: process.env.TYPST_PATH, templatesDir: TEMPLATES_DIR },
+        { typstPath: process.env.TYPST_PATH, templatesDir: TEMPLATES_DIR, template },
     );
     return result.pdf;
 }
