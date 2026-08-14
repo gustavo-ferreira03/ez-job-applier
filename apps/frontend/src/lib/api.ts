@@ -363,6 +363,19 @@ export function updateLlmSettings(update: Partial<LlmSettings>): Promise<LlmSett
 	return patch('/settings/llm', update);
 }
 
+export type AgentMemory = { question: string; answer: string };
+
+export function getAgentMemory(): Promise<{ memories: AgentMemory[] }> {
+	return get('/settings/agent-memory');
+}
+
+export function saveAgentMemory(
+	memories: AgentMemory[],
+	baseline: AgentMemory[]
+): Promise<{ memories: AgentMemory[] }> {
+	return put('/settings/agent-memory', { memories, baseline });
+}
+
 export function startOAuth(
 	provider: string
 ): Promise<{ sessionId: string; type: 'browser' | 'device_code' }> {

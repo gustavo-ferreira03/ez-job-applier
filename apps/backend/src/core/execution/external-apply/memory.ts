@@ -34,6 +34,50 @@ export function formatAgentMemory(memories: AgentMemory[]): string {
     return ["## Known answers from past applications (reuse these; never ask the user again for them)", ...lines].join("\n");
 }
 
+async function writeMemoryFile(memories: AgentMemory[]): Promise<void> {
+    await fs.mkdir(path.dirname(MEMORY_FILE), { recursive: true });
+    await fs.writeFile(MEMORY_FILE, JSON.stringify(memories, null, 2));
+}
+
+/**
+ * Replaces the memory list with what the settings UI submitted.
+ *
+ * `baseline` is the list the UI had when the user started editing. Stored entries absent from the
+ * baseline were written by the agent mid-edit, so they are kept; entries present in the baseline but
+ * missing from `entries` were deleted by the user, so they stay deleted. Without the baseline a
+ * concurrent `rememberAgentFact` would be silently lost.
+ */
+export function saveAgentMemory(entries: AgentMemory[], baseline?: AgentMemory[]): Promise<AgentMemory[]> {
+    const submitted = new Map<string, AgentMemory>();
+    for (const entry of entries) {
+        const question = entry.question?.trim() ?? "";
+        const answer = entry.answer?.trim() ?? "";
+        if (!question || !answer) continue;
+        submitted.set(normalize(question), { question, answer });
+    }
+
+    let result: AgentMemory[] = [];
+    writeChain = writeChain
+        .then(async () => {
+            if (!baseline) {
+                result = [...submitted.values()];
+            } else {
+                const seen = new Set(baseline.map((m) => normalize(m.question ?? "")));
+                const stored = await loadAgentMemory();
+                const addedByAgent = stored.filter((m) => {
+                    const key = normalize(m.question);
+                    return !seen.has(key) && !submitted.has(key);
+                });
+                result = [...submitted.values(), ...addedByAgent];
+            }
+            await writeMemoryFile(result);
+        })
+        .catch((e) => {
+            console.error("[external-apply] failed to write agent memory:", e);
+        });
+    return writeChain.then(() => result);
+}
+
 export function rememberAgentFact(question: string, answer: string): Promise<void> {
     const q = question.trim();
     const a = answer.trim();
@@ -49,8 +93,7 @@ export function rememberAgentFact(question: string, answer: string): Promise<voi
             } else {
                 memories.push({ question: q, answer: a });
             }
-            await fs.mkdir(path.dirname(MEMORY_FILE), { recursive: true });
-            await fs.writeFile(MEMORY_FILE, JSON.stringify(memories, null, 2));
+            await writeMemoryFile(memories);
         })
         .catch((e) => {
             console.error("[external-apply] failed to write agent memory:", e);

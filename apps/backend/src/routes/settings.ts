@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-ai/oauth";
 import { getSettings, updateSettings, type LlmSettings } from "../repositories/settings";
 import { wakeExecution } from "../core/execution/manager";
+import { loadAgentMemory, saveAgentMemory, type AgentMemory } from "../core/execution/external-apply/memory";
 import { syncTelegramBot, startPairing, getPairingStatus } from "../infra/telegram/notifier";
 import type { AppContext } from "../core/context";
 
@@ -47,6 +48,16 @@ export function createSettingsRouter(ctx: AppContext) {
             await syncTelegramBot(ctx).catch((e) => console.error("[telegram] sync after settings failed:", e));
         }
         return c.json(updated);
+    });
+
+    // Reusable personal facts the apply agent fills into forms (salary expectation, CPF, phone…).
+    router.get("/settings/agent-memory", async (c) => c.json({ memories: await loadAgentMemory() }));
+
+    router.put("/settings/agent-memory", async (c) => {
+        const body = await c.req.json<{ memories?: AgentMemory[]; baseline?: AgentMemory[] }>();
+        if (!Array.isArray(body?.memories)) return c.json({ error: "memories must be an array" }, 400);
+        const baseline = Array.isArray(body.baseline) ? body.baseline : undefined;
+        return c.json({ memories: await saveAgentMemory(body.memories, baseline) });
     });
 
     router.get("/settings/telegram", async (c) => c.json(await getPairingStatus()));

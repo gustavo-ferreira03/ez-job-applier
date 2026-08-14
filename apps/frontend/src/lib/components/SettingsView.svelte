@@ -96,6 +96,13 @@
 	let settingsDebounce: ReturnType<typeof setTimeout> | null = null;
 	let pendingSettingsPatch: SettingsPatch = {};
 	let filterCriteriaDebounce: ReturnType<typeof setTimeout> | null = null;
+	let agentMemory = $state<api.AgentMemory[]>([]);
+	let agentMemoryDebounce: ReturnType<typeof setTimeout> | null = null;
+	let agentMemoryStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	// Guards against overwriting the stored file with an empty list when the initial load failed.
+	let agentMemoryLoaded = $state(false);
+	// Last list known to be on disk; lets the server tell user deletions apart from agent additions.
+	let agentMemoryBaseline: api.AgentMemory[] = [];
 	let tailoringInstructionsDebounce: ReturnType<typeof setTimeout> | null = null;
 	let blockedKeywordInput = $state('');
 	let blockedCompanyInput = $state('');
@@ -210,15 +217,70 @@
 		}
 	}
 
+	async function loadAgentMemory() {
+		try {
+			const { memories } = await api.getAgentMemory();
+			agentMemory = memories;
+			agentMemoryBaseline = memories;
+			agentMemoryLoaded = true;
+		} catch {
+			agentMemoryLoaded = false;
+			toastState.show('Failed to load known answers', 'error');
+		}
+	}
+
+	function queueAgentMemorySave() {
+		if (agentMemoryDebounce !== null) clearTimeout(agentMemoryDebounce);
+		agentMemoryDebounce = setTimeout(() => {
+			agentMemoryDebounce = null;
+			void saveAgentMemory();
+		}, 600);
+	}
+
+	async function saveAgentMemory() {
+		if (!agentMemoryLoaded) return;
+		const payload = agentMemory
+			.map((m) => ({ question: m.question.trim(), answer: m.answer.trim() }))
+			.filter((m) => m.question !== '' && m.answer !== '');
+		agentMemoryStatus = 'saving';
+		try {
+			const { memories } = await api.saveAgentMemory(payload, agentMemoryBaseline);
+			agentMemoryBaseline = memories;
+			agentMemoryStatus = 'saved';
+		} catch {
+			agentMemoryStatus = 'error';
+			toastState.show('Failed to save known answers', 'error');
+		}
+	}
+
+	function updateAgentMemory(index: number, field: 'question' | 'answer', value: string) {
+		agentMemory = agentMemory.map((m, i) => (i === index ? { ...m, [field]: value } : m));
+		queueAgentMemorySave();
+	}
+
+	function addAgentMemory() {
+		agentMemory = [...agentMemory, { question: '', answer: '' }];
+	}
+
+	function removeAgentMemory(index: number) {
+		agentMemory = agentMemory.filter((_, i) => i !== index);
+		void saveAgentMemory();
+	}
+
 	onMount(() => {
 		refreshLlmSettings();
 		loadMasters();
 		loadTelegram();
 		loadGithubRepos();
+		loadAgentMemory();
 	});
 
 	onDestroy(() => {
 		void flushMasterSave();
+		if (agentMemoryDebounce !== null) {
+			clearTimeout(agentMemoryDebounce);
+			void saveAgentMemory();
+		}
 	});
 
 	async function loadMasters() {
@@ -1461,6 +1523,76 @@
 								{FLEX_LEVELS[appState.settings.llm.resumeTailoringFlexibility - 1]?.desc}
 							</p>
 						</div>
+					{/if}
+				</div>
+
+				<div class="mt-6 border-t border-border-subtle pt-4">
+					<div class="mb-1 flex items-center justify-between">
+						<h3 class="text-[13px] font-semibold text-text-primary">Known answers</h3>
+						<span class="text-[10px] text-text-faint">
+							{agentMemoryStatus === 'saving'
+								? 'Saving…'
+								: agentMemoryStatus === 'saved'
+									? 'Saved'
+									: agentMemoryStatus === 'error'
+										? 'Save failed'
+										: ''}
+						</span>
+					</div>
+					<p class="mb-3 text-[11px] text-text-faint">
+						Reusable personal facts the agent fills into application forms (salary expectation, CPF,
+						phone, address, work authorization). It never asks you again for anything listed here.
+					</p>
+
+					<div class="space-y-2">
+						{#each agentMemory as memory, i (i)}
+							<div class="flex items-start gap-2">
+								<input
+									type="text"
+									placeholder="Question (e.g. Pretensão salarial)"
+									value={memory.question}
+									oninput={(e) =>
+										updateAgentMemory(i, 'question', (e.target as HTMLInputElement).value)}
+									class="h-8 w-1/2 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-faint focus:border-accent-500 focus:outline-none"
+								/>
+								<input
+									type="text"
+									placeholder="Answer (e.g. R$ 12.000)"
+									value={memory.answer}
+									oninput={(e) =>
+										updateAgentMemory(i, 'answer', (e.target as HTMLInputElement).value)}
+									class="h-8 flex-1 rounded-md border border-border-default bg-surface-overlay px-2.5 text-[12px] text-text-primary placeholder:text-text-faint focus:border-accent-500 focus:outline-none"
+								/>
+								<button
+									type="button"
+									aria-label="Remove known answer"
+									onclick={() => removeAgentMemory(i)}
+									class="flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center rounded-md border border-border-default text-text-faint transition-colors duration-150 hover:border-border-strong hover:text-text-primary focus-visible:outline-none"
+								>
+									<Trash2 size={13} strokeWidth={1.75} aria-hidden="true" />
+								</button>
+							</div>
+						{:else}
+							<p class="text-[11px] text-text-faint">
+								Nothing saved yet. Answers you give the agent with “remember” appear here.
+							</p>
+						{/each}
+					</div>
+
+					<button
+						type="button"
+						onclick={addAgentMemory}
+						disabled={!agentMemoryLoaded}
+						class="mt-3 flex cursor-pointer items-center gap-1.5 rounded-md border border-border-default px-2.5 py-1.5 text-[11px] font-medium text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-text-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<Plus size={13} strokeWidth={1.75} aria-hidden="true" />
+						Add answer
+					</button>
+					{#if !agentMemoryLoaded}
+						<p class="mt-2 text-[10px] text-danger-500">
+							Couldn’t load saved answers — editing is disabled so nothing gets overwritten. Reload
+							the page.
+						</p>
 					{/if}
 				</div>
 			</section>
