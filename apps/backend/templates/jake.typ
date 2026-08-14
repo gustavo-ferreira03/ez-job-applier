@@ -24,6 +24,27 @@
 
 #let maybe-link(url, body) = if url == "" { body } else { link(url)[#body] }
 
+// ---------- period formatting ----------
+
+// resume-ci formats periods itself and force-capitalizes the month abbreviation for every
+// locale (an English convention), so a pt-BR resume renders "Abr 2025" where the language
+// wants "abr 2025". Dates are built from ISO input we cannot pre-format, so the correction
+// happens here, at the presentation layer. Only the month is touched: a present label such
+// as "Atual" has no year after it and is left alone.
+#let lang = lower(meta.at("locale", default: "en").replace("_", "-").split("-").at(0))
+#let lowercase-month-langs = (
+  "pt", "es", "fr", "it", "ca", "gl", "ro", "nl", "sv", "da", "no", "nb", "nn", "fi",
+  "pl", "cs", "tr", "ru", "uk",
+)
+
+#let period-text(value) = if value != "" and lowercase-month-langs.contains(lang) {
+  // Rust's regex crate has no lookahead, so the year is captured and re-emitted.
+  value.replace(
+    regex("(\\p{L}+)(\\s\\d{4})"),
+    m => lower(m.captures.at(0)) + m.captures.at(1),
+  )
+} else { value }
+
 // ---------- page setup ----------
 
 #set page(
@@ -91,7 +112,7 @@
   let summary = item.at("summary", default: ())
   subheading(
     if has(position) { rich(position) } else { maybe-link(url, rich(company)) },
-    item.at("period", default: ""),
+    period-text(item.at("period", default: "")),
     if has(position) { maybe-link(url, rich(company)) } else { none },
     if has(location) { rich(location) } else { none },
   )
@@ -113,7 +134,7 @@
     maybe-link(url, rich(item.at("title", default: ()))),
     if has(location) { rich(location) } else { "" },
     if has(item.at("subtitle", default: ())) { rich(item.subtitle) } else { none },
-    item.at("period", default: ""),
+    period-text(item.at("period", default: "")),
   )
   // Score and coursework share one wrapped paragraph instead of a stacked bullet
   // list: coursework is scannable keyword material, not achievements, so it does
@@ -143,7 +164,7 @@
         #strong(maybe-link(url, rich(item.at("title", default: ()))))
         #if has(keywords) [ #h(0.35em)|#h(0.35em) #emph(rich(keywords))]
       ],
-      text(size: 10pt)[#strong(item.at("period", default: ""))],
+      text(size: 10pt)[#strong(period-text(item.at("period", default: "")))],
     )
   ]
   if has(summary) {
@@ -160,7 +181,7 @@
   let summary = item.at("summary", default: ())
   subheading(
     maybe-link(url, rich(item.at("title", default: ()))),
-    item.at("period", default: ""),
+    period-text(item.at("period", default: "")),
     if has(item.at("subtitle", default: ())) { rich(item.subtitle) } else { none },
     none,
   )
@@ -175,11 +196,13 @@
   let label = item.at("label", default: ())
   let level = item.at("level", default: ())
   let items = item.at("items", default: ())
-  text(size: 10pt)[
-    #if has(label) [#strong(rich(label))]
-    #if has(level) [ (#emph(rich(level)))]
-    #if has(items) [: #rich(items)]
-  ]
+  // Written in code mode, not markup: separate markup lines would make Typst insert a space
+  // between the branches and render "Languages : a, b" instead of "Languages: a, b".
+  text(size: 10pt)[#{
+    if has(label) { strong(rich(label)) }
+    if has(level) { [ (#emph(rich(level)))] }
+    if has(items) { [: ]; rich(items) }
+  }]
   linebreak()
 }
 
