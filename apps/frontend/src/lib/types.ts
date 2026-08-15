@@ -43,7 +43,6 @@ export interface JobSummary {
 	applicationUrl: string | null;
 	status: ApplicationStatus;
 	processing: boolean;
-	/** A resume is being tailored for this job right now. */
 	tailoring: boolean;
 	resumeFilename: string | null;
 	errorMessage: string | null;

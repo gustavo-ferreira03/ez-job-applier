@@ -19,7 +19,6 @@ interface MasterInfo {
     summary: string;
 }
 
-/** Base language subtag of a locale: "pt-BR" -> "pt", "en_US" -> "en". */
 function baseLanguage(locale: string | undefined): string | undefined {
     const base = locale?.trim().toLowerCase().split(/[-_]/)[0];
     return base && base.length >= 2 ? base : undefined;
@@ -50,14 +49,6 @@ async function loadMasters(names: string[], ctx: AppContext): Promise<MasterInfo
     return infos;
 }
 
-/**
- * Picks the master resume for a job.
- *
- * The job posting's language is the PRIMARY criterion: an English posting must be answered with
- * an English master and a Portuguese posting with a Portuguese one, so that the LLM-written body
- * and the static section titles (meta.section_titles, which the model never sees) end up in the
- * same language. Content fit only decides between masters that already match the language.
- */
 export async function selectMaster(jobId: number, ctx: AppContext): Promise<string> {
     const names = await ctx.resumeMasterRepo.listMasters();
     if (names.length === 0) {
@@ -96,8 +87,6 @@ export async function selectMaster(jobId: number, ctx: AppContext): Promise<stri
     const chosen = masters.find((m) => m.name === result.master);
     const sameLanguage = language ? masters.filter((m) => m.language === language) : [];
 
-    // Trust the model's language detection over its master pick: if masters exist in the posting's
-    // language but it chose one outside that set, correct it deterministically.
     if (sameLanguage.length > 0 && (!chosen || chosen.language !== language)) {
         if (sameLanguage.length === 1) {
             console.warn(

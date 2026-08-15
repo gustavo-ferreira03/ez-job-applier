@@ -39,14 +39,6 @@ async function writeMemoryFile(memories: AgentMemory[]): Promise<void> {
     await fs.writeFile(MEMORY_FILE, JSON.stringify(memories, null, 2));
 }
 
-/**
- * Replaces the memory list with what the settings UI submitted.
- *
- * `baseline` is the list the UI had when the user started editing. Stored entries absent from the
- * baseline were written by the agent mid-edit, so they are kept; entries present in the baseline but
- * missing from `entries` were deleted by the user, so they stay deleted. Without the baseline a
- * concurrent `rememberAgentFact` would be silently lost.
- */
 export function saveAgentMemory(entries: AgentMemory[], baseline?: AgentMemory[]): Promise<AgentMemory[]> {
     const submitted = new Map<string, AgentMemory>();
     for (const entry of entries) {

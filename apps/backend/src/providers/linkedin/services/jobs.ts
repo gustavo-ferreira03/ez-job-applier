@@ -421,8 +421,6 @@ async function* extractJobs(
         if (maxJobs != null && count >= maxJobs) break;
         onCandidate?.(key);
 
-        // The apply tab may have taken the foreground between yields; background tabs
-        // get throttled and clicks land on stale layout.
         await page.bringToFront().catch(() => undefined);
 
         const lazyCol = page.locator("[data-testid='lazy-column']").first();

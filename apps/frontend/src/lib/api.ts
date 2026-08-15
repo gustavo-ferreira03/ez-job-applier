@@ -231,7 +231,6 @@ export function getTailored(id: number): Promise<{
 	exists: boolean;
 	master: string | null;
 	updatedAt: string | null;
-	/** True while a tailoring run for this job is in flight on the backend. */
 	tailoring: boolean;
 }> {
 	return get(`/jobs/${id}/tailor`);
@@ -247,7 +246,6 @@ export function tailorPreviewUrl(id: number, version?: number): string {
 
 export interface SubmittedResume {
 	exists: boolean;
-	/** True when re-rendered from the tailored YAML instead of an archived PDF: may differ from what was sent. */
 	reconstructed: boolean;
 	master: string | null;
 	source: 'tailored' | 'base' | null;

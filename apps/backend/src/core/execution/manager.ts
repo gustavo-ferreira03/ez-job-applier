@@ -18,14 +18,7 @@ export function registerWorker(factory: WorkerFactory): void {
 const DEFAULT_CYCLE_MAX_MS = 3_600_000;
 const DEFAULT_INTERVAL_MS  = 14_400_000;
 
-/**
- * Monotonic id of the newest run. A run keeps working only while its own token is still the
- * current one, so a stopped loop can never be revived by a later start (a shared boolean flag
- * could be, and that produced several `runForever` loops racing over the same browser and the
- * same VNC displays).
- */
 let _runToken = 0;
-/** The run that owns the browser right now; cleared only once its loop has actually returned. */
 let _activeRun: { token: number; done: Promise<void> } | null = null;
 let _wake: (() => void) | null = null;
 let _activeSession: IJobProviderSession | null = null;
@@ -33,12 +26,10 @@ let _activeWorkers: { wake(): void }[] = [];
 let _loginVncSessionId: string | null = null;
 let _executionVncSessionId: string | null = null;
 
-/** How long stopExecution waits for the loop to unwind before answering the caller. */
 const STOP_DRAIN_MS = 30_000;
 
 function wakeUp(): void { _wake?.(); _wake = null; }
 
-/** True once a newer run has been started, or everything has been stopped. */
 function isStale(token: number): boolean { return _runToken !== token; }
 
 export function wakeExecution(): void { wakeUp(); }
@@ -57,9 +48,6 @@ export async function startExecution(
     ctx: AppContext,
     opts?: { cycleMaxMs?: number; intervalMs?: number; existingId?: string },
 ): Promise<void> {
-    // Guard on the live loop, not on the execution row. getActive() ignores "cancelled", so
-    // right after a stop it reports nothing active while the previous loop is still unwinding
-    // and still holds the browser — which is exactly how two loops used to overlap.
     if (_activeRun) {
         throw new Error(
             isStale(_activeRun.token)
@@ -99,8 +87,6 @@ export async function startExecution(
 export async function stopExecution(ctx: AppContext): Promise<void> {
     const active = await ctx.executionRepo.getActive();
     const run = _activeRun;
-    // Bumping the token invalidates every live run, including any that somehow outlived a
-    // previous stop.
     _runToken++;
     wakeUp();
     for (const w of _activeWorkers) w.wake();
@@ -110,10 +96,6 @@ export async function stopExecution(ctx: AppContext): Promise<void> {
         _activeSession = null;
     }
 
-    // Closing the session tears the browser down, so the loop fails fast rather than finishing
-    // its cycle. Wait for it to unwind so a start right after a stop cannot overlap it — but
-    // bounded, so a wedged cycle doesn't hang the caller. _activeRun stays set until the loop
-    // really returns, and startExecution refuses to start while it is.
     if (run) {
         await Promise.race([
             run.done,
@@ -173,9 +155,6 @@ async function runForever(
                     executionVncSession = await startVncStack("linkedin");
                     _executionVncSessionId = executionVncSession.id;
                 }
-                // The display travels as an argument, never through process.env: it is per-run
-                // state, and a concurrent run restoring its own saved copy used to point this run
-                // at an Xvfb that had already been killed.
                 const result = await runCycle(
                     id, config, cycleMaxMs, ctx, shouldStop,
                     (s) => { _activeSession = s; },

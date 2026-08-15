@@ -99,9 +99,7 @@
 	let agentMemory = $state<api.AgentMemory[]>([]);
 	let agentMemoryDebounce: ReturnType<typeof setTimeout> | null = null;
 	let agentMemoryStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
-	// Guards against overwriting the stored file with an empty list when the initial load failed.
 	let agentMemoryLoaded = $state(false);
-	// Last list known to be on disk; lets the server tell user deletions apart from agent additions.
 	let agentMemoryBaseline: api.AgentMemory[] = [];
 	let tailoringInstructionsDebounce: ReturnType<typeof setTimeout> | null = null;
 	let blockedKeywordInput = $state('');

@@ -56,7 +56,6 @@
 	let tailorMenuStyle = $state('');
 	let tailorButtonRef = $state<HTMLButtonElement | null>(null);
 	let tailorMenuRef = $state<HTMLElement | null>(null);
-	/** Stops the tailoring poll loop once the modal is gone. */
 	let cancelled = false;
 
 	onDestroy(() => {
@@ -83,8 +82,6 @@
 			]);
 			tailored = tailoredRes.exists;
 			tailoredMaster = tailoredRes.master;
-			// Adopt the backend's in-flight state so reopening the modal mid-run still shows
-			// "Tailoring…" and keeps the button disabled.
 			if (tailoredRes.tailoring) {
 				tailoring = true;
 				pollTailoring();
@@ -277,10 +274,6 @@
 		}
 	}
 
-	/**
-	 * Watches a tailoring run that was started elsewhere (auto-tailor, or a previous visit to this
-	 * modal) until the backend reports it finished, then refreshes the tailored-resume state.
-	 */
 	async function pollTailoring() {
 		while (!cancelled) {
 			await new Promise((r) => setTimeout(r, 1500));

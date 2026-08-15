@@ -157,8 +157,6 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
             const body = c.req.valid("json");
             try {
                 const settings = await getSettings();
-                // Joins an in-flight run instead of starting a duplicate, so repeated clicks
-                // (or a manual tailor racing the auto-tailor) only ever produce one run.
                 const alreadyRunning = isTailoring(id);
                 const { master } = await runTailoring(id, () =>
                     tailorResume(
@@ -200,9 +198,6 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
         return c.json({ ok: true });
     });
 
-    // What was actually sent. Prefers the write-once snapshot; falls back to re-rendering the
-    // tailored YAML for applications submitted before snapshots existed — flagged as
-    // `reconstructed` so the UI never claims more certainty than it has.
     router.get("/jobs/:id/submitted-resume", async (c) => {
         const id = Number(c.req.param("id"));
         const meta = await ctx.resumeMasterRepo.readSubmittedMeta(id);

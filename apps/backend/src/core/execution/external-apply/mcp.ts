@@ -42,9 +42,6 @@ export async function launchBrowserMcp(opts: {
     storageStatePath?: string;
     fingerprintArgs?: string[];
 }): Promise<BrowserMcp> {
-    // Reuse one stable fingerprint across every launch. A fresh random fingerprint per job makes
-    // LinkedIn treat each browser as an unknown device and demand the password again on the
-    // "Sign in with LinkedIn" OAuth screen used by external ATS sites.
     const lo = await buildLaunchOptions({ locale: "pt-BR", args: opts.fingerprintArgs ?? (await stableFingerprintArgs()) });
     const fingerprintArgs = (lo.args ?? []).filter((a) => a.startsWith("--fingerprint"));
     const config = {

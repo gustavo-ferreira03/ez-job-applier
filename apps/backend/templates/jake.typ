@@ -1,16 +1,10 @@
 // Jake Gutierrez resume layout, ported from LaTeX to Typst.
 // Original: https://github.com/jakegut/resume (MIT) / based on https://github.com/sb2nov/resume
-//
-// Renders the resume-ci context (sys.inputs.data). All section headings come from
-// meta.section_titles, so the same template renders EN and PT-BR masters.
-// No external Typst packages are imported on purpose: compilation stays offline.
 
 #let data = json(bytes(sys.inputs.at("data", default: "{}")))
 #let meta = data.at("meta", default: (:))
 #let titles = meta.at("section_titles", default: (:))
 #let labels = meta.at("labels", default: (:))
-
-// ---------- rich text ----------
 
 #let rich(parts) = {
   for part in parts {
@@ -24,13 +18,6 @@
 
 #let maybe-link(url, body) = if url == "" { body } else { link(url)[#body] }
 
-// ---------- period formatting ----------
-
-// resume-ci formats periods itself and force-capitalizes the month abbreviation for every
-// locale (an English convention), so a pt-BR resume renders "Abr 2025" where the language
-// wants "abr 2025". Dates are built from ISO input we cannot pre-format, so the correction
-// happens here, at the presentation layer. Only the month is touched: a present label such
-// as "Atual" has no year after it and is left alone.
 #let lang = lower(meta.at("locale", default: "en").replace("_", "-").split("-").at(0))
 #let lowercase-month-langs = (
   "pt", "es", "fr", "it", "ca", "gl", "ro", "nl", "sv", "da", "no", "nb", "nn", "fi",
@@ -38,14 +25,11 @@
 )
 
 #let period-text(value) = if value != "" and lowercase-month-langs.contains(lang) {
-  // Rust's regex crate has no lookahead, so the year is captured and re-emitted.
   value.replace(
     regex("(\\p{L}+)(\\s\\d{4})"),
     m => lower(m.captures.at(0)) + m.captures.at(1),
   )
 } else { value }
-
-// ---------- page setup ----------
 
 #set page(
   paper: "us-letter",
@@ -62,16 +46,12 @@
 #set list(indent: 0.15in, body-indent: 0.4em, marker: [•])
 #show list: set par(leading: 0.5em)
 
-// ---------- section heading (\scshape + \titlerule) ----------
-
 #let section(name) = {
   v(6pt)
   block(below: 3pt)[#text(size: 13pt)[#smallcaps(name)]]
   line(length: 100%, stroke: 0.6pt)
   v(1pt)
 }
-
-// ---------- two-line subheading (\resumeSubheading) ----------
 
 #let heading-row(left-body, right-body) = grid(
   columns: (1fr, auto),
@@ -101,9 +81,6 @@
   v(3pt)
 }
 
-// ---------- entry variants ----------
-
-// Work / volunteer: position on top-left, company + location below (Jake's order).
 #let work-entry(item) = {
   let url = item.at("url", default: "")
   let position = item.at("subtitle", default: ())
@@ -124,7 +101,6 @@
   v(3pt)
 }
 
-// Education: institution + location on top, degree + dates below.
 #let education-entry(item) = {
   let url = item.at("url", default: "")
   let location = item.at("location", default: ())
@@ -136,9 +112,6 @@
     if has(item.at("subtitle", default: ())) { rich(item.subtitle) } else { none },
     period-text(item.at("period", default: "")),
   )
-  // Score and coursework share one wrapped paragraph instead of a stacked bullet
-  // list: coursework is scannable keyword material, not achievements, so it does
-  // not earn one vertical line per item on a length-constrained resume.
   if has(score) or has(courses) {
     v(1pt)
     text(size: 10pt)[
@@ -153,7 +126,6 @@
   }
 }
 
-// Projects: **Name** | *Stack*  ...  dates
 #let project-entry(item) = {
   let url = item.at("url", default: "")
   let keywords = item.at("keywords", default: ())
@@ -175,7 +147,6 @@
   v(3pt)
 }
 
-// Certificates / awards / publications: title + date, issuer below.
 #let simple-entry(item) = {
   let url = item.at("url", default: "")
   let summary = item.at("summary", default: ())
@@ -191,13 +162,10 @@
   }
 }
 
-// Skills / languages / interests: **Category**: a, b, c
 #let tag-entry(item) = {
   let label = item.at("label", default: ())
   let level = item.at("level", default: ())
   let items = item.at("items", default: ())
-  // Written in code mode, not markup: separate markup lines would make Typst insert a space
-  // between the branches and render "Languages : a, b" instead of "Languages: a, b".
   text(size: 10pt)[#{
     if has(label) { strong(rich(label)) }
     if has(level) { [ (#emph(rich(level)))] }
@@ -213,8 +181,6 @@
   if has(reference) { text(size: 10pt)[#rich(reference)] }
   v(4pt)
 }
-
-// ---------- header ----------
 
 #let personal = data.at("personal", default: (:))
 
@@ -241,8 +207,6 @@
 ]
 
 #v(4pt)
-
-// ---------- body ----------
 
 #let render(key, fallback, entries, renderer) = {
   if entries.len() > 0 {

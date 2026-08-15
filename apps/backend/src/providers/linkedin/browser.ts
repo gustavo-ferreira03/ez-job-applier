@@ -17,24 +17,12 @@ const automationSuppressionLaunchOptions = {
     ignoreDefaultArgs: ["--enable-automation"],
 };
 
-/**
- * Chromium picks its X display from the DISPLAY env var. That variable is process-global, so
- * mutating it around a launch is a race as soon as two browsers are being opened: one caller
- * restores an older value while another is still launching, and the browser attaches to an Xvfb
- * that is about to be killed. Pass the display in the child's own environment instead.
- */
 function displayEnv(display: string | undefined): { env?: NodeJS.ProcessEnv } {
     return display ? { env: { ...process.env, DISPLAY: display } } : {};
 }
 
 export type BrowserStorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
-/**
- * cloakbrowser randomises `--fingerprint=<seed>` on every launch, so each browser looks like a
- * brand new device. LinkedIn reacts to unknown devices by forcing a password re-entry (most
- * visibly on the "Sign in with LinkedIn" OAuth screen used by external ATS sites). Pinning one
- * seed per installation keeps the device identity stable across launches and processes.
- */
 let cachedFingerprintSeed: number | null = null;
 let fingerprintPromise: Promise<string[]> | null = null;
 
@@ -47,7 +35,6 @@ async function loadFingerprintSeed(): Promise<number> {
             return parsed.seed;
         }
     } catch {
-        // no seed yet
     }
     const seed = Math.floor(Math.random() * 90000) + 10000;
     cachedFingerprintSeed = seed;
@@ -56,7 +43,6 @@ async function loadFingerprintSeed(): Promise<number> {
     return seed;
 }
 
-/** Chromium args that pin the stealth fingerprint to this installation's stable seed. */
 export function stableFingerprintArgs(): Promise<string[]> {
     fingerprintPromise ??= loadFingerprintSeed().then((seed) => [`--fingerprint=${seed}`]);
     return fingerprintPromise;
@@ -96,24 +82,15 @@ function mergeLinkedInState(existing: BrowserStorageState | null, current: Brows
     return { cookies: [...cookies.values()], origins: [...origins.values()] };
 }
 
-/** Expired persistent cookie. Session cookies use expires <= 0 and never expire on disk. */
 function isExpiredCookie(cookie: BrowserStorageState["cookies"][number], nowSec: number): boolean {
     return cookie.expires > 0 && cookie.expires < nowSec;
 }
 
-/**
- * Merge every cookie/origin from `current` over `existing`, keeping unrelated existing entries.
- * Expired cookies are dropped so the shared session file doesn't grow without bound as the agent
- * visits more ATS sites.
- */
 export function mergeAllState(
     existing: BrowserStorageState | null,
     current: BrowserStorageState,
 ): BrowserStorageState {
     const nowSec = Date.now() / 1000;
-    // Prune per input, never after merging: a stale expired entry in `current` must not displace
-    // the live cookie of the same name in `existing` and then be dropped, which would delete the
-    // credential entirely. Observed killing live li_at-adjacent LinkedIn cookies (lidc, __cf_bm).
     const live = (cookie: BrowserStorageState["cookies"][number]) => !isExpiredCookie(cookie, nowSec);
     const cookies = new Map<string, BrowserStorageState["cookies"][number]>();
     for (const cookie of (existing?.cookies ?? []).filter(live)) cookies.set(cookieKey(cookie), cookie);
@@ -126,7 +103,6 @@ export function mergeAllState(
     return { cookies: [...cookies.values()], origins: [...origins.values()] };
 }
 
-/** The shared session state (LinkedIn + every ATS login the agent has accumulated). */
 export function readSharedSessionState(): Promise<BrowserStorageState | null> {
     return readExistingState();
 }
@@ -229,11 +205,6 @@ export async function saveLinkedinSession(context = activeContext): Promise<void
     });
 }
 
-/**
- * Fold a storage state captured outside the LinkedIn provider (e.g. the external-apply browser)
- * back into the shared session file, so LinkedIn "remember this device" cookies and ATS logins
- * survive into the next job instead of dying with the per-job state file.
- */
 export async function mergeExternalSession(state: BrowserStorageState): Promise<void> {
     await writeQueued(async () => {
         await writeStorageState(mergeAllState(await readExistingState(), state));

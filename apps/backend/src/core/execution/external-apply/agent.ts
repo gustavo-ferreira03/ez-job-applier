@@ -41,18 +41,6 @@ async function readState(file: string): Promise<BrowserStorageState | null> {
     }
 }
 
-/**
- * Storage state to seed this job's browser with.
- *
- * The per-job file is only a snapshot of the cookies this job happened to hold when it was last
- * suspended. Using it *instead of* the shared session threw away every login acquired since —
- * including the LinkedIn "remember this device" cookies that make "Sign in with LinkedIn" on an
- * ATS resolve without a password prompt, and any ATS account another job had already created.
- * That is why every role asked to log in again.
- *
- * So merge: shared session as the base, the job's own snapshot layered on top (it is the more
- * recent truth for the sites that job was in the middle of).
- */
 async function resolveStorageStateSeed(jobStatePath: string, workDir: string): Promise<string> {
     const jobState = await readState(jobStatePath);
     if (!jobState) return sessionFilePath;
@@ -305,8 +293,6 @@ export async function runExternalApply(
         return { status: "stalled", error: "The agent stopped before submitting" };
     } finally {
         if (mcp) {
-            // Persist whatever logins the run produced (LinkedIn device trust, ATS accounts) into
-            // the shared session so the next job doesn't have to sign in again.
             const saved = await saveBrowserMcpStorageState(mcp, workDir).catch(() => null);
             if (saved) await mergeExternalSession(saved).catch(() => {});
             await mcp.close().catch(() => {});

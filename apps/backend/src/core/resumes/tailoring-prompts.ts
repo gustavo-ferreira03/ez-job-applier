@@ -134,18 +134,11 @@ const LANGUAGE_NAMES: Record<string, string> = {
     it: "Italian",
 };
 
-/** Resolves a master resume's meta.locale ("pt-BR", "en_US", "pt") to a human language name. */
 export function localeLanguageName(locale: string | undefined): string | undefined {
     const base = clean(locale)?.toLowerCase().split(/[-_]/)[0];
     return base ? LANGUAGE_NAMES[base] : undefined;
 }
 
-/**
- * The master is chosen to match the posting's language (see selectMaster), so its meta.locale IS
- * the posting's language. Locking output to that locale keeps the LLM-written body consistent with
- * the static section titles from meta.section_titles, which the model never sees and cannot
- * translate. Without a locale we fall back to detecting the language from the posting.
- */
 function languageRules(locale: string | undefined): string[] {
     const language = localeLanguageName(locale);
 
@@ -162,13 +155,6 @@ function languageRules(locale: string | undefined): string[] {
     ];
 }
 
-/**
- * Bullets allowed per role, most recent first; the last entry repeats for older roles.
- *
- * The master is deliberately an exhaustive superset, and without explicit numbers the model
- * kept 100% of it (37/37 bullets, 116/116 skill keywords) and produced a three-page PDF.
- * "Be concise" does nothing; counts do. Tuned so a four-role master lands just under two pages.
- */
 const BULLETS_PER_ROLE = [9, 8, 6, 5] as const;
 const MAX_BULLET_CHARS = 180;
 const MAX_SKILL_GROUPS = 6;

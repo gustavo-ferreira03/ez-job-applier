@@ -10,11 +10,8 @@ export interface TailoredResumeMeta {
 }
 
 export interface SubmittedResumeMeta {
-    /** Master the tailored CV came from, or null when the base PDF was uploaded as-is. */
     master: string | null;
-    /** "tailored" = generated for this job; "base" = an uploaded PDF was sent unchanged. */
     source: "tailored" | "base";
-    /** Filename as uploaded to the application form. */
     filename: string;
     submittedAt: string;
 }
@@ -84,7 +81,6 @@ export interface IResumeMasterRepo {
     writeTailored(jobId: number, data: ResumeInput, meta: TailoredResumeMeta): Promise<void>;
     deleteTailored(jobId: number): Promise<void>;
     hasTailored(jobId: number): Promise<boolean>;
-    /** Immutable snapshot of the PDF that was actually uploaded. Never overwritten by re-tailoring. */
     writeSubmitted(jobId: number, pdf: Buffer, meta: SubmittedResumeMeta): Promise<void>;
     readSubmitted(jobId: number): Promise<Buffer | null>;
     readSubmittedMeta(jobId: number): Promise<SubmittedResumeMeta | null>;

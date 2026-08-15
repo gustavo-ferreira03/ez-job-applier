@@ -463,7 +463,6 @@ function applyModal(page: Page): Locator {
     return page.locator(MODAL_SELECTOR).filter({ visible: true }).last();
 }
 
-/** Scope the apply flow to the closest container around the Next/Review/Submit button. */
 async function stepContainer(page: Page): Promise<Locator | null> {
     const btn = page.getByRole("button", { name: STEP_BTN_RE }).filter({ visible: true }).last();
     if (!(await btn.count().catch(() => 0))) return null;
@@ -476,8 +475,6 @@ async function stepContainer(page: Page): Promise<Locator | null> {
         const container = btn.locator(selector);
         if (await container.count().catch(() => 0)) return container.last();
     }
-    // No sane container: don't fall back to <body>, filling would target page-level
-    // inputs like the LinkedIn search box.
     return null;
 }
 
@@ -514,9 +511,6 @@ function isAuthWall(url: string): boolean {
 }
 
 async function gotoJob(page: Page, jobUrl: string): Promise<void> {
-    // The apply tab is a background tab; without bringToFront Chromium throttles
-    // rAF/timers there, so LinkedIn's modal animation never finishes and clicks land
-    // on a stale layout.
     await page.bringToFront().catch(() => undefined);
 
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -563,11 +557,6 @@ interface OpenModalResult {
     error?: string;
 }
 
-/**
- * Clicks Easy Apply and waits for the modal. LinkedIn occasionally swallows the first
- * click (the button re-renders under the cursor, or the click only appends tracking
- * params to the URL), so retry before giving up.
- */
 async function openApplyModal(page: Page): Promise<OpenModalResult> {
     for (let attempt = 1; attempt <= 3; attempt++) {
         const btn = easyApplyButton(page);
@@ -591,8 +580,6 @@ async function openApplyModal(page: Page): Promise<OpenModalResult> {
             await modal.waitFor({ state: "visible", timeout: 10000 });
             return { modal, limited: false };
         } catch {
-            // Modal node may not carry a dialog role on some variants; fall back to the
-            // container holding the Next/Review/Submit button.
             const container = await stepContainer(page);
             if (container) {
                 console.log("[easyApply] no dialog node; using step container as modal root");

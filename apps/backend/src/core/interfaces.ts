@@ -8,10 +8,6 @@ export interface IJobProviderSession {
 }
 
 export interface SessionOptions {
-    /**
-     * X display the browser must attach to (e.g. ":99"). Passed explicitly rather than through
-     * process.env.DISPLAY, which is process-global and therefore unsafe to use as per-run state.
-     */
     display?: string;
 }
 

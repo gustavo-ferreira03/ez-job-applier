@@ -2,7 +2,6 @@ import path from "node:path";
 import { generateResume } from "resume-ci";
 import type { ResumeInput } from "resume-ci";
 
-// Templates are code, not user data: they live in the repo (and in the image), not in storage/.
 const TEMPLATES_DIR = process.env.RESUME_TEMPLATES_DIR ?? path.resolve("templates");
 const DEFAULT_TEMPLATE = process.env.RESUME_TEMPLATE ?? "jake";
 
@@ -28,13 +27,6 @@ export function resumeOutputName(data: ResumeInput): string {
     return cleanName === "resume" ? "resume" : `${cleanName}_resume`;
 }
 
-/**
- * resume-ci joins education as `${studyType} in ${area}` with a hardcoded English "in"
- * (see its degreeText), which leaks English into every non-English resume:
- * "Bacharelado in Ciência da Computação". The model never sees education, so this cannot
- * be prompted away. We join the two fields ourselves with a locale-aware word and clear
- * `area`, which makes upstream fall through to `studyType` alone.
- */
 const DEGREE_JOINERS: Record<string, string> = {
     en: "in",
     pt: "em",
@@ -64,16 +56,7 @@ function mergeDegreeFields(data: ResumeInput): ResumeInput {
     };
 }
 
-/**
- * A contract with a known end date (`endDate: '2026-06'`) is truthful data, but rendering it
- * as a closed range makes a job the candidate currently holds read as one they already left.
- * Dropping the end date renders the locale's present label instead. Only work and volunteer
- * entries are touched: on education a future `endDate` is an expected graduation and correct
- * as a date.
- */
 function hideFutureEndDates(data: ResumeInput): ResumeInput {
-    // ISO dates are zero-padded, so a prefix-length string compare orders them correctly and
-    // handles the YYYY / YYYY-MM / YYYY-MM-DD forms the schema allows.
     const today = new Date().toISOString().slice(0, 10);
     const ongoing = <T extends { endDate?: string }>(entry: T): T => {
         const endDate = entry.endDate?.trim();
@@ -91,7 +74,6 @@ function hideFutureEndDates(data: ResumeInput): ResumeInput {
 export async function generateResumePdf(data: ResumeInput, filenameBase: string): Promise<Buffer> {
     const input = hideFutureEndDates(mergeDegreeFields(data));
     const meta = { ...(input.meta ?? {}), output_filename: sanitizeFilename(filenameBase) };
-    // A master YAML may pin its own `meta.template`; otherwise use the configured default.
     const template = typeof meta.template === "string" && meta.template !== "default" ? undefined : DEFAULT_TEMPLATE;
     const result = await generateResume(
         { ...input, meta },

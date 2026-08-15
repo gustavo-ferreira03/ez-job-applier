@@ -7,8 +7,6 @@ import type { IResumeMasterRepo, SubmittedResumeMeta, TailoredResumeMeta } from 
 export const RESUME_DIR = path.resolve("storage/resume");
 const MASTERS_DIR = path.join(RESUME_DIR, "masters");
 const TAILORED_DIR = path.join(RESUME_DIR, "tailored");
-// Write-once archive of what was actually uploaded. Deliberately not touched by
-// deleteTailored: an application's history must survive re-tailoring the job.
 const SUBMITTED_DIR = path.join(RESUME_DIR, "submitted");
 export const TEMPLATES_DIR = path.join(RESUME_DIR, "templates");
 const LEGACY_MASTER_PATH = path.join(RESUME_DIR, "master.yml");

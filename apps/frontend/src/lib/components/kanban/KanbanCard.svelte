@@ -18,7 +18,6 @@
 	const agentSession = $derived(appState.externalApply.sessions.find((session) => session.jobId === job.id));
 	const agentPhase = $derived(agentSession?.active ? agentSession.phase : null);
 	const agentWorking = $derived(agentPhase === 'working');
-	// Tailoring counts as card activity, so you can leave the modal and still see it running.
 	const busy = $derived(job.processing || agentWorking || job.tailoring);
 
 </script>
@@ -74,7 +73,6 @@
 		{#if job.location}<span class="text-text-muted opacity-75"> · {job.location}</span>{/if}
 	</p>
 
-	<!-- Tailoring in progress -->
 	{#if job.tailoring}
 		<div class="mt-2 flex items-center gap-1.5">
 			<span

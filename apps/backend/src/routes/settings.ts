@@ -50,7 +50,6 @@ export function createSettingsRouter(ctx: AppContext) {
         return c.json(updated);
     });
 
-    // Reusable personal facts the apply agent fills into forms (salary expectation, CPF, phone…).
     router.get("/settings/agent-memory", async (c) => c.json({ memories: await loadAgentMemory() }));
 
     router.put("/settings/agent-memory", async (c) => {
