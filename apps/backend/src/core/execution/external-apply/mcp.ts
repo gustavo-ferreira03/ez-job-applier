@@ -7,7 +7,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@earendil-works/pi-ai";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../../login/vnc";
-import type { BrowserStorageState } from "../../../providers/linkedin/browser";
+import { stableFingerprintArgs, type BrowserStorageState } from "../../../providers/linkedin/browser";
 import type { JobToolContext } from "./tools";
 
 const require = createRequire(import.meta.url);
@@ -42,7 +42,10 @@ export async function launchBrowserMcp(opts: {
     storageStatePath?: string;
     fingerprintArgs?: string[];
 }): Promise<BrowserMcp> {
-    const lo = await buildLaunchOptions({ locale: "pt-BR", args: opts.fingerprintArgs });
+    // Reuse one stable fingerprint across every launch. A fresh random fingerprint per job makes
+    // LinkedIn treat each browser as an unknown device and demand the password again on the
+    // "Sign in with LinkedIn" OAuth screen used by external ATS sites.
+    const lo = await buildLaunchOptions({ locale: "pt-BR", args: opts.fingerprintArgs ?? (await stableFingerprintArgs()) });
     const fingerprintArgs = (lo.args ?? []).filter((a) => a.startsWith("--fingerprint"));
     const config = {
         browser: {

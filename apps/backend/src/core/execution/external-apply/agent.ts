@@ -8,7 +8,13 @@ import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf, resumeOutputName } from "../../resumes/pdf";
 import { autoTailorIfNeeded } from "../../resumes/auto-tailor";
 import { type VncSession } from "../../login/vnc";
-import { sessionFilePath } from "../../../providers/linkedin/browser";
+import {
+    sessionFilePath,
+    mergeExternalSession,
+    mergeAllState,
+    readSharedSessionState,
+    type BrowserStorageState,
+} from "../../../providers/linkedin/browser";
 import { createExternalApplyTools, type JobToolContext } from "./tools";
 import { launchBrowserMcp, bridgeBrowserTools, saveBrowserMcpStorageState, type BrowserMcp } from "./mcp";
 import { bindExternalApplySession, registerSession, postAgentMessage, updateVncSession } from "./state";
@@ -24,6 +30,44 @@ function fail(jobId: number, error: string): ExternalApplyResult {
 export interface ExternalApplyResult {
     status: "submitted" | "aborted" | "stalled" | "failed";
     error?: string;
+}
+
+async function readState(file: string): Promise<BrowserStorageState | null> {
+    try {
+        return JSON.parse(await fs.readFile(file, "utf8")) as BrowserStorageState;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Storage state to seed this job's browser with.
+ *
+ * The per-job file is only a snapshot of the cookies this job happened to hold when it was last
+ * suspended. Using it *instead of* the shared session threw away every login acquired since —
+ * including the LinkedIn "remember this device" cookies that make "Sign in with LinkedIn" on an
+ * ATS resolve without a password prompt, and any ATS account another job had already created.
+ * That is why every role asked to log in again.
+ *
+ * So merge: shared session as the base, the job's own snapshot layered on top (it is the more
+ * recent truth for the sites that job was in the middle of).
+ */
+async function resolveStorageStateSeed(jobStatePath: string, workDir: string): Promise<string> {
+    const jobState = await readState(jobStatePath);
+    if (!jobState) return sessionFilePath;
+
+    const shared = await readSharedSessionState();
+    if (!shared) return jobStatePath;
+
+    const merged = mergeAllState(shared, jobState);
+    const mergedPath = path.join(workDir, "seed-storage-state.json");
+    try {
+        await fs.writeFile(mergedPath, JSON.stringify(merged), "utf8");
+        return mergedPath;
+    } catch (e) {
+        console.error("[external-apply] failed to write merged storage state seed:", e);
+        return jobStatePath;
+    }
 }
 
 async function loadResume(ctx: AppContext, jobId: number): Promise<ResumeInput | null> {
@@ -92,13 +136,14 @@ export async function runExternalApply(
             fingerprintArgs: null,
         };
 
+        const seedStorageState = () => resolveStorageStateSeed(jobStatePath, workDir);
+
         jc.vncSession = await ensureVnc();
-        let initialStorageStatePath = sessionFilePath;
-        try {
-            await fs.access(jobStatePath);
-            initialStorageStatePath = jobStatePath;
-        } catch {}
-        mcp = await launchBrowserMcp({ workDir, display: jc.vncSession.display, storageStatePath: initialStorageStatePath });
+        mcp = await launchBrowserMcp({
+            workDir,
+            display: jc.vncSession.display,
+            storageStatePath: await seedStorageState(),
+        });
         jc.browser = mcp;
         jc.fingerprintArgs = mcp.fingerprintArgs;
         const browserTools = bridgeBrowserTools(mcp, jc);
@@ -111,17 +156,10 @@ export async function runExternalApply(
             const session = await ensureVnc();
             jc.vncSession = session;
             updateVncSession(jobId, session.id);
-            let storageStatePath = sessionFilePath;
-            try {
-                await fs.access(jobStatePath);
-                storageStatePath = jobStatePath;
-            } catch {
-                // no saved job state; fall back to the LinkedIn session seed
-            }
             const next = await launchBrowserMcp({
                 workDir,
                 display: session.display,
-                storageStatePath,
+                storageStatePath: await seedStorageState(),
                 fingerprintArgs: jc.fingerprintArgs ?? undefined,
             });
             jc.browser = next;
@@ -135,7 +173,10 @@ export async function runExternalApply(
             const browser = jc.browser;
             if (!browser) return;
             const saved = await saveBrowserMcpStorageState(browser, workDir).catch(() => null);
-            if (saved) await fs.writeFile(jobStatePath, JSON.stringify(saved)).catch(() => {});
+            if (saved) {
+                await fs.writeFile(jobStatePath, JSON.stringify(saved)).catch(() => {});
+                await mergeExternalSession(saved).catch(() => {});
+            }
             jc.browser = null;
             mcp = null;
             await browser.close().catch(() => {});
@@ -253,6 +294,10 @@ export async function runExternalApply(
         return { status: "stalled", error: "The agent stopped before submitting" };
     } finally {
         if (mcp) {
+            // Persist whatever logins the run produced (LinkedIn device trust, ATS accounts) into
+            // the shared session so the next job doesn't have to sign in again.
+            const saved = await saveBrowserMcpStorageState(mcp, workDir).catch(() => null);
+            if (saved) await mergeExternalSession(saved).catch(() => {});
             await mcp.close().catch(() => {});
         }
         await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
