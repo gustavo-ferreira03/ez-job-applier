@@ -101,6 +101,16 @@ async function processQueue(
             continue;
         }
 
+        // External-apply jobs are never applied to from this loop — the external-apply worker
+        // owns them. With that worker disabled they cannot progress at all, so drop them before
+        // paying for the LLM filter: for these jobs the filter exists only to mark REJECTED and
+        // gate the agent (see external-apply/worker.ts), which is moot when no agent will run.
+        if (job.applicationUrl != null && !settings.llm.externalApply) {
+            deferredJobIds.add(jobId);
+            console.log(`[execution] external apply: ${job.title} — skipped, llm.externalApply is off`);
+            continue;
+        }
+
         if (settings.llm.enabled && settings.llm.filterJobs) {
             const decision = await shouldApply(job, ctx, settings.llm).catch(() => null);
             if (decision && !decision.apply) {
@@ -113,6 +123,7 @@ async function processQueue(
 
         if (job.applicationUrl != null) {
             deferredJobIds.add(jobId);
+            console.log(`[execution] external apply: ${job.title} — handed to the external-apply worker`);
             continue;
         }
 
@@ -155,6 +166,7 @@ async function processQueue(
         if (deferredJobIds.has(jobId)) continue;
         const job = await ctx.jobRepo.getById(jobId);
         if (!job) continue;
+        // Submitted by the external-apply worker, not from here.
         if (job.applicationUrl != null) continue;
         const appRec = await ctx.appRepo.get(job.provider, job.jobId);
         if (!appRec) continue;

@@ -18,14 +18,28 @@ export function registerWorker(factory: WorkerFactory): void {
 const DEFAULT_CYCLE_MAX_MS = 3_600_000;
 const DEFAULT_INTERVAL_MS  = 14_400_000;
 
-let _stopFlag = false;
+/**
+ * Monotonic id of the newest run. A run keeps working only while its own token is still the
+ * current one, so a stopped loop can never be revived by a later start (a shared boolean flag
+ * could be, and that produced several `runForever` loops racing over the same browser and the
+ * same VNC displays).
+ */
+let _runToken = 0;
+/** The run that owns the browser right now; cleared only once its loop has actually returned. */
+let _activeRun: { token: number; done: Promise<void> } | null = null;
 let _wake: (() => void) | null = null;
 let _activeSession: IJobProviderSession | null = null;
 let _activeWorkers: { wake(): void }[] = [];
 let _loginVncSessionId: string | null = null;
 let _executionVncSessionId: string | null = null;
 
+/** How long stopExecution waits for the loop to unwind before answering the caller. */
+const STOP_DRAIN_MS = 30_000;
+
 function wakeUp(): void { _wake?.(); _wake = null; }
+
+/** True once a newer run has been started, or everything has been stopped. */
+function isStale(token: number): boolean { return _runToken !== token; }
 
 export function wakeExecution(): void { wakeUp(); }
 
@@ -43,6 +57,17 @@ export async function startExecution(
     ctx: AppContext,
     opts?: { cycleMaxMs?: number; intervalMs?: number; existingId?: string },
 ): Promise<void> {
+    // Guard on the live loop, not on the execution row. getActive() ignores "cancelled", so
+    // right after a stop it reports nothing active while the previous loop is still unwinding
+    // and still holds the browser — which is exactly how two loops used to overlap.
+    if (_activeRun) {
+        throw new Error(
+            isStale(_activeRun.token)
+                ? "Previous execution is still shutting down. Try again in a moment."
+                : "Execution already active",
+        );
+    }
+
     const active = await ctx.executionRepo.getActive();
     if (active && active.id !== opts?.existingId) throw new Error("Execution already active");
 
@@ -56,12 +81,16 @@ export async function startExecution(
         await ctx.executionRepo.setStatus(id, "running");
     }
 
-    _stopFlag = false;
-    runForever(id, config, cycleMaxMs, intervalMs, ctx).catch((e) =>
-        console.error("[execution] crashed:", e),
-    );
+    const token = ++_runToken;
+    const shouldStop = () => isStale(token);
+    const done = runForever(id, config, cycleMaxMs, intervalMs, ctx, shouldStop)
+        .catch((e) => console.error("[execution] crashed:", e))
+        .finally(() => {
+            if (_activeRun?.token === token) _activeRun = null;
+        });
+    _activeRun = { token, done };
     _activeWorkers = _workerFactories.map((factory) => {
-        const worker = factory(ctx, () => _stopFlag);
+        const worker = factory(ctx, shouldStop);
         worker.run().catch((e) => console.error("[worker] crashed:", e));
         return worker;
     });
@@ -69,13 +98,28 @@ export async function startExecution(
 
 export async function stopExecution(ctx: AppContext): Promise<void> {
     const active = await ctx.executionRepo.getActive();
-    _stopFlag = true;
+    const run = _activeRun;
+    // Bumping the token invalidates every live run, including any that somehow outlived a
+    // previous stop.
+    _runToken++;
     wakeUp();
     for (const w of _activeWorkers) w.wake();
     _activeWorkers = [];
     if (_activeSession) {
         await _activeSession.close().catch(console.error);
         _activeSession = null;
+    }
+
+    // Closing the session tears the browser down, so the loop fails fast rather than finishing
+    // its cycle. Wait for it to unwind so a start right after a stop cannot overlap it — but
+    // bounded, so a wedged cycle doesn't hang the caller. _activeRun stays set until the loop
+    // really returns, and startExecution refuses to start while it is.
+    if (run) {
+        await Promise.race([
+            run.done,
+            new Promise<void>((resolve) => setTimeout(resolve, STOP_DRAIN_MS)),
+        ]);
+        if (_activeRun === run) console.warn("[execution] previous run still unwinding after stop");
     }
     if (active) await ctx.executionRepo.setStatus(active.id, "cancelled");
 }
@@ -98,15 +142,16 @@ async function runForever(
     cycleMaxMs: number,
     intervalMs: number,
     ctx: AppContext,
+    shouldStop: () => boolean,
 ): Promise<void> {
     try {
-        while (!_stopFlag) {
-            while (!_stopFlag) {
+        while (!shouldStop()) {
+            while (!shouldStop()) {
                 const ex = await ctx.executionRepo.get(id);
                 if (!ex || ex.status !== "paused") break;
                 await interruptibleSleep(5_000);
             }
-            if (_stopFlag) break;
+            if (shouldStop()) break;
 
             const gateSchedule = (await getSettings()).advanced.schedule;
             if (gateSchedule.enabled && !isWithinSchedule(gateSchedule)) {
@@ -130,14 +175,14 @@ async function runForever(
                     _executionVncSessionId = executionVncSession.id;
                     process.env.LINKEDIN_BROWSER_DISPLAY = executionVncSession.display;
                 }
-                const result = await runCycle(id, config, cycleMaxMs, ctx, () => _stopFlag, (s) => { _activeSession = s; });
+                const result = await runCycle(id, config, cycleMaxMs, ctx, shouldStop, (s) => { _activeSession = s; });
                 easyApplyLimited = result.easyApplyLimited;
             } catch (e) {
                 cycleErrored = true;
                 const msg = e instanceof Error ? e.message : String(e);
                 if (isAuthError(msg)) {
                     console.log("[execution] auth error detected — entering action_needed");
-                    const resumed = await handleActionNeeded(id, ctx);
+                    const resumed = await handleActionNeeded(id, ctx, shouldStop);
                     if (!resumed) break;
                     continue;
                 }
@@ -149,7 +194,7 @@ async function runForever(
                 _executionVncSessionId = null;
             }
 
-            if (_stopFlag) break;
+            if (shouldStop()) break;
 
             const pending = (easyApplyLimited || cycleErrored) ? [] : await ctx.appRepo.listIdsByStatus("APPROVED");
             if (pending.length > 0) {
@@ -182,7 +227,7 @@ function isAuthError(msg: string): boolean {
            msg.toLowerCase().includes("auth wall");
 }
 
-async function handleActionNeeded(id: string, ctx: AppContext): Promise<boolean> {
+async function handleActionNeeded(id: string, ctx: AppContext, shouldStop: () => boolean): Promise<boolean> {
     let vncSession: VncSession | null = null;
     try {
         try {
@@ -202,7 +247,7 @@ async function handleActionNeeded(id: string, ctx: AppContext): Promise<boolean>
             return false;
         }
         await ctx.executionRepo.setStatus(id, "action_needed");
-        const loggedIn = await waitForLogin(loginContext, () => _stopFlag);
+        const loggedIn = await waitForLogin(loginContext, shouldStop);
         stopVncStack(vncSession);
         _loginVncSessionId = null;
         if (loggedIn) {
