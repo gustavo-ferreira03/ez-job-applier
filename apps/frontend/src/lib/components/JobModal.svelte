@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
-	import { onMount, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { modalTransition } from '$lib/transitions';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import X from '@lucide/svelte/icons/x';
@@ -55,6 +55,12 @@
 	let tailorMenuStyle = $state('');
 	let tailorButtonRef = $state<HTMLButtonElement | null>(null);
 	let tailorMenuRef = $state<HTMLElement | null>(null);
+	/** Stops the tailoring poll loop once the modal is gone. */
+	let cancelled = false;
+
+	onDestroy(() => {
+		cancelled = true;
+	});
 
 	onMount(async () => {
 		api
@@ -63,11 +69,19 @@
 			.catch(() => {});
 		try {
 			const [tailoredRes, jobDetail] = await Promise.all([
-				api.getTailored(job.id).catch(() => ({ exists: false, master: null })),
+				api
+					.getTailored(job.id)
+					.catch(() => ({ exists: false, master: null, updatedAt: null, tailoring: false })),
 				api.getJob(job.id)
 			]);
 			tailored = tailoredRes.exists;
 			tailoredMaster = tailoredRes.master;
+			// Adopt the backend's in-flight state so reopening the modal mid-run still shows
+			// "Tailoring…" and keeps the button disabled.
+			if (tailoredRes.tailoring) {
+				tailoring = true;
+				pollTailoring();
+			}
 			detail = jobDetail;
 			selectedResume = tailored ? 'tailored' : (jobDetail.resumeFilename ?? '');
 			if (job.status === 'READY_FOR_REVIEW' || job.status === 'APPROVED') {
@@ -256,6 +270,33 @@
 		}
 	}
 
+	/**
+	 * Watches a tailoring run that was started elsewhere (auto-tailor, or a previous visit to this
+	 * modal) until the backend reports it finished, then refreshes the tailored-resume state.
+	 */
+	async function pollTailoring() {
+		while (!cancelled) {
+			await new Promise((r) => setTimeout(r, 1500));
+			if (cancelled) return;
+			try {
+				const res = await api.getTailored(job.id);
+				if (!res.tailoring) {
+					tailoring = false;
+					tailored = res.exists;
+					tailoredMaster = res.master;
+					if (res.exists) {
+						selectedResume = 'tailored';
+						tailorVersion = Date.now();
+					}
+					return;
+				}
+			} catch {
+				tailoring = false;
+				return;
+			}
+		}
+	}
+
 	async function handleTailor(master?: string) {
 		if (tailoring) return;
 		tailorMenuOpen = false;
@@ -266,7 +307,12 @@
 			tailoredMaster = res.master;
 			selectedResume = 'tailored';
 			tailorVersion = Date.now();
-			toastState.show(`Resume tailored via “${res.master}”`, 'success');
+			toastState.show(
+				res.deduped
+					? `Already tailoring — finished via “${res.master}”`
+					: `Resume tailored via “${res.master}”`,
+				'success'
+			);
 		} catch (e) {
 			const noMaster = e instanceof Error && e.message.startsWith('400');
 			toastState.show(

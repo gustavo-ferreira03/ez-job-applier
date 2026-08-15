@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { parseResume, ResumeValidationError } from "resume-ci";
 import { extractMasterFromResume } from "../core/resumes/extract";
 import { tailorResume } from "../core/resumes/tailor";
+import { isTailoring, runTailoring } from "../core/resumes/tailor-status";
 import { generateResumePdf, resumeOutputName } from "../core/resumes/pdf";
 import { getSettings } from "../repositories/settings";
 import type { AppContext } from "../core/context";
@@ -156,14 +157,19 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
             const body = c.req.valid("json");
             try {
                 const settings = await getSettings();
-                const { master } = await tailorResume(
-                    id,
-                    ctx,
-                    body?.master,
-                    settings.llm.resumeTailoringInstructions,
-                    settings.llm.resumeTailoringFlexibility,
+                // Joins an in-flight run instead of starting a duplicate, so repeated clicks
+                // (or a manual tailor racing the auto-tailor) only ever produce one run.
+                const alreadyRunning = isTailoring(id);
+                const { master } = await runTailoring(id, () =>
+                    tailorResume(
+                        id,
+                        ctx,
+                        body?.master,
+                        settings.llm.resumeTailoringInstructions,
+                        settings.llm.resumeTailoringFlexibility,
+                    ),
                 );
-                return c.json({ ok: true, master });
+                return c.json({ ok: true, master, deduped: alreadyRunning });
             } catch (err) {
                 if (err instanceof Error && err.message.includes("No master")) {
                     throw new HTTPException(400, { message: err.message });
@@ -180,7 +186,12 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
         const id = Number(c.req.param("id"));
         const exists = await ctx.resumeMasterRepo.hasTailored(id);
         const meta = exists ? await ctx.resumeMasterRepo.readTailoredMeta(id) : null;
-        return c.json({ exists, master: meta?.master ?? null, updatedAt: meta?.updatedAt ?? null });
+        return c.json({
+            exists,
+            master: meta?.master ?? null,
+            updatedAt: meta?.updatedAt ?? null,
+            tailoring: isTailoring(id),
+        });
     });
 
     router.delete("/jobs/:id/tailor", async (c) => {
