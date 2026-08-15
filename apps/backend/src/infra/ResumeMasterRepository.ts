@@ -2,11 +2,14 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { parse, stringify } from "yaml";
 import type { ResumeInput } from "resume-ci";
-import type { IResumeMasterRepo, TailoredResumeMeta } from "../core/ports";
+import type { IResumeMasterRepo, SubmittedResumeMeta, TailoredResumeMeta } from "../core/ports";
 
 export const RESUME_DIR = path.resolve("storage/resume");
 const MASTERS_DIR = path.join(RESUME_DIR, "masters");
 const TAILORED_DIR = path.join(RESUME_DIR, "tailored");
+// Write-once archive of what was actually uploaded. Deliberately not touched by
+// deleteTailored: an application's history must survive re-tailoring the job.
+const SUBMITTED_DIR = path.join(RESUME_DIR, "submitted");
 export const TEMPLATES_DIR = path.join(RESUME_DIR, "templates");
 const LEGACY_MASTER_PATH = path.join(RESUME_DIR, "master.yml");
 
@@ -104,6 +107,38 @@ export class ResumeMasterRepository implements IResumeMasterRepo {
         }
     }
 
+    async writeSubmitted(jobId: number, pdf: Buffer, meta: SubmittedResumeMeta): Promise<void> {
+        await fs.mkdir(SUBMITTED_DIR, { recursive: true });
+        await fs.writeFile(this.submittedPath(jobId), pdf);
+        await fs.writeFile(this.submittedMetaPath(jobId), JSON.stringify(meta, null, 2), "utf8");
+    }
+
+    async readSubmitted(jobId: number): Promise<Buffer | null> {
+        try {
+            return await fs.readFile(this.submittedPath(jobId));
+        } catch {
+            return null;
+        }
+    }
+
+    async readSubmittedMeta(jobId: number): Promise<SubmittedResumeMeta | null> {
+        try {
+            const raw = await fs.readFile(this.submittedMetaPath(jobId), "utf8");
+            return JSON.parse(raw) as SubmittedResumeMeta;
+        } catch {
+            return null;
+        }
+    }
+
+    async hasSubmitted(jobId: number): Promise<boolean> {
+        try {
+            await fs.access(this.submittedPath(jobId));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     async writeTemplate(filename: string, content: string): Promise<void> {
         await fs.mkdir(TEMPLATES_DIR, { recursive: true });
         await fs.writeFile(path.join(TEMPLATES_DIR, path.basename(filename)), content, "utf8");
@@ -119,5 +154,13 @@ export class ResumeMasterRepository implements IResumeMasterRepo {
 
     private tailoredMetaPath(jobId: number): string {
         return path.join(TAILORED_DIR, `${jobId}.json`);
+    }
+
+    private submittedPath(jobId: number): string {
+        return path.join(SUBMITTED_DIR, `${jobId}.pdf`);
+    }
+
+    private submittedMetaPath(jobId: number): string {
+        return path.join(SUBMITTED_DIR, `${jobId}.json`);
     }
 }

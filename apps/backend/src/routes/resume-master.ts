@@ -200,6 +200,52 @@ export function createResumeMasterRouter(ctx: AppContext): OpenAPIHono {
         return c.json({ ok: true });
     });
 
+    // What was actually sent. Prefers the write-once snapshot; falls back to re-rendering the
+    // tailored YAML for applications submitted before snapshots existed — flagged as
+    // `reconstructed` so the UI never claims more certainty than it has.
+    router.get("/jobs/:id/submitted-resume", async (c) => {
+        const id = Number(c.req.param("id"));
+        const meta = await ctx.resumeMasterRepo.readSubmittedMeta(id);
+        if (meta) {
+            return c.json({ exists: true, reconstructed: false, ...meta });
+        }
+        const tailoredMeta = await ctx.resumeMasterRepo.readTailoredMeta(id);
+        if (tailoredMeta && (await ctx.resumeMasterRepo.hasTailored(id))) {
+            return c.json({
+                exists: true,
+                reconstructed: true,
+                master: tailoredMeta.master,
+                source: "tailored" as const,
+                filename: null,
+                submittedAt: tailoredMeta.updatedAt,
+            });
+        }
+        return c.json({ exists: false, reconstructed: false, master: null, source: null, filename: null, submittedAt: null });
+    });
+
+    router.get("/jobs/:id/submitted-resume.pdf", async (c) => {
+        const id = Number(c.req.param("id"));
+        const snapshot = await ctx.resumeMasterRepo.readSubmitted(id);
+        if (snapshot) {
+            const meta = await ctx.resumeMasterRepo.readSubmittedMeta(id);
+            const name = meta?.filename ?? `job-${id}-resume.pdf`;
+            return c.body(new Uint8Array(snapshot), 200, {
+                "Content-Type": "application/pdf",
+                "Content-Disposition": `inline; filename="${name.replace(/"/g, "")}"`,
+            });
+        }
+        const tailored = await ctx.resumeMasterRepo.readTailored(id);
+        if (!tailored) {
+            throw new HTTPException(404, { message: "No submitted resume recorded for this job" });
+        }
+        const name = resumeOutputName(tailored);
+        const pdf = await generateResumePdf(tailored, name);
+        return c.body(new Uint8Array(pdf), 200, {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `inline; filename="${name}.pdf"`,
+        });
+    });
+
     router.get("/jobs/:id/tailor/preview.pdf", async (c) => {
         const id = Number(c.req.param("id"));
         const tailored = await ctx.resumeMasterRepo.readTailored(id);

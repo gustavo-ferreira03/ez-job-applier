@@ -50,6 +50,7 @@
 	let tailored = $state(false);
 	let tailoredMaster = $state<string | null>(null);
 	let tailorVersion = $state(0);
+	let submittedResume = $state<api.SubmittedResume | null>(null);
 	let masterOptions = $state<string[]>([]);
 	let tailorMenuOpen = $state(false);
 	let tailorMenuStyle = $state('');
@@ -67,6 +68,12 @@
 			.listMasters()
 			.then((r) => (masterOptions = r.masters))
 			.catch(() => {});
+		if (job.status === 'SUBMITTED') {
+			api
+				.getSubmittedResume(job.id)
+				.then((r) => (submittedResume = r.exists ? r : null))
+				.catch(() => {});
+		}
 		try {
 			const [tailoredRes, jobDetail] = await Promise.all([
 				api
@@ -795,6 +802,31 @@
 									'Retry this job to send it back through the application flow.',
 								'danger'
 							)}
+						{:else if job.status === 'SUBMITTED'}
+							{@render actionPanel(
+								'Application submitted',
+								'This application has already been sent. No further action is needed.',
+								'success'
+							)}
+							{#if submittedResume}
+								<div>
+									{@render actionSection(
+										'CV sent',
+										submittedResume.reconstructed
+											? `Rebuilt from the “${submittedResume.master ?? 'master'}” tailoring saved for this job. It was not archived at submit time, so it may differ from the exact file sent.`
+											: `The exact file uploaded with this application${submittedResume.master ? `, tailored from “${submittedResume.master}”` : ''}.`
+									)}
+									<a
+										href={api.submittedResumeUrl(job.id)}
+										target="_blank"
+										rel="noopener"
+										class="inline-flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border-default bg-surface-overlay px-3 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-border-strong hover:text-text-secondary focus-visible:outline-none sm:h-8"
+									>
+										<ExternalLink size={13} aria-hidden="true" />
+										{submittedResume.reconstructed ? 'View CV (reconstructed)' : 'View CV sent'}
+									</a>
+								</div>
+							{/if}
 						{:else}
 							{@render actionPanel(
 								'No action available',

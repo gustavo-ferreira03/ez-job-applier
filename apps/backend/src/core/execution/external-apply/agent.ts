@@ -7,6 +7,7 @@ import type { AppContext } from "../../context";
 import { getSettings } from "../../../repositories/settings";
 import { generateResumePdf, resumeOutputName } from "../../resumes/pdf";
 import { autoTailorIfNeeded } from "../../resumes/auto-tailor";
+import { snapshotSubmittedResume } from "../../resumes/submitted";
 import { type VncSession } from "../../login/vnc";
 import {
     sessionFilePath,
@@ -70,12 +71,18 @@ async function resolveStorageStateSeed(jobStatePath: string, workDir: string): P
     }
 }
 
-async function loadResume(ctx: AppContext, jobId: number): Promise<ResumeInput | null> {
+type LoadedResume = { resume: ResumeInput; source: "tailored" | "base"; master: string | null };
+
+async function loadResume(ctx: AppContext, jobId: number): Promise<LoadedResume | null> {
     const tailored = await ctx.resumeMasterRepo.readTailored(jobId);
-    if (tailored) return tailored;
+    if (tailored) {
+        const meta = await ctx.resumeMasterRepo.readTailoredMeta(jobId);
+        return { resume: tailored, source: "tailored", master: meta?.master ?? null };
+    }
     const masters = await ctx.resumeMasterRepo.listMasters();
     if (masters.length === 0) return null;
-    return ctx.resumeMasterRepo.readMasterParsed(masters[0]);
+    const resume = await ctx.resumeMasterRepo.readMasterParsed(masters[0]);
+    return resume ? { resume, source: "base", master: masters[0] } : null;
 }
 
 export async function runExternalApply(
@@ -108,7 +115,8 @@ export async function runExternalApply(
     let mcp: BrowserMcp | null = null;
     try {
         await autoTailorIfNeeded(jobId, ctx);
-        const resume = await loadResume(ctx, jobId);
+        const loaded = await loadResume(ctx, jobId);
+        const resume = loaded?.resume ?? null;
         let resumePdfPath: string | undefined;
         if (resume) {
             try {
@@ -287,7 +295,10 @@ export async function runExternalApply(
             unsubscribe();
         }
 
-        if (jc.finishStatus === "submitted") return { status: "submitted" };
+        if (jc.finishStatus === "submitted") {
+            await snapshotSubmittedResume(ctx, jobId, resumePdfPath, loaded?.source ?? "base", loaded?.master ?? null);
+            return { status: "submitted" };
+        }
         if (jc.aborted) return { status: "aborted", error: "Stopped by user" };
         if (jc.finishStatus === "aborted") return { status: "aborted" };
         postAgentMessage(jobId, "I stopped before completing and could not recover automatically. Please retry this application.");
