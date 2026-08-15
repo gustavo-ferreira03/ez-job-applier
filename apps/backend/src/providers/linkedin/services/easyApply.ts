@@ -2,6 +2,7 @@ import type { Locator, Page } from "playwright-core";
 import type { ApplicationQuestion } from "./types";
 import type { EasyApplyConfig } from "./types";
 import type { ApplyResult as EasyApplyResult } from "../../../core/types";
+import { trySavedAccountLogin } from "./auth";
 
 const MAX_STEPS = 20;
 const EASY_APPLY_LIMIT_MESSAGE = "LinkedIn Easy Apply daily limit reached";
@@ -430,7 +431,7 @@ async function closeModal(page: Page, modal: Locator): Promise<void> {
 
 async function dismissEasyApplyLimit(page: Page): Promise<boolean> {
     const dialog = page
-        .getByRole("dialog")
+        .locator(MODAL_SELECTOR)
         .filter({ hasText: EASY_APPLY_LIMIT_RE })
         .last();
     if (!(await dialog.count())) return false;
@@ -441,6 +442,170 @@ async function dismissEasyApplyLimit(page: Page): Promise<boolean> {
     if (await close.count()) await close.click().catch(() => undefined);
 
     return true;
+}
+
+const MODAL_SELECTOR = [
+    "[role='dialog']",
+    "[role='alertdialog']",
+    ".jobs-easy-apply-modal",
+    "[data-test-modal]",
+    "[aria-labelledby*='post-apply']",
+    "[aria-labelledby*='jobs-apply']",
+    "[data-sdui-screen*='apply' i]",
+    "[data-testid*='apply-modal' i]",
+    "[data-testid*='easy-apply' i]",
+].join(", ");
+
+const STEP_BTN_RE =
+    /submit application|enviar candidatura|^\s*(next|review|continue|avan[çc]ar|revisar|continuar)\s*$/i;
+
+function applyModal(page: Page): Locator {
+    return page.locator(MODAL_SELECTOR).filter({ visible: true }).last();
+}
+
+/** Scope the apply flow to the closest container around the Next/Review/Submit button. */
+async function stepContainer(page: Page): Promise<Locator | null> {
+    const btn = page.getByRole("button", { name: STEP_BTN_RE }).filter({ visible: true }).last();
+    if (!(await btn.count().catch(() => 0))) return null;
+
+    for (const selector of [
+        "xpath=ancestor::*[@role='dialog'][1]",
+        "xpath=ancestor::form[1]",
+        "xpath=ancestor::*[@data-sdui-screen][1]",
+    ]) {
+        const container = btn.locator(selector);
+        if (await container.count().catch(() => 0)) return container.last();
+    }
+    // No sane container: don't fall back to <body>, filling would target page-level
+    // inputs like the LinkedIn search box.
+    return null;
+}
+
+async function dumpModalCandidates(page: Page): Promise<void> {
+    const info = await page
+        .locator(MODAL_SELECTOR)
+        .evaluateAll((nodes) =>
+            nodes.map((n) => {
+                const el = n as HTMLElement;
+                return {
+                    tag: el.tagName,
+                    role: el.getAttribute("role"),
+                    screen: el.getAttribute("data-sdui-screen"),
+                    label: el.getAttribute("aria-label") ?? el.getAttribute("aria-labelledby"),
+                    visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
+                    text: (el.innerText ?? "").slice(0, 80).replace(/\s+/g, " "),
+                };
+            }),
+        )
+        .catch(() => []);
+    const buttons = await page
+        .locator("button:visible")
+        .evaluateAll((nodes) =>
+            nodes.map((n) => (n as HTMLElement).innerText.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40),
+        )
+        .catch(() => []);
+    console.error(`[easyApply] modal candidates: ${JSON.stringify(info)}`);
+    console.error(`[easyApply] visible buttons: ${JSON.stringify(buttons)}`);
+}
+
+function isAuthWall(url: string): boolean {
+    const lower = url.toLowerCase();
+    return lower.includes("/login") || lower.includes("/authwall") || lower.includes("checkpoint");
+}
+
+async function gotoJob(page: Page, jobUrl: string): Promise<void> {
+    // The apply tab is a background tab; without bringToFront Chromium throttles
+    // rAF/timers there, so LinkedIn's modal animation never finishes and clicks land
+    // on a stale layout.
+    await page.bringToFront().catch(() => undefined);
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            await page.goto(jobUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+            break;
+        } catch (e) {
+            console.error(`[easyApply] goto failed (attempt ${attempt}) for ${jobUrl}:`, e);
+            if (attempt === 2) throw e;
+            await page.waitForTimeout(2000);
+        }
+    }
+
+    if (isAuthWall(page.url())) {
+        console.log(`[easyApply] auth wall at ${page.url()}; retrying via saved account`);
+        if (await trySavedAccountLogin(page)) {
+            await page.goto(jobUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+        }
+    }
+    if (isAuthWall(page.url())) throw new Error("LinkedIn session expired; log in again");
+}
+
+async function alreadyApplied(page: Page): Promise<boolean> {
+    const marker = page
+        .locator("span, div, button")
+        .filter({ hasText: /^\s*(applied|candidatura enviada|j[áa] se candidatou)\s*$/i })
+        .first();
+    return !!(await marker.count().catch(() => 0));
+}
+
+const EASY_APPLY_BTN_RE = /easy apply|candidatura simplificada/i;
+
+function easyApplyButton(page: Page): Locator {
+    return page
+        .locator("button, a, [role='button'], [role='link']")
+        .filter({ hasText: EASY_APPLY_BTN_RE })
+        .filter({ visible: true })
+        .first();
+}
+
+interface OpenModalResult {
+    modal: Locator | null;
+    limited: boolean;
+    error?: string;
+}
+
+/**
+ * Clicks Easy Apply and waits for the modal. LinkedIn occasionally swallows the first
+ * click (the button re-renders under the cursor, or the click only appends tracking
+ * params to the URL), so retry before giving up.
+ */
+async function openApplyModal(page: Page): Promise<OpenModalResult> {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        const btn = easyApplyButton(page);
+        if (!(await btn.count().catch(() => 0))) {
+            return { modal: null, limited: false, error: "No Easy Apply button found" };
+        }
+
+        await btn.scrollIntoViewIfNeeded().catch(() => undefined);
+        try {
+            await btn.click({ timeout: 15000 });
+        } catch (e) {
+            console.error(`[easyApply] click failed (attempt ${attempt}):`, e);
+            await btn.evaluate((el) => (el as HTMLElement).click()).catch(() => undefined);
+        }
+        await page.waitForTimeout(1000);
+
+        if (await dismissEasyApplyLimit(page)) return { modal: null, limited: true };
+
+        const modal = applyModal(page);
+        try {
+            await modal.waitFor({ state: "visible", timeout: 10000 });
+            return { modal, limited: false };
+        } catch {
+            // Modal node may not carry a dialog role on some variants; fall back to the
+            // container holding the Next/Review/Submit button.
+            const container = await stepContainer(page);
+            if (container) {
+                console.log("[easyApply] no dialog node; using step container as modal root");
+                return { modal: container, limited: false };
+            }
+            console.error(
+                `[easyApply] modal not open after attempt ${attempt} (url: ${page.url()})`,
+            );
+            await page.waitForTimeout(1500);
+        }
+    }
+
+    return { modal: null, limited: false };
 }
 
 function easyApplyLimitResult(
@@ -465,38 +630,23 @@ export async function runEasyApply(
     const allPending: ApplicationQuestion[] = [];
 
     try {
-        await page.goto(jobUrl, { waitUntil: "domcontentloaded" });
+        await gotoJob(page, jobUrl);
         await page.waitForTimeout(2000);
 
-        let easyApplyBtn = page
-            .getByRole("link", { name: /easy apply/i })
-            .first();
-        if (!(await easyApplyBtn.count())) {
-            easyApplyBtn = page
-                .getByRole("button", { name: /easy apply/i })
-                .first();
-        }
-        if (!(await easyApplyBtn.count())) {
+        const opened = await openApplyModal(page);
+        if (opened.limited) return easyApplyLimitResult(shouldSubmit);
+        if (!opened.modal) {
+            if (await alreadyApplied(page)) {
+                return { status: "FAILED", questions: [], errorMessage: "Already applied" };
+            }
+            await dumpModalCandidates(page);
             return {
                 status: "FAILED",
                 questions: [],
-                errorMessage: "No Easy Apply button found",
+                errorMessage: opened.error ?? `Easy Apply modal did not open (url: ${page.url()})`,
             };
         }
-        await easyApplyBtn.click();
-        await page.waitForTimeout(500);
-        if (await dismissEasyApplyLimit(page)) return easyApplyLimitResult(shouldSubmit);
-
-        const modal = page.getByRole("dialog").last();
-        try {
-            await modal.waitFor({ timeout: 5000 });
-        } catch {
-            return {
-                status: "FAILED",
-                questions: [],
-                errorMessage: "Already applied or modal did not open",
-            };
-        }
+        const modal = opened.modal;
 
         for (let step = 0; step < MAX_STEPS; step++) {
             const stepPending: ApplicationQuestion[] = [];
@@ -559,8 +709,9 @@ export async function runEasyApply(
             errorMessage: "Reached step limit",
         };
     } catch (err) {
+        console.error(`[easyApply] failed for ${jobUrl} (url: ${page.url()}):`, err);
         try {
-            const modal = page.getByRole("dialog").last();
+            const modal = applyModal(page);
             if (await modal.count()) await closeModal(page, modal);
         } catch {}
         return {
